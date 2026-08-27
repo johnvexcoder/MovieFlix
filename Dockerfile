@@ -69,11 +69,13 @@ RUN mkdir -p /app/data/thumbnails /app/data/artwork && \
     chmod -R 777 /app/data && \
     chown -R nextjs:nodejs /app
 
-USER nextjs
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 EXPOSE 9000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
   CMD curl -f http://127.0.0.1:9000/api/health || exit 1
 
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD ["node", "server.js"]
