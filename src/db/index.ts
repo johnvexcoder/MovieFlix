@@ -4,37 +4,51 @@ import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
 
-const rawDbPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
-const DATABASE_PATH = rawDbPath.startsWith("file:") ? rawDbPath.replace(/^file:/, "") : rawDbPath;
+const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build";
 
-const dbDir = path.dirname(path.resolve(DATABASE_PATH));
-if (!fs.existsSync(dbDir)) {
+let sqlite: any = null;
+let dbInstance: any = null;
+
+if (!isBuildPhase) {
+  const rawDbPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
+  const DATABASE_PATH = rawDbPath.startsWith("file:") ? rawDbPath.replace(/^file:/, "") : rawDbPath;
+
+  const dbDir = path.dirname(path.resolve(DATABASE_PATH));
+  if (!fs.existsSync(dbDir)) {
+    try {
+      fs.mkdirSync(dbDir, { recursive: true });
+    } catch {}
+  }
+
+  // Open the SQLite database connection safely
+  sqlite = new Database(DATABASE_PATH);
+
   try {
-    fs.mkdirSync(dbDir, { recursive: true });
-  } catch {}
-}
+    sqlite.pragma("journal_mode = WAL");
+  } catch {
+    try {
+      sqlite.pragma("journal_mode = DELETE");
+    } catch {}
+  }
 
-// Open the SQLite database connection safely (this is fine in workers as long as they just read/open)
-const sqlite = new Database(DATABASE_PATH);
-
-try {
-  sqlite.pragma("journal_mode = WAL");
-} catch {
   try {
-    sqlite.pragma("journal_mode = DELETE");
+    sqlite.pragma("foreign_keys = ON");
   } catch {}
-}
 
-try {
-  sqlite.pragma("foreign_keys = ON");
-} catch {}
+  dbInstance = drizzle(sqlite, { schema });
+} else {
+  // Provide a dummy object during Next.js static build phase to prevent native C++ SIGSEGV in worker threads
+  dbInstance = {} as any;
+}
 
 // Export the initialized Drizzle instance
-export const db = drizzle(sqlite, { schema });
+export const db = dbInstance as ReturnType<typeof drizzle<typeof schema>>;
 export type DatabaseType = typeof db;
 
 // We export this setup function to only be called ONCE by the main server process
 export function setupDatabase() {
+  if (!sqlite) return;
+
   const bcrypt = require("bcryptjs");
   const { v4: uuidv4 } = require("uuid");
 
