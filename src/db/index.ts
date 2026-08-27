@@ -4,23 +4,42 @@ import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
 
-const rawDbPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
-const DATABASE_PATH = rawDbPath.startsWith("file:") ? rawDbPath.replace(/^file:/, "") : rawDbPath;
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let _sqlite: InstanceType<typeof Database> | null = null;
 
-const dbDir = path.dirname(path.resolve(DATABASE_PATH));
-if (!fs.existsSync(dbDir)) {
-  try {
-    fs.mkdirSync(dbDir, { recursive: true });
-  } catch {}
+function getDbInstance() {
+  if (!_db) {
+    const rawDbPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
+    const DATABASE_PATH = rawDbPath.startsWith("file:") ? rawDbPath.replace(/^file:/, "") : rawDbPath;
+
+    const dbDir = path.dirname(path.resolve(DATABASE_PATH));
+    if (!fs.existsSync(dbDir)) {
+      try {
+        fs.mkdirSync(dbDir, { recursive: true });
+      } catch {}
+    }
+
+    _sqlite = new Database(DATABASE_PATH);
+
+    try {
+      _sqlite.pragma("journal_mode = WAL");
+      _sqlite.pragma("foreign_keys = ON");
+    } catch {}
+
+    _db = drizzle(_sqlite, { schema });
+  }
+  return _db;
 }
 
-const sqlite = new Database(DATABASE_PATH);
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(target, prop, receiver) {
+    const instance = getDbInstance();
+    const value = Reflect.get(instance, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
 
-try {
-  sqlite.pragma("journal_mode = WAL");
-  sqlite.pragma("foreign_keys = ON");
-} catch {}
-
-export const db = drizzle(sqlite, { schema });
-
-export type Database = typeof db;
+export type DatabaseType = typeof db;

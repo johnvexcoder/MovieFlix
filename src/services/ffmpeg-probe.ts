@@ -3,9 +3,16 @@ import ffmpegStatic from "ffmpeg-static";
 import path from "path";
 import fs from "fs/promises";
 
-// Set ffmpeg path
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic);
+let ffmpegConfigured = false;
+function ensureFfmpeg() {
+  if (!ffmpegConfigured) {
+    if (ffmpegStatic) {
+      try {
+        ffmpeg.setFfmpegPath(ffmpegStatic);
+      } catch {}
+    }
+    ffmpegConfigured = true;
+  }
 }
 
 export interface ProbeResult {
@@ -21,7 +28,7 @@ export interface ProbeResult {
 
 export async function probeFile(filePath: string): Promise<ProbeResult | null> {
   try {
-    // Check if file exists
+    ensureFfmpeg();
     await fs.access(filePath);
 
     return new Promise((resolve) => {
@@ -58,7 +65,6 @@ export async function probeFile(filePath: string): Promise<ProbeResult | null> {
 }
 
 export function needsTranscode(probe: ProbeResult): boolean {
-  // Check if video codec is compatible (h264 in mp4/mkv container)
   const compatibleVideoCodecs = ["h264", "avc1"];
   const compatibleContainers = ["mp4", "matroska,webm"];
 
@@ -78,7 +84,7 @@ export async function generateThumbnail(
   percentage: number = 25
 ): Promise<boolean> {
   try {
-    // Ensure output directory exists
+    ensureFfmpeg();
     const dir = path.dirname(outputPath);
     await fs.mkdir(dir, { recursive: true });
 
