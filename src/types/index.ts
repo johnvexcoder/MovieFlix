@@ -200,6 +200,7 @@ export interface MediaWithProgress extends Media {
 
 export interface HomeData {
   featured: Media | null;
+  newReleases?: Media[];
   continueWatching: MediaWithProgress[];
   recentlyAdded: Media[];
   trending: Media[];

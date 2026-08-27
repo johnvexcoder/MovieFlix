@@ -92,8 +92,16 @@ export async function GET(request: NextRequest) {
       genres[genre] = genres[genre].slice(0, 20);
     }
 
+    // Newly added within 48 hours for the Spotlight Carousel
+    const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+    const newReleases48h = allMedia.filter(
+      (m) => m.createdAt && m.createdAt >= fortyEightHoursAgo
+    );
+    const newReleases = newReleases48h.length > 0 ? newReleases48h : allMedia.slice(0, 8);
+
     return successResponse({
       featured,
+      newReleases,
       continueWatching,
       recentlyAdded,
       trending,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -8,11 +8,12 @@ import {
   Info,
   Star,
   Clock,
-  Volume2,
-  VolumeX,
   Sparkles,
   Film,
   Tv,
+  ChevronLeft,
+  ChevronRight,
+  Flame,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Media } from "@/types";
@@ -25,17 +26,18 @@ interface HeroBannerProps {
 export function HeroBanner({ items, profileId }: HeroBannerProps) {
   const router = useRouter();
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [muted, setMuted] = useState(true);
+  const [isHovered, setIsHovered] = useState(false);
 
+  // Auto-rotate every 3 seconds unless hovered
   useEffect(() => {
-    if (items.length <= 1) return;
+    if (items.length <= 1 || isHovered) return;
 
     const timer = setInterval(() => {
       setCurrentIndex((prev) => (prev + 1) % items.length);
-    }, 9000);
+    }, 3000);
 
     return () => clearInterval(timer);
-  }, [items.length]);
+  }, [items.length, isHovered]);
 
   if (items.length === 0) {
     return (
@@ -48,8 +50,14 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
     );
   }
 
-  const item = items[currentIndex] || items[0];
+  const safeIndex = currentIndex % items.length;
+  const item = items[safeIndex] || items[0];
   const backdropUrl = item.backdropUrl || item.posterUrl;
+
+  // Check if added within 48 hours
+  const isWithin48h = item.createdAt
+    ? new Date(item.createdAt).getTime() >= Date.now() - 48 * 60 * 60 * 1000
+    : true;
 
   // Parse genres
   let parsedGenres: string[] = [];
@@ -61,23 +69,37 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
     }
   }
 
+  const handlePrev = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
+  };
+
+  const handleNext = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrentIndex((prev) => (prev + 1) % items.length);
+  };
+
   return (
-    <div className="relative h-[85vh] min-h-[580px] max-h-[850px] w-full overflow-hidden select-none">
-      {/* Background Hero Artwork */}
+    <div
+      className="group/hero relative h-[85vh] min-h-[580px] max-h-[850px] w-full overflow-hidden select-none"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Background Hero Artwork (Wide Banner, 1 movie per slide) */}
       <AnimatePresence mode="wait">
         <motion.div
           key={item.id}
-          initial={{ opacity: 0, scale: 1.08 }}
+          initial={{ opacity: 0, scale: 1.05 }}
           animate={{ opacity: 1, scale: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
           className="absolute inset-0"
         >
           {backdropUrl ? (
             <img
               src={backdropUrl}
               alt={item.title}
-              className="h-full w-full object-cover object-center"
+              className="h-full w-full object-cover object-top"
             />
           ) : (
             <div className="h-full w-full bg-gradient-to-br from-neutral-900 via-[#0a0a0f] to-black" />
@@ -90,18 +112,47 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
         </motion.div>
       </AnimatePresence>
 
+      {/* Manual Navigation Chevrons on Hover */}
+      {items.length > 1 && (
+        <>
+          <button
+            type="button"
+            aria-label="Previous slide"
+            onClick={handlePrev}
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-[#e50914] hover:border-transparent transition-all duration-200"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </button>
+          <button
+            type="button"
+            aria-label="Next slide"
+            onClick={handleNext}
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-[#e50914] hover:border-transparent transition-all duration-200"
+          >
+            <ChevronRight className="h-6 w-6" />
+          </button>
+        </>
+      )}
+
       {/* Main Content Overlay */}
       <div className="absolute inset-0 flex flex-col justify-end px-4 sm:px-8 md:px-16 pb-20 md:pb-28">
         <motion.div
           key={item.id}
-          initial={{ opacity: 0, y: 30 }}
+          initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          transition={{ duration: 0.5, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           className="max-w-2xl space-y-4 md:space-y-5"
         >
           {/* Top Badges */}
           <div className="flex flex-wrap items-center gap-2.5">
-            {/* Top 10 / Featured Spotlight Badge */}
+            {/* Added Today / 48h Spotlight Badge */}
+            {isWithin48h && (
+              <div className="flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg shadow-blue-950/60 ring-1 ring-blue-400/40">
+                <Flame className="h-3 w-3" />
+                <span>New on MovieFlix (48h)</span>
+              </div>
+            )}
+
             <div className="flex items-center gap-1.5 rounded-full bg-[#e50914] px-3 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg shadow-red-950/60">
               <Sparkles className="h-3 w-3" />
               <span>Spotlight</span>
@@ -119,10 +170,6 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
 
             <span className="badge-quality border-white/20 text-neutral-200">
               4K Ultra HD
-            </span>
-
-            <span className="badge-quality border-white/20 text-neutral-200">
-              5.1 Surround
             </span>
 
             {item.rating && item.rating > 0 && (
@@ -146,7 +193,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
 
           {/* Overview / Synopsis */}
           <p className="line-clamp-3 text-sm sm:text-base md:text-lg text-neutral-300/90 drop-shadow-md max-w-xl font-normal leading-relaxed">
-            {item.overview || "Stream this masterpiece now in ultra high definition."}
+            {item.overview || "Stream this new release now in ultra high definition."}
           </p>
 
           {/* Genres Chips */}
@@ -187,7 +234,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
         </motion.div>
       </div>
 
-      {/* Carousel Thumbnail Dots (Bottom Right) */}
+      {/* 3-Second Visual Progress Pill Indicators (Bottom Right) */}
       {items.length > 1 && (
         <div className="absolute bottom-10 right-6 md:right-16 z-20 flex items-center gap-2">
           {items.map((it, idx) => (
@@ -196,12 +243,19 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
               type="button"
               aria-label={`Slide ${idx + 1}`}
               onClick={() => setCurrentIndex(idx)}
-              className={`h-2 rounded-full transition-all duration-300 ${
-                idx === currentIndex
-                  ? "w-8 bg-[#e50914] shadow-md shadow-red-950/60"
-                  : "w-2 bg-white/30 hover:bg-white/60"
-              }`}
-            />
+              className="relative h-2 rounded-full overflow-hidden bg-white/25 transition-all duration-300"
+              style={{ width: idx === safeIndex ? "40px" : "12px" }}
+            >
+              {idx === safeIndex && (
+                <motion.div
+                  key={`progress-${idx}`}
+                  initial={{ width: 0 }}
+                  animate={{ width: "100%" }}
+                  transition={{ duration: 3, ease: "linear" }}
+                  className="h-full bg-[#e50914] shadow-md shadow-red-950/60"
+                />
+              )}
+            </button>
           ))}
         </div>
       )}

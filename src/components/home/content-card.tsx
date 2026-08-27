@@ -48,6 +48,10 @@ export function ContentCard({
 
   const matchPercent = item.rating ? Math.min(99, Math.round(item.rating * 10 + 8)) : 94;
 
+  const isNewlyAdded = item.createdAt
+    ? new Date(item.createdAt).getTime() >= Date.now() - 48 * 60 * 60 * 1000
+    : true;
+
   return (
     <div
       className="relative w-[150px] sm:w-[170px] md:w-[210px] lg:w-[230px] flex-shrink-0 cursor-pointer select-none"
@@ -80,7 +84,7 @@ export function ContentCard({
         {/* Ambient Top & Bottom Vignettes */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/20" />
 
-        {/* Top Badges (Series / Movie / Top Match) */}
+        {/* Top Left Badges (Series / Movie) */}
         <div className="absolute top-2 left-2 flex flex-wrap gap-1">
           {item.type === "series" ? (
             <span className="rounded bg-purple-600/90 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-white uppercase shadow-sm">
@@ -93,13 +97,17 @@ export function ContentCard({
           )}
         </div>
 
-        {/* Rating Star Badge */}
-        {item.rating && item.rating > 0 && (
+        {/* Top Right: Small Blue 'NEW' Tag or Rating Star Badge */}
+        {isNewlyAdded ? (
+          <div className="absolute top-2 right-2 flex items-center rounded bg-blue-600 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wider text-white shadow-md shadow-blue-950/60 ring-1 ring-blue-400/50">
+            NEW
+          </div>
+        ) : item.rating && item.rating > 0 ? (
           <div className="absolute top-2 right-2 flex items-center gap-0.5 rounded-full bg-black/60 px-1.5 py-0.5 text-[10px] font-bold text-yellow-400 backdrop-blur-md">
             <Star className="h-2.5 w-2.5 fill-current text-yellow-400" />
             <span>{item.rating.toFixed(1)}</span>
           </div>
-        )}
+        ) : null}
 
         {/* Bottom Progress Bar (Continue Watching) */}
         {showProgress && progress > 0 && (

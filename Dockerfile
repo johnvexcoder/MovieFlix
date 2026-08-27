@@ -29,8 +29,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
+# Ensure data directory exists during build time for SQLite initialization
+RUN mkdir -p /app/data
+
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV NODE_OPTIONS="--max-old-space-size=4096"
 
 RUN npm run build
 

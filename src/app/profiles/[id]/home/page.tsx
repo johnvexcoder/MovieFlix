@@ -99,7 +99,8 @@ export default function ProfileHomePage() {
     }
   }
 
-  const allFeaturedItems = featured ? [featured, ...trending.filter((t) => t.id !== featured.id).slice(0, 4)] : [];
+  const newReleases = homeData?.newReleases || [];
+  const carouselItems = newReleases.length > 0 ? newReleases : (featured ? [featured] : []);
 
   return (
     <div className="min-h-screen bg-[#08080a] text-white">
@@ -119,15 +120,15 @@ export default function ProfileHomePage() {
 
       {/* Main Container */}
       <main className="relative pb-24">
-        {/* Cinematic Hero Spotlight */}
-        {allFeaturedItems.length > 0 ? (
-          <HeroBanner items={allFeaturedItems} profileId={profileId} />
+        {/* Cinematic Hero Spotlight (48h Newly Added Carousel) */}
+        {carouselItems.length > 0 ? (
+          <HeroBanner items={carouselItems} profileId={profileId} />
         ) : (
           <div className="pt-24" />
         )}
 
         {/* Content Rows with Negative Margin for Depth Overlay */}
-        <div className={`relative z-20 space-y-10 sm:space-y-12 px-4 sm:px-8 md:px-12 ${allFeaturedItems.length > 0 ? "-mt-24 md:-mt-36" : "mt-6"}`}>
+        <div className={`relative z-20 space-y-10 sm:space-y-12 px-4 sm:px-8 md:px-12 ${carouselItems.length > 0 ? "-mt-24 md:-mt-36" : "mt-6"}`}>
           {/* 1. Continue Watching (if any in progress) */}
           {continueWatching.length > 0 && (
             <ContentRow
@@ -169,7 +170,7 @@ export default function ProfileHomePage() {
           ))}
 
           {/* Empty State when no media scanned yet */}
-          {allFeaturedItems.length === 0 && continueWatching.length === 0 && recentlyAdded.length === 0 && (
+          {carouselItems.length === 0 && continueWatching.length === 0 && recentlyAdded.length === 0 && (
             <div className="my-16 mx-auto max-w-xl rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-2xl">
               <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-[#e50914] ring-1 ring-red-500/30">
                 <Film className="h-8 w-8" />
