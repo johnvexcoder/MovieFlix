@@ -151,6 +151,7 @@ export async function proxy(request: NextRequest) {
 
   // Security headers
   const response = NextResponse.next();
+  const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
 
   response.headers.set("X-Frame-Options", "DENY");
   response.headers.set("X-Content-Type-Options", "nosniff");
@@ -161,12 +162,17 @@ export async function proxy(request: NextRequest) {
   );
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self'; media-src 'self';"
+    "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: http: blob:; font-src 'self' data: https:; connect-src 'self' http: https: ws: wss: data: blob:; media-src 'self' data: blob: http: https:;"
   );
-  response.headers.set(
-    "Strict-Transport-Security",
-    "max-age=31536000; includeSubDomains"
-  );
+
+  // Only send HSTS on actual HTTPS connections to prevent browser SSL upgrade errors on plain HTTP IP addresses
+  if (isHttps) {
+    response.headers.set(
+      "Strict-Transport-Security",
+      "max-age=31536000; includeSubDomains"
+    );
+  }
+
   response.headers.set(
     "Permissions-Policy",
     "camera=(), microphone=(), geolocation=()"

@@ -26,17 +26,25 @@ export async function refreshAdminSession(): Promise<boolean> {
 }
 
 export async function checkUserSession(): Promise<boolean> {
-  let res = await fetch("/api/auth/me", { cache: "no-store" });
-  if (!res.ok && (await refreshUserSession())) {
-    res = await fetch("/api/auth/me", { cache: "no-store" });
+  try {
+    let res = await fetch("/api/auth/me", { cache: "no-store" });
+    if (!res.ok && (await refreshUserSession())) {
+      res = await fetch("/api/auth/me", { cache: "no-store" });
+    }
+    return res.ok;
+  } catch {
+    return false;
   }
-  return res.ok;
 }
 
 export async function checkAdminSession(): Promise<boolean> {
-  let res = await fetch("/api/admin/auth/me", { cache: "no-store" });
-  if (!res.ok && (await refreshAdminSession())) {
-    res = await fetch("/api/admin/auth/me", { cache: "no-store" });
+  try {
+    let res = await fetch("/api/admin/auth/me", { cache: "no-store" });
+    if (!res.ok && (await refreshAdminSession())) {
+      res = await fetch("/api/admin/auth/me", { cache: "no-store" });
+    }
+    return res.ok;
+  } catch {
+    return false;
   }
-  return res.ok;
 }
