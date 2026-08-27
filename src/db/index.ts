@@ -1,57 +1,66 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
-import bcrypt from "bcryptjs";
-import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
 
-const isBuildPhase = process.env.IS_DOCKER_BUILD === "1";
+let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
+let _sqlite: InstanceType<typeof Database> | null = null;
 
-let sqlite: any = null;
-let dbInstance: any = null;
+export function getDb() {
+  if (!_db) {
+    const rawDbPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
+    const DATABASE_PATH = rawDbPath.startsWith("file:") ? rawDbPath.replace(/^file:/, "") : rawDbPath;
 
-if (!isBuildPhase) {
-  const rawDbPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
-  const DATABASE_PATH = rawDbPath.startsWith("file:") ? rawDbPath.replace(/^file:/, "") : rawDbPath;
+    const dbDir = path.dirname(path.resolve(DATABASE_PATH));
+    if (!fs.existsSync(dbDir)) {
+      try {
+        fs.mkdirSync(dbDir, { recursive: true });
+      } catch {}
+    }
 
-  const dbDir = path.dirname(path.resolve(DATABASE_PATH));
-  if (!fs.existsSync(dbDir)) {
+    _sqlite = new Database(DATABASE_PATH);
+
     try {
-      fs.mkdirSync(dbDir, { recursive: true });
-    } catch {}
-  }
+      _sqlite.pragma("journal_mode = WAL");
+    } catch {
+      try {
+        _sqlite.pragma("journal_mode = DELETE");
+      } catch {}
+    }
 
-  // Open the SQLite database connection safely
-  sqlite = new Database(DATABASE_PATH);
-
-  try {
-    sqlite.pragma("journal_mode = WAL");
-  } catch {
     try {
-      sqlite.pragma("journal_mode = DELETE");
+      _sqlite.pragma("foreign_keys = ON");
     } catch {}
+
+    _db = drizzle(_sqlite, { schema });
   }
-
-  try {
-    sqlite.pragma("foreign_keys = ON");
-  } catch {}
-
-  dbInstance = drizzle(sqlite, { schema });
-} else {
-  // Provide a dummy object during Next.js static build phase to prevent native C++ SIGSEGV in worker threads
-  dbInstance = {} as any;
+  return _db;
 }
 
-// Export the initialized Drizzle instance
-export const db = dbInstance as ReturnType<typeof drizzle<typeof schema>>;
+export const db = new Proxy({} as ReturnType<typeof drizzle<typeof schema>>, {
+  get(target, prop, receiver) {
+    if (prop === "then") return undefined; // Prevent Drizzle infinite promise resolution loops
+    const instance = getDb();
+    const value = Reflect.get(instance, prop, receiver);
+    if (typeof value === "function") {
+      return value.bind(instance);
+    }
+    return value;
+  },
+});
+
 export type DatabaseType = typeof db;
 
 // We export this setup function to only be called ONCE by the main server process
 export function setupDatabase() {
-  if (!sqlite) return;
+  getDb(); // Ensure db is initialized
+  if (!_sqlite) return;
 
-  sqlite.exec(`
+  const bcrypt = require("bcryptjs");
+  const { v4: uuidv4 } = require("uuid");
+
+  _sqlite.exec(`
     CREATE TABLE IF NOT EXISTS admins (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
@@ -207,11 +216,11 @@ export function setupDatabase() {
   `);
 
   try {
-    const existingAdmin = sqlite.prepare("SELECT * FROM admins WHERE username = 'admin'").get();
+    const existingAdmin = _sqlite.prepare("SELECT * FROM admins WHERE username = 'admin'").get();
     if (!existingAdmin) {
       const adminId = uuidv4();
       const adminHash = bcrypt.hashSync("admin123", 10);
-      sqlite.prepare("INSERT INTO admins (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
+      _sqlite.prepare("INSERT INTO admins (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
         adminId,
         "admin",
         adminHash,
@@ -224,17 +233,17 @@ export function setupDatabase() {
   }
 
   try {
-    const libCount = sqlite.prepare("SELECT count(*) as count FROM library_config").get() as { count: number };
+    const libCount = _sqlite.prepare("SELECT count(*) as count FROM library_config").get() as { count: number };
     if (libCount.count === 0) {
       const now = new Date().toISOString();
-      sqlite.prepare("INSERT INTO library_config (id, path, type, enabled, created_at) VALUES (?, ?, ?, ?, ?)").run(
+      _sqlite.prepare("INSERT INTO library_config (id, path, type, enabled, created_at) VALUES (?, ?, ?, ?, ?)").run(
         uuidv4(),
         "/media/movies",
         "movies",
         1,
         now
       );
-      sqlite.prepare("INSERT INTO library_config (id, path, type, enabled, created_at) VALUES (?, ?, ?, ?, ?)").run(
+      _sqlite.prepare("INSERT INTO library_config (id, path, type, enabled, created_at) VALUES (?, ?, ?, ?, ?)").run(
         uuidv4(),
         "/media/series",
         "series",
