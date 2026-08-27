@@ -1,6 +1,9 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs" && process.env.NEXT_PHASE !== "phase-production-build") {
     const { startAccountCleanupService } = await import("./services/account-cleanup");
+    const { setupDatabase } = await import("./db/index");
+    
+    setupDatabase();
     startAccountCleanupService();
   }
 }
