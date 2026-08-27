@@ -132,20 +132,21 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Validate fingerprint (same-network policy)
-  const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "0.0.0.0";
-  const currentSubnet = extractIpSubnet(ip);
-  const storedSubnet = payload.fingerprint;
+  // Validate fingerprint (optional same-network policy if strict mode is enabled)
+  if (process.env.SESSION_STRICT_SUBNET === "true") {
+    const ip = request.headers.get("x-forwarded-for") || request.headers.get("x-real-ip") || "0.0.0.0";
+    const currentSubnet = extractIpSubnet(ip);
+    const storedSubnet = payload.fingerprint;
 
-  // Allow if stored fingerprint is empty or matches current subnet
-  if (storedSubnet && storedSubnet !== currentSubnet) {
-    if (pathname.startsWith("/api/")) {
-      return NextResponse.json(
-        { error: "Profile in use on another network" },
-        { status: 403 }
-      );
+    if (storedSubnet && storedSubnet !== currentSubnet) {
+      if (pathname.startsWith("/api/")) {
+        return NextResponse.json(
+          { error: "Profile in use on another network" },
+          { status: 403 }
+        );
+      }
+      return NextResponse.redirect(new URL("/login", request.url));
     }
-    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Security headers
