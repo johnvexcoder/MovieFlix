@@ -1,10 +1,15 @@
 # ===========================================
 # Stage 1: Dependencies
 # ===========================================
-FROM node:20-alpine AS deps
+FROM node:20-bookworm-slim AS deps
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat python3 make g++
+# Install build tools for native addons (better-sqlite3)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY package.json package-lock.json ./
 RUN npm ci
@@ -12,10 +17,14 @@ RUN npm ci
 # ===========================================
 # Stage 2: Builder
 # ===========================================
-FROM node:20-alpine AS builder
+FROM node:20-bookworm-slim AS builder
 WORKDIR /app
 
-RUN apk add --no-cache libc6-compat python3 make g++
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 \
+    make \
+    g++ \
+    && rm -rf /var/lib/apt/lists/*
 
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -28,10 +37,14 @@ RUN npm run build
 # ===========================================
 # Stage 3: Production Runner
 # ===========================================
-FROM node:20-alpine AS runner
+FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
-RUN apk add --no-cache ffmpeg curl
+# Install ffmpeg and curl for healthcheck & transcoding
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
@@ -39,8 +52,8 @@ ENV PORT=9000
 ENV HOSTNAME="0.0.0.0"
 
 # Create non-root user
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 nextjs
+RUN groupadd --system --gid 1001 nodejs && \
+    useradd --system --uid 1001 nextjs
 
 # Copy static assets and standalone server output
 COPY --from=builder /app/public ./public

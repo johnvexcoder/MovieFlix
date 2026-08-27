@@ -6,6 +6,8 @@ import { media, episodes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 
+export const dynamic = "force-dynamic";
+
 const MIME_TYPES: Record<string, string> = {
   ".mp4": "video/mp4",
   ".m4v": "video/mp4",
@@ -65,11 +67,11 @@ export async function GET(
       return new NextResponse("Media file not found in database", { status: 404 });
     }
 
-    if (!fs.existsSync(targetFilePath)) {
+    if (!fs.existsSync(/*turbopackIgnore: true*/ targetFilePath)) {
       return new NextResponse("File missing on storage drive", { status: 404 });
     }
 
-    const stat = fs.statSync(targetFilePath);
+    const stat = fs.statSync(/*turbopackIgnore: true*/ targetFilePath);
     const fileSize = stat.size;
     const ext = path.extname(targetFilePath).toLowerCase();
     const contentType = MIME_TYPES[ext] || "video/mp4";
@@ -77,15 +79,13 @@ export async function GET(
     const range = request.headers.get("range");
 
     if (range) {
-      // Parse Range header: e.g. "bytes=0-1048575"
       const parts = range.replace(/bytes=/, "").split("-");
       const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 * 2 - 1, fileSize - 1); // 2MB chunks
+      const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 * 4 - 1, fileSize - 1); // 4MB chunks
 
       const chunkSize = end - start + 1;
-      const fileStream = fs.createReadStream(targetFilePath, { start, end });
+      const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath, { start, end });
 
-      // Convert Node readable stream to web ReadableStream
       const webStream = new ReadableStream({
         start(controller) {
           fileStream.on("data", (chunk) => controller.enqueue(chunk));
@@ -109,8 +109,7 @@ export async function GET(
       });
     }
 
-    // Direct 200 Stream for initial whole read
-    const fileStream = fs.createReadStream(targetFilePath);
+    const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath);
     const webStream = new ReadableStream({
       start(controller) {
         fileStream.on("data", (chunk) => controller.enqueue(chunk));
