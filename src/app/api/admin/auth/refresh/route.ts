@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { admins } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -44,10 +44,11 @@ export async function POST(request: NextRequest) {
       accessToken: newAccessToken,
     });
 
-    const isProduction = process.env.NODE_ENV === "production";
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+
     response.cookies.set("admin_token", newAccessToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
       maxAge: 15 * 60,
       path: "/",
@@ -56,6 +57,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Admin refresh error:", error);
-    return errorResponse("Internal server error", 500);
+    return errorResponse(error instanceof Error ? error.message : "Internal server error", 500);
   }
 }

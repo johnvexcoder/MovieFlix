@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { profiles, accounts } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { comparePin, generateAccessToken, generateRefreshToken, extractIpSubnet } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { v4 as uuidv4 } from "uuid";
 
 export async function POST(request: NextRequest) {
   try {
@@ -53,15 +52,12 @@ export async function POST(request: NextRequest) {
 
       const isValid = await comparePin(pin, profile.pinHash);
       if (!isValid) {
-        return errorResponse("Invalid PIN", 401);
+        return errorResponse("Incorrect PIN code", 401);
       }
     }
 
-    // Get client info for fingerprint
     const ip = request.headers.get("x-forwarded-for") || "0.0.0.0";
-    const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // Generate tokens
     const accessToken = generateAccessToken({
       profileId: profile.id,
       accountId: account.id,
@@ -71,7 +67,6 @@ export async function POST(request: NextRequest) {
 
     const refreshToken = generateRefreshToken(profile.id, 1);
 
-    // Build response
     const response = successResponse({
       profile: {
         id: profile.id,
@@ -87,27 +82,27 @@ export async function POST(request: NextRequest) {
       accessToken,
     });
 
-    // Set cookies
-    const isProduction = process.env.NODE_ENV === "production";
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+
     response.cookies.set("access_token", accessToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
-      maxAge: 15 * 60, // 15 minutes
+      maxAge: 15 * 60,
       path: "/",
     });
 
     response.cookies.set("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 7 * 24 * 60 * 60,
       path: "/",
     });
 
     return response;
   } catch (error) {
     console.error("Profile login error:", error);
-    return errorResponse("Internal server error", 500);
+    return errorResponse(error instanceof Error ? error.message : "Internal server error", 500);
   }
 }

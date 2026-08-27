@@ -46,15 +46,22 @@ export default function AdminLoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        setError(`Server error (${response.status}): ${text.slice(0, 120)}`);
+        return;
+      }
 
       if (data.success) {
         router.push("/admin-panel");
       } else {
         setError(data.error || "Authentication failed");
       }
-    } catch {
-      setError("Failed to connect to admin gateway");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect to admin gateway");
     } finally {
       setLoading(false);
     }

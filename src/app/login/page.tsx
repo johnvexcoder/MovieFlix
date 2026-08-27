@@ -47,15 +47,22 @@ export default function LoginPage() {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch {
+        setError(`Server error (${response.status}): ${text.slice(0, 120)}`);
+        return;
+      }
 
       if (data.success) {
         router.push("/profiles");
       } else {
         setError(data.error || "Invalid username or password");
       }
-    } catch {
-      setError("Failed to connect to media server");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect to media server");
     } finally {
       setLoading(false);
     }

@@ -1,8 +1,8 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { profiles, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { verifyRefreshToken, generateAccessToken } from "@/lib/auth";
+import { verifyRefreshToken, generateAccessToken, extractIpSubnet } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import type { JWTPayload } from "@/types";
 
@@ -49,16 +49,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Get client info
     const ip = request.headers.get("x-forwarded-for") || "0.0.0.0";
-    const subnet = ip.split(".").slice(0, 3).join(".");
 
-    // Generate new access token
     const tokenPayload: Omit<JWTPayload, "tokenVersion"> = {
       profileId: profile.id,
       accountId: account.id,
       isAdmin: false,
-      fingerprint: subnet,
+      fingerprint: extractIpSubnet(ip),
     };
 
     const newAccessToken = generateAccessToken(tokenPayload);
@@ -67,10 +64,11 @@ export async function POST(request: NextRequest) {
       accessToken: newAccessToken,
     });
 
-    const isProduction = process.env.NODE_ENV === "production";
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+
     response.cookies.set("access_token", newAccessToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
       maxAge: 15 * 60,
       path: "/",
@@ -79,6 +77,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Refresh error:", error);
-    return errorResponse("Internal server error", 500);
+    return errorResponse(error instanceof Error ? error.message : "Internal server error", 500);
   }
 }

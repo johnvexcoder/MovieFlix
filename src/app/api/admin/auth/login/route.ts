@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { admins } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -22,13 +22,13 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (!admin) {
-      return errorResponse("Invalid credentials", 401);
+      return errorResponse("Invalid admin username or password", 401);
     }
 
     // Verify password
     const isValid = await comparePassword(password, admin.passwordHash);
     if (!isValid) {
-      return errorResponse("Invalid credentials", 401);
+      return errorResponse("Invalid admin username or password", 401);
     }
 
     // Generate admin token
@@ -51,11 +51,12 @@ export async function POST(request: NextRequest) {
       accessToken,
     });
 
-    // Set cookies
-    const isProduction = process.env.NODE_ENV === "production";
+    // Set cookies (secure only if connection is HTTPS)
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+
     response.cookies.set("admin_token", accessToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
       maxAge: 15 * 60, // 15 minutes
       path: "/",
@@ -63,7 +64,7 @@ export async function POST(request: NextRequest) {
 
     response.cookies.set("admin_session", sessionToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60, // 7 days
       path: "/",
@@ -72,6 +73,6 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     console.error("Admin login error:", error);
-    return errorResponse("Internal server error", 500);
+    return errorResponse(error instanceof Error ? error.message : "Internal server error", 500);
   }
 }

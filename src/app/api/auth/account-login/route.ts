@@ -1,10 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { accounts, profiles } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { v4 as uuidv4 } from "uuid";
 
 export async function POST(request: NextRequest) {
   try {
@@ -23,13 +22,13 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (!account) {
-      return errorResponse("Invalid credentials", 401);
+      return errorResponse("Invalid username or password", 401);
     }
 
     // Verify password
     const isValid = await comparePassword(password, account.passwordHash);
     if (!isValid) {
-      return errorResponse("Invalid credentials", 401);
+      return errorResponse("Invalid username or password", 401);
     }
 
     // Check if account is expired
@@ -46,11 +45,8 @@ export async function POST(request: NextRequest) {
       .from(profiles)
       .where(eq(profiles.accountId, account.id));
 
-    // Get client info for fingerprint
     const ip = request.headers.get("x-forwarded-for") || "0.0.0.0";
-    const userAgent = request.headers.get("user-agent") || "unknown";
 
-    // Generate tokens for first profile (main profile)
     const mainProfile = accountProfiles.find((p) => p.isMainProfile) || accountProfiles[0];
 
     if (!mainProfile) {
@@ -66,7 +62,6 @@ export async function POST(request: NextRequest) {
 
     const refreshToken = generateRefreshToken(mainProfile.id, 1);
 
-    // Build response
     const response = successResponse({
       account: {
         id: account.id,
@@ -82,27 +77,27 @@ export async function POST(request: NextRequest) {
       accessToken,
     });
 
-    // Set cookies
-    const isProduction = process.env.NODE_ENV === "production";
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+
     response.cookies.set("access_token", accessToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
-      maxAge: 15 * 60, // 15 minutes
+      maxAge: 15 * 60,
       path: "/",
     });
 
     response.cookies.set("refresh_token", refreshToken, {
       httpOnly: true,
-      secure: isProduction,
+      secure: Boolean(isHttps),
       sameSite: "lax",
-      maxAge: 7 * 24 * 60 * 60, // 7 days
+      maxAge: 7 * 24 * 60 * 60,
       path: "/",
     });
 
     return response;
   } catch (error) {
     console.error("Account login error:", error);
-    return errorResponse("Internal server error", 500);
+    return errorResponse(error instanceof Error ? error.message : "Internal server error", 500);
   }
 }

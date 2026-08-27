@@ -66,6 +66,7 @@ COPY --from=builder /app/.next/static ./.next/static
 
 # Create data directory with write permissions for SQLite & thumbnails
 RUN mkdir -p /app/data/thumbnails /app/data/artwork && \
+    chmod -R 777 /app/data && \
     chown -R nextjs:nodejs /app
 
 USER nextjs
