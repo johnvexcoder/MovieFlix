@@ -19,6 +19,16 @@ const ADMIN_PATHS = ["/admin-panel"];
 const ADMIN_API_PATHS = ["/api/admin"];
 
 function isPublicPath(pathname: string): boolean {
+  if (
+    pathname.endsWith(".svg") ||
+    pathname.endsWith(".png") ||
+    pathname.endsWith(".ico") ||
+    pathname.endsWith(".jpg") ||
+    pathname.endsWith(".jpeg") ||
+    pathname.endsWith(".webp")
+  ) {
+    return true;
+  }
   return PUBLIC_PATHS.some((path) => pathname === path || pathname.startsWith(path + "/"));
 }
 
@@ -166,6 +176,6 @@ export async function proxy(request: NextRequest) {
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico).*)",
+    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)",
   ],
 };
