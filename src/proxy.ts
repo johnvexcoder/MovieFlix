@@ -12,10 +12,10 @@ const PUBLIC_PATHS = [
   "/api/health",
 ];
 
-// Admin paths that require admin authentication (secret path, not linked from user UI)
+// Admin paths that require admin authentication
 const ADMIN_PATHS = ["/admin-panel"];
 
-// Admin API paths (protected server-side, not exposed in UI)
+// Admin API paths
 const ADMIN_API_PATHS = ["/api/admin"];
 
 function isPublicPath(pathname: string): boolean {
@@ -40,7 +40,6 @@ function isAdminApiPath(pathname: string): boolean {
   return ADMIN_API_PATHS.some((path) => pathname.startsWith(path));
 }
 
-// Admin auth endpoints that don't require an existing session
 const ADMIN_AUTH_PATHS = [
   "/api/admin/auth/login",
   "/api/admin/auth/refresh",
@@ -57,6 +56,15 @@ function extractIpSubnet(ip: string): string {
     return `${parts[0]}.${parts[1]}.${parts[2]}`;
   }
   return ip;
+}
+
+function getRedirectUrl(path: string, request: NextRequest): URL {
+  const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
+  const forwardedProto = request.headers.get("x-forwarded-proto") || (request.nextUrl.protocol ? request.nextUrl.protocol.replace(":", "") : "http");
+  if (forwardedHost) {
+    return new URL(path, `${forwardedProto}://${forwardedHost}`);
+  }
+  return new URL(path, request.url);
 }
 
 export async function proxy(request: NextRequest) {
@@ -77,14 +85,13 @@ export async function proxy(request: NextRequest) {
     const adminToken = request.cookies.get("admin_token")?.value;
 
     if (!adminToken) {
-      // Admin API routes return 401, admin pages redirect to login
       if (isAdminApiPath(pathname)) {
         return NextResponse.json(
           { error: "Admin authentication required" },
           { status: 401 }
         );
       }
-      return NextResponse.redirect(new URL("/admin-panel/login", request.url));
+      return NextResponse.redirect(getRedirectUrl("/admin-panel/login", request));
     }
 
     // Verify admin token
@@ -92,15 +99,12 @@ export async function proxy(request: NextRequest) {
     if (!payload || !payload.isAdmin) {
       const response = isAdminApiPath(pathname)
         ? NextResponse.json({ error: "Invalid admin token" }, { status: 401 })
-        : NextResponse.redirect(new URL("/admin-panel/login", request.url));
+        : NextResponse.redirect(getRedirectUrl("/admin-panel/login", request));
 
-      // Only clear the short-lived access token; keep the long-lived session
-      // cookie so the login page can silently refresh the session.
       response.cookies.delete("admin_token");
       return response;
     }
 
-    // Admin routes are valid, continue
     return NextResponse.next();
   }
 
@@ -108,25 +112,22 @@ export async function proxy(request: NextRequest) {
   const accessToken = request.cookies.get("access_token")?.value;
 
   if (!accessToken) {
-    // API routes return 401, pages redirect to login
     if (pathname.startsWith("/api/")) {
       return NextResponse.json(
         { error: "Authentication required" },
         { status: 401 }
       );
     }
-    return NextResponse.redirect(new URL("/login", request.url));
+    return NextResponse.redirect(getRedirectUrl("/login", request));
   }
 
   // Verify user token
   const payload = await verifyToken(accessToken);
 
   if (!payload) {
-    // Invalid/expired access token - clear the short-lived token only.
-    // Keep the refresh cookie so the login page can silently refresh.
     const response = pathname.startsWith("/api/")
       ? NextResponse.json({ error: "Invalid token" }, { status: 401 })
-      : NextResponse.redirect(new URL("/login", request.url));
+      : NextResponse.redirect(getRedirectUrl("/login", request));
 
     response.cookies.delete("access_token");
     return response;
@@ -145,7 +146,7 @@ export async function proxy(request: NextRequest) {
           { status: 403 }
         );
       }
-      return NextResponse.redirect(new URL("/login", request.url));
+      return NextResponse.redirect(getRedirectUrl("/login", request));
     }
   }
 
@@ -165,7 +166,6 @@ export async function proxy(request: NextRequest) {
     "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: http: blob:; font-src 'self' data: https:; connect-src 'self' http: https: ws: wss: data: blob:; media-src 'self' data: blob: http: https:;"
   );
 
-  // Only send HSTS on actual HTTPS connections to prevent browser SSL upgrade errors on plain HTTP IP addresses
   if (isHttps) {
     response.headers.set(
       "Strict-Transport-Security",

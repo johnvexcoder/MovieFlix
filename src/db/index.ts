@@ -162,23 +162,23 @@ function initTables(sqliteInstance: InstanceType<typeof Database>) {
 
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
-      profileId TEXT NOT NULL REFERENCES profiles(id),
-      accountId TEXT NOT NULL REFERENCES accounts(id),
+      profile_id TEXT NOT NULL REFERENCES profiles(id),
+      account_id TEXT NOT NULL REFERENCES accounts(id),
       fingerprint TEXT NOT NULL,
-      ipSubnet TEXT NOT NULL,
-      userAgent TEXT,
-      accessToken TEXT,
-      refreshTokenHash TEXT,
-      tokenVersion INTEGER NOT NULL DEFAULT 1,
-      expiresAt TEXT NOT NULL,
-      createdAt TEXT NOT NULL DEFAULT ''
+      ip_subnet TEXT NOT NULL,
+      user_agent TEXT,
+      access_token TEXT,
+      refresh_token_hash TEXT,
+      token_version INTEGER NOT NULL DEFAULT 1,
+      expires_at TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT ''
     );
   `);
 
   // Ensure default admin exists
   try {
-    const adminCount = sqliteInstance.prepare("SELECT count(*) as count FROM admins").get() as { count: number };
-    if (adminCount.count === 0) {
+    const existingAdmin = sqliteInstance.prepare("SELECT * FROM admins WHERE username = 'admin'").get();
+    if (!existingAdmin) {
       const adminId = uuidv4();
       const adminHash = bcrypt.hashSync("admin123", 10);
       sqliteInstance.prepare("INSERT INTO admins (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
@@ -232,6 +232,13 @@ function getDbInstance() {
 
     try {
       _sqlite.pragma("journal_mode = WAL");
+    } catch {
+      try {
+        _sqlite.pragma("journal_mode = DELETE");
+      } catch {}
+    }
+
+    try {
       _sqlite.pragma("foreign_keys = ON");
     } catch {}
 
