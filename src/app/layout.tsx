@@ -17,8 +17,18 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "MovieFlix",
-  description: "Self-hosted media streaming platform",
+  title: {
+    default: "MovieFlix - Stream Movies & TV Series",
+    template: "%s | MovieFlix",
+  },
+  description: "Self-hosted, private cinema and media streaming platform.",
+  icons: {
+    icon: [
+      { url: "/logo.svg", type: "image/svg+xml" },
+    ],
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
