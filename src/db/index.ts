@@ -1,10 +1,12 @@
 import Database from "better-sqlite3";
 import { drizzle } from "drizzle-orm/better-sqlite3";
+import bcrypt from "bcryptjs";
+import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
 
-const isBuildPhase = process.env.NEXT_PHASE === "phase-production-build" || process.env.npm_lifecycle_event === "build";
+const isBuildPhase = process.env.IS_DOCKER_BUILD === "1";
 
 let sqlite: any = null;
 let dbInstance: any = null;
@@ -48,9 +50,6 @@ export type DatabaseType = typeof db;
 // We export this setup function to only be called ONCE by the main server process
 export function setupDatabase() {
   if (!sqlite) return;
-
-  const bcrypt = require("bcryptjs");
-  const { v4: uuidv4 } = require("uuid");
 
   sqlite.exec(`
     CREATE TABLE IF NOT EXISTS admins (
