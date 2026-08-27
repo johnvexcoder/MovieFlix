@@ -3,10 +3,11 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, Lock, User, Sparkles, Film, ShieldCheck } from "lucide-react";
+import { Loader2, Lock, User, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { MovieFlixLogo } from "@/components/movieflix-logo";
 import { checkUserSession } from "@/lib/client-auth";
 
 export default function LoginPage() {
@@ -89,15 +90,15 @@ export default function LoginPage() {
           <div className="glass-panel relative rounded-3xl p-8 sm:p-10 shadow-2xl shadow-black/80">
             {/* Header / Brand Icon */}
             <div className="mb-8 flex flex-col items-center text-center">
-              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e50914] to-[#800208] shadow-lg shadow-red-950/60 ring-1 ring-white/20">
-                <Film className="h-7 w-7 text-white" />
+              <div className="mb-3 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10">
+                <MovieFlixLogo className="h-12 w-12" size={48} />
               </div>
 
               <h1 className="text-3xl font-black tracking-tight text-white">
                 Movie<span className="text-[#e50914]">Flix</span>
               </h1>
-              <p className="mt-1.5 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
-                Self-Hosted Private Cinema
+              <p className="mt-1 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
+                Sign In to Watch
               </p>
             </div>
 
@@ -160,13 +161,10 @@ export default function LoginPage() {
                 {loading ? (
                   <>
                     <Loader2 className="mr-2 h-5 w-5 animate-spin" />
-                    Authenticating…
+                    Signing in…
                   </>
                 ) : (
-                  <>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Enter Streaming Vault
-                  </>
+                  "Login"
                 )}
               </Button>
             </form>

@@ -180,15 +180,8 @@ export default function ProfileHomePage() {
               </p>
               <div className="mt-6 flex justify-center gap-3">
                 <Button
-                  onClick={() => router.push("/admin-panel/libraries")}
-                  className="btn-brand rounded-xl"
-                >
-                  Go to Library Settings
-                </Button>
-                <Button
-                  variant="outline"
                   onClick={fetchHomeData}
-                  className="rounded-xl border-white/10"
+                  className="btn-brand rounded-xl"
                 >
                   <RefreshCw className="mr-2 h-4 w-4" />
                   Refresh

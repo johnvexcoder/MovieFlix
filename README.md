@@ -1,36 +1,6 @@
 <div align="center">
 
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" width="120" height="120" fill="none">
-  <defs>
-    <linearGradient id="readmeMLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#b20710" />
-      <stop offset="40%" stop-color="#e50914" />
-      <stop offset="100%" stop-color="#800208" />
-    </linearGradient>
-    <linearGradient id="readmeMRight" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#800208" />
-      <stop offset="60%" stop-color="#e50914" />
-      <stop offset="100%" stop-color="#ff3b47" />
-    </linearGradient>
-    <linearGradient id="readmeMDiag1" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff4d5a" />
-      <stop offset="40%" stop-color="#e50914" />
-      <stop offset="100%" stop-color="#7a0006" />
-    </linearGradient>
-    <linearGradient id="readmeMDiag2" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ff5964" />
-      <stop offset="50%" stop-color="#e50914" />
-      <stop offset="100%" stop-color="#6e0005" />
-    </linearGradient>
-    <filter id="readmeMShadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="-2" dy="3" stdDeviation="4" flood-color="#000000" flood-opacity="0.9" />
-    </filter>
-  </defs>
-  <path d="M 32 216 L 32 24 C 32 20, 36 16, 42 16 L 70 16 C 76 16, 80 20, 80 24 L 80 216 C 80 220, 76 224, 70 224 L 42 224 C 36 224, 32 220, 32 216 Z" fill="url(#readmeMLeft)" />
-  <path d="M 160 216 L 160 24 C 160 20, 164 16, 170 16 L 198 16 C 204 16, 208 20, 208 24 L 208 216 C 208 220, 204 224, 198 224 L 170 224 C 164 224, 160 220, 160 216 Z" fill="url(#readmeMRight)" />
-  <path d="M 40 18 L 78 18 L 132 168 L 94 168 Z" fill="url(#readmeMDiag1)" filter="url(#readmeMShadow)" />
-  <path d="M 108 168 L 146 168 L 200 18 L 162 18 Z" fill="url(#readmeMDiag2)" filter="url(#readmeMShadow)" />
-</svg>
+<img src="public/logo.svg" width="120" height="120" alt="MovieFlix Logo" />
 
 # MovieFlix
 

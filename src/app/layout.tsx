@@ -38,6 +38,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
+      <head>
+        <link rel="icon" href="/logo.svg" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/logo.svg" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/logo.svg" />
+      </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider
           attribute="class"

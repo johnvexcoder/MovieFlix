@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { MovieFlixLogo } from "@/components/movieflix-logo";
 import type { Profile } from "@/types";
 
 interface NetflixNavbarProps {
@@ -88,11 +89,9 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
           <button
             type="button"
             onClick={() => router.push(`/profiles/${profileId}/home`)}
-            className="flex items-center gap-2 group focus:outline-none"
+            className="flex items-center gap-2.5 group focus:outline-none"
           >
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-[#e50914] to-[#800208] shadow-lg shadow-red-950/60 ring-1 ring-white/20 transition-transform duration-300 group-hover:scale-105">
-              <Film className="h-5 w-5 text-white" />
-            </div>
+            <MovieFlixLogo className="h-8 w-8 transition-transform duration-300 group-hover:scale-105" size={32} />
             <span className="text-xl md:text-2xl font-black tracking-tight text-white transition-opacity group-hover:opacity-90">
               Movie<span className="text-[#e50914]">Flix</span>
             </span>
@@ -232,18 +231,6 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
                     >
                       <User className="h-4 w-4 text-neutral-400" />
                       Switch Profile
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setProfileDropdown(false);
-                        router.push("/admin-panel");
-                      }}
-                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-white/10 hover:text-white transition-colors"
-                    >
-                      <Shield className="h-4 w-4 text-neutral-400" />
-                      Admin Panel
                     </button>
                   </div>
 

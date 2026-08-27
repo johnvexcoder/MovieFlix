@@ -33,6 +33,7 @@ import {
   AVATAR_CATEGORY_LABELS,
 } from "@/lib/avatars";
 import { ProfileAvatar } from "@/components/profile-avatar";
+import { MovieFlixLogo } from "@/components/movieflix-logo";
 import { refreshUserSession } from "@/lib/client-auth";
 
 interface ProfileWithPin extends Profile {
@@ -460,15 +461,10 @@ export default function ProfilesPage() {
         className="relative z-10 w-full max-w-5xl"
       >
         {/* Header */}
-        <div className="mb-12 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-xs font-semibold tracking-wider text-neutral-300 uppercase backdrop-blur-md mb-4"
-          >
-            <Sparkles className="h-3.5 w-3.5 text-[#e50914]" />
-            MovieFlix Profiles
-          </motion.div>
+        <div className="mb-12 text-center flex flex-col items-center">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10">
+            <MovieFlixLogo className="h-12 w-12" size={48} />
+          </div>
           <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white">
             Who&apos;s Watching?
           </h1>
