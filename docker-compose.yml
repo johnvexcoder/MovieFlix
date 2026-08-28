@@ -33,7 +33,7 @@ services:
       # Persistent SQLite DB, thumbnails, and cache
       - ./data:/app/data
       # Mount your local movie/series storage folders below (read-only):
-      - ./media/movies:/media/movies:ro
+      - /mnt/media/Media/MOVIES:/media/movies:ro
       - ./media/series:/media/series:ro
     healthcheck:
       test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/api/health"]
