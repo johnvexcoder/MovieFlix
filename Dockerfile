@@ -64,6 +64,14 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 
+# explicitly copy node_modules to ensure native binaries like better-sqlite3 are present
+# and delete the Next.js traced version which is often corrupted and causes segfaults
+COPY --from=deps /app/node_modules ./node_modules
+RUN rm -rf /app/.next/standalone/node_modules/better-sqlite3 \
+    && rm -rf /app/.next/standalone/node_modules/ffmpeg-static \
+    && rm -rf /app/.next/standalone/node_modules/fluent-ffmpeg \
+    && rm -rf /app/.next/standalone/node_modules/ioredis
+
 # Create data directory with write permissions for SQLite & thumbnails
 RUN mkdir -p /app/data/thumbnails /app/data/artwork && \
     chmod -R 777 /app/data && \
