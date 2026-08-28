@@ -75,7 +75,8 @@ RUN rm -rf /app/.next/standalone/node_modules/better-sqlite3 \
 # Create data directory with write permissions for SQLite & thumbnails
 RUN mkdir -p /app/data/thumbnails /app/data/artwork && \
     chmod -R 777 /app/data && \
-    chown -R nextjs:nodejs /app
+    chown -R nextjs:nodejs /app/data /app/.next && \
+    chown nextjs:nodejs /app
 
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
