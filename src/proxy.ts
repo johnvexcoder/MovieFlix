@@ -16,7 +16,7 @@ const PUBLIC_PATHS = [
 const ADMIN_PATHS = ["/admin-panel"];
 
 // Admin API paths
-const ADMIN_API_PATHS = ["/api/admin"];
+const ADMIN_API_PATHS = ["/api/admin", "/api/library"];
 
 function isPublicPath(pathname: string): boolean {
   if (
