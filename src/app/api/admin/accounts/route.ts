@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { accounts, profiles, profileSettings } from "@/db/schema";
+import { accounts, profiles, profileSettings, watchHistory, sessions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -197,6 +197,8 @@ export async function DELETE(request: NextRequest) {
       .where(eq(profiles.accountId, accountId));
 
     for (const profile of accountProfiles) {
+      await db.delete(watchHistory).where(eq(watchHistory.profileId, profile.id));
+      await db.delete(sessions).where(eq(sessions.profileId, profile.id));
       await db.delete(profileSettings).where(eq(profileSettings.profileId, profile.id));
       await db.delete(profiles).where(eq(profiles.id, profile.id));
     }

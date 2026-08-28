@@ -2,11 +2,20 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { admins } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { comparePassword, generateAccessToken, generateRefreshToken } from "@/lib/auth";
+import { comparePassword, generateAccessToken, generateRefreshToken, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { setRateLimit, getTokenVersion } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    
+    // Rate limit: 5 login attempts per 15 minutes per IP
+    const rateLimit = await setRateLimit(`ratelimit:admin_login:${ip}`, 15 * 60 * 1000, 5);
+    if (!rateLimit.allowed) {
+      return errorResponse("Too many login attempts. Please try again later.", 429);
+    }
+
     const body = await request.json();
     const { username, password } = body;
 
@@ -40,7 +49,8 @@ export async function POST(request: NextRequest) {
     });
 
     // Long-lived session refresh token (7 days)
-    const sessionToken = generateRefreshToken(admin.id, 1);
+    const tokenVersion = await getTokenVersion(admin.id);
+    const sessionToken = generateRefreshToken(admin.id, tokenVersion);
 
     // Build response
     const response = successResponse({

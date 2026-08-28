@@ -1,5 +1,5 @@
 import { db } from "@/db";
-import { accounts, profiles, profileSettings } from "@/db/schema";
+import { accounts, profiles, profileSettings, watchHistory, sessions } from "@/db/schema";
 import { lt, inArray, eq } from "drizzle-orm";
 
 export async function cleanupExpiredAccounts(): Promise<{
@@ -28,6 +28,20 @@ export async function cleanupExpiredAccounts(): Promise<{
       .where(inArray(profiles.accountId, accountIds));
 
     const profileIds = accountProfiles.map((p) => p.id);
+
+    // Delete watch history
+    if (profileIds.length > 0) {
+      await db
+        .delete(watchHistory)
+        .where(inArray(watchHistory.profileId, profileIds));
+    }
+
+    // Delete sessions
+    if (profileIds.length > 0) {
+      await db
+        .delete(sessions)
+        .where(inArray(sessions.profileId, profileIds));
+    }
 
     // Delete profile settings
     if (profileIds.length > 0) {

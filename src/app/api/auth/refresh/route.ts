@@ -2,8 +2,9 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { profiles, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { verifyRefreshToken, generateAccessToken, extractIpSubnet } from "@/lib/auth";
+import { verifyRefreshToken, generateAccessToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { getTokenVersion, setRateLimit } from "@/lib/redis";
 import type { JWTPayload } from "@/types";
 
 export async function POST(request: NextRequest) {
@@ -14,9 +15,22 @@ export async function POST(request: NextRequest) {
       return errorResponse("Refresh token required", 401);
     }
 
+    const ip = getClientIp(request);
+    
+    // Rate limit: 5 refresh attempts per 1 minute per IP
+    const rateLimit = await setRateLimit(`ratelimit:refresh:${ip}`, 60 * 1000, 5);
+    if (!rateLimit.allowed) {
+      return errorResponse("Too many requests. Please try again later.", 429);
+    }
+
     const payload = await verifyRefreshToken(refreshToken);
     if (!payload) {
       return errorResponse("Invalid refresh token", 401);
+    }
+
+    const currentVersion = await getTokenVersion(payload.profileId);
+    if (payload.tokenVersion !== currentVersion) {
+      return errorResponse("Token revoked", 401);
     }
 
     // Find profile

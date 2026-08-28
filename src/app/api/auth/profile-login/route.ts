@@ -2,11 +2,20 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { profiles, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { comparePin, generateAccessToken, generateRefreshToken, extractIpSubnet } from "@/lib/auth";
+import { comparePin, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { setRateLimit, getTokenVersion } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    
+    // Rate limit: 5 login attempts per 15 minutes per IP
+    const rateLimit = await setRateLimit(`ratelimit:login:${ip}`, 15 * 60 * 1000, 5);
+    if (!rateLimit.allowed) {
+      return errorResponse("Too many login attempts. Please try again later.", 429);
+    }
+
     const body = await request.json();
     const { profileId, pin } = body;
 
@@ -65,7 +74,8 @@ export async function POST(request: NextRequest) {
       fingerprint: extractIpSubnet(ip),
     });
 
-    const refreshToken = generateRefreshToken(profile.id, 1);
+    const tokenVersion = await getTokenVersion(profile.id);
+    const refreshToken = generateRefreshToken(profile.id, tokenVersion);
 
     const response = successResponse({
       profile: {

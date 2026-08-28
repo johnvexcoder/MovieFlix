@@ -1,27 +1,28 @@
-import { NextResponse } from "next/server";
-import { deleteSession } from "@/lib/redis";
+import { NextRequest, NextResponse } from "next/server";
 import { successResponse } from "@/lib/api-response";
+import { verifyToken, verifyRefreshToken } from "@/lib/auth";
+import { incrementTokenVersion } from "@/lib/redis";
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
-    const sessionId = request.headers
-      .get("cookie")
-      ?.match(/session_id=([^;]+)/)?.[1];
-
-    if (sessionId) {
-      await deleteSession(sessionId);
+    // Optionally revoke the refresh token by incrementing the version in Redis
+    const refreshToken = request.cookies.get("refresh_token")?.value;
+    if (refreshToken) {
+      const payload = await verifyRefreshToken(refreshToken);
+      if (payload) {
+        await incrementTokenVersion(payload.profileId);
+      }
     }
 
     const response = successResponse({ message: "Logged out" });
 
     // Clear cookies
-    const isProduction = process.env.NODE_ENV === "production";
-    const cookieOptions = "Path=/; HttpOnly; SameSite=Lax; Max-Age=0" + (isProduction ? "; Secure" : "");
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+    const cookieOptions = `Path=/; HttpOnly; SameSite=Lax; Max-Age=0${isHttps ? "; Secure" : ""}`;
 
     response.headers.set("Set-Cookie", [
       `access_token=; ${cookieOptions}`,
       `refresh_token=; ${cookieOptions}`,
-      `session_id=; ${cookieOptions}`,
     ].join(", "));
 
     return response;
