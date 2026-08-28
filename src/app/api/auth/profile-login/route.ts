@@ -65,8 +65,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const ip = request.headers.get("x-forwarded-for") || "0.0.0.0";
-
     const accessToken = generateAccessToken({
       profileId: profile.id,
       accountId: account.id,

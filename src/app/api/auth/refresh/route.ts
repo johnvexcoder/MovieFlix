@@ -63,8 +63,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const ip = request.headers.get("x-forwarded-for") || "0.0.0.0";
-
     const tokenPayload: Omit<JWTPayload, "tokenVersion"> = {
       profileId: profile.id,
       accountId: account.id,
