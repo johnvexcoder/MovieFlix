@@ -21,8 +21,11 @@ export const admins = sqliteTable("admins", {
 export const accounts = sqliteTable("accounts", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
+  email: text("email").unique(),
+  fullName: text("full_name"),
   passwordHash: text("password_hash").notNull(),
   isTemp: integer("is_temp", { mode: "boolean" }).notNull().default(false),
+  isLocked: integer("is_locked", { mode: "boolean" }).notNull().default(false),
   durationHours: integer("duration_hours"),
   expiresAt: text("expires_at"),
   createdByAdminId: text("created_by_admin_id").references(() => admins.id),
@@ -182,6 +185,14 @@ export const libraryConfig = sqliteTable("library_config", {
   enabled: integer("enabled", { mode: "boolean" }).notNull().default(true),
   lastScanAt: text("last_scan_at"),
   createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
+// APP SETTINGS TABLE
+// ===========================================
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value"),
 });
 
 // ===========================================

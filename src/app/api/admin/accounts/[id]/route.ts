@@ -4,6 +4,7 @@ import { accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { sendEmail } from "@/lib/email";
 
 export async function PATCH(
   request: NextRequest,
@@ -32,7 +33,25 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { additionalHours, newPassword } = body;
+    const { additionalHours, newPassword, isLocked } = body;
+
+    if (isLocked !== undefined) {
+      await db
+        .update(accounts)
+        .set({
+          isLocked,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(eq(accounts.id, id));
+
+      return successResponse({
+        account: {
+          id: account.id,
+          username: account.username,
+          isLocked,
+        },
+      });
+    }
 
     if (newPassword !== undefined) {
       if (
@@ -50,6 +69,21 @@ export async function PATCH(
           updatedAt: new Date().toISOString(),
         })
         .where(eq(accounts.id, id));
+
+      if (account.email) {
+        await sendEmail({
+          to: account.email,
+          subject: "Your MovieFlix Password has been Reset",
+          html: `
+            <h1>Password Reset Notice</h1>
+            <p>Your MovieFlix account password has been reset by an administrator.</p>
+            <p><strong>Username:</strong> ${account.username}</p>
+            <p><strong>New Password:</strong> ${newPassword}</p>
+            <br/>
+            <p>Please log in using your new credentials.</p>
+          `,
+        });
+      }
 
       return successResponse({
         account: {

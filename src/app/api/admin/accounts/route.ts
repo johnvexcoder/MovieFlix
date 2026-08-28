@@ -5,6 +5,7 @@ import { eq, desc } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { v4 as uuidv4 } from "uuid";
+import { sendEmail } from "@/lib/email";
 
 export async function GET(request: NextRequest) {
   try {
@@ -24,6 +25,7 @@ export async function GET(request: NextRequest) {
         id: accounts.id,
         username: accounts.username,
         isTemp: accounts.isTemp,
+        isLocked: accounts.isLocked,
         durationHours: accounts.durationHours,
         expiresAt: accounts.expiresAt,
         createdAt: accounts.createdAt,
@@ -70,7 +72,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, password, durationHours } = body;
+    const { username, email, fullName, password, durationHours } = body;
 
     if (!username || !password) {
       return errorResponse("Username and password are required", 400);
@@ -95,6 +97,18 @@ export async function POST(request: NextRequest) {
       return errorResponse("Username already exists", 409);
     }
 
+    if (email) {
+      const [existingEmail] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(eq(accounts.email, email))
+        .limit(1);
+      
+      if (existingEmail) {
+        return errorResponse("Email already exists", 409);
+      }
+    }
+
     // Create account
     const accountId = uuidv4();
     const passwordHash = await hashPassword(password);
@@ -111,6 +125,8 @@ export async function POST(request: NextRequest) {
     await db.insert(accounts).values({
       id: accountId,
       username,
+      email: email || null,
+      fullName: fullName || null,
       passwordHash,
       isTemp: isTemp || false,
       durationHours: durationHours || null,
@@ -125,7 +141,7 @@ export async function POST(request: NextRequest) {
     await db.insert(profiles).values({
       id: profileId,
       accountId,
-      name: `${username}'s Profile`,
+      name: fullName ? fullName : `${username}'s Profile`,
       isMainProfile: true,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -140,6 +156,22 @@ export async function POST(request: NextRequest) {
       defaultQuality: "auto",
       subtitleEnabled: false,
     });
+
+    if (email) {
+      await sendEmail({
+        to: email,
+        subject: "Welcome to MovieFlix!",
+        html: `
+          <h1>Welcome to MovieFlix, ${fullName || username}!</h1>
+          <p>Your streaming account has been successfully created.</p>
+          <p><strong>Username:</strong> ${username}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Password:</strong> ${password}</p>
+          <br/>
+          <p>You can now log in and start watching at your convenience.</p>
+        `,
+      });
+    }
 
     return successResponse(
       {

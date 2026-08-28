@@ -68,6 +68,17 @@ export default function AdminSettingsPage() {
   const [trialMaxDuration, setTrialMaxDuration] = useState(168);
   const [trialDefaultDuration, setTrialDefaultDuration] = useState(72);
 
+  // SMTP Settings
+  const [smtpHost, setSmtpHost] = useState("");
+  const [smtpPort, setSmtpPort] = useState("587");
+  const [smtpUser, setSmtpUser] = useState("");
+  const [smtpPass, setSmtpPass] = useState("");
+  const [smtpFrom, setSmtpFrom] = useState("");
+
+  // Reminder Settings
+  const [reminderDays, setReminderDays] = useState(3);
+  const [reminderMessage, setReminderMessage] = useState("Your subscription is expiring soon. Please renew your account to continue watching.");
+
   useEffect(() => {
     checkAuth();
     loadSettings();
@@ -177,11 +188,46 @@ export default function AdminSettingsPage() {
 
   async function loadSettings() {
     setTmdbApiKey(process.env.NEXT_PUBLIC_TMDB_API_KEY || "");
+    try {
+      const response = await fetch("/api/admin/settings");
+      const data = await response.json();
+      if (data.success && data.data?.settings) {
+        const s = data.data.settings;
+        if (s.smtp_host) setSmtpHost(s.smtp_host);
+        if (s.smtp_port) setSmtpPort(s.smtp_port);
+        if (s.smtp_user) setSmtpUser(s.smtp_user);
+        if (s.smtp_pass) setSmtpPass(s.smtp_pass);
+        if (s.smtp_from) setSmtpFrom(s.smtp_from);
+        if (s.reminder_days) setReminderDays(parseInt(s.reminder_days));
+        if (s.reminder_message) setReminderMessage(s.reminder_message);
+      }
+    } catch (e) {
+      console.error("Failed to load DB settings", e);
+    }
     setLoading(false);
   }
 
   async function handleSave() {
     setSaving(true);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settings: {
+            smtp_host: smtpHost,
+            smtp_port: smtpPort,
+            smtp_user: smtpUser,
+            smtp_pass: smtpPass,
+            smtp_from: smtpFrom,
+            reminder_days: reminderDays.toString(),
+            reminder_message: reminderMessage,
+          }
+        }),
+      });
+    } catch (e) {
+      console.error("Failed to save settings", e);
+    }
     await new Promise((resolve) => setTimeout(resolve, 800));
     setSaving(false);
     setSaveToast("Settings saved successfully.");
@@ -314,6 +360,104 @@ export default function AdminSettingsPage() {
                 <p className="text-[11px] text-neutral-400">
                   Maximum simultaneous video streams permitted per account.
                 </p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-6 sm:grid-cols-2">
+            {/* SMTP Settings */}
+            <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
+              <div className="mb-4 flex items-center gap-2.5">
+                <Database className="h-5 w-5 text-blue-400" />
+                <h2 className="text-lg font-bold text-white">SMTP Email Settings</h2>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Host</Label>
+                  <Input
+                    type="text"
+                    value={smtpHost}
+                    onChange={(e) => setSmtpHost(e.target.value)}
+                    placeholder="smtp.example.com"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Port</Label>
+                    <Input
+                      type="text"
+                      value={smtpPort}
+                      onChange={(e) => setSmtpPort(e.target.value)}
+                      placeholder="587"
+                      className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Sender Email (From)</Label>
+                    <Input
+                      type="email"
+                      value={smtpFrom}
+                      onChange={(e) => setSmtpFrom(e.target.value)}
+                      placeholder="noreply@movieflix.local"
+                      className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Username</Label>
+                  <Input
+                    type="text"
+                    value={smtpUser}
+                    onChange={(e) => setSmtpUser(e.target.value)}
+                    placeholder="Username"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Password</Label>
+                  <Input
+                    type="password"
+                    value={smtpPass}
+                    onChange={(e) => setSmtpPass(e.target.value)}
+                    placeholder="Password"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Expiry Reminder */}
+            <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
+              <div className="mb-4 flex items-center gap-2.5">
+                <Sparkles className="h-5 w-5 text-amber-400" />
+                <h2 className="text-lg font-bold text-white">Expiration Reminder</h2>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Show Reminder Before (Days)</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={30}
+                    value={reminderDays}
+                    onChange={(e) => setReminderDays(parseInt(e.target.value) || 3)}
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    How many days before expiration to show the popup.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Custom Reminder Message</Label>
+                  <textarea
+                    value={reminderMessage}
+                    onChange={(e) => setReminderMessage(e.target.value)}
+                    rows={4}
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#e50914]"
+                    placeholder="Your subscription is expiring soon..."
+                  />
+                </div>
               </div>
             </div>
           </div>

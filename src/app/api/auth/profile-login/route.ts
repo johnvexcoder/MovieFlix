@@ -45,6 +45,11 @@ export async function POST(request: NextRequest) {
       return errorResponse("Account not found", 404);
     }
 
+    // Check if account is locked
+    if (account.isLocked) {
+      return errorResponse("This account has been locked. Please contact support.", 403);
+    }
+
     // Check if account is expired
     if (account.expiresAt) {
       const expiresAt = new Date(account.expiresAt);

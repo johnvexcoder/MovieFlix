@@ -70,8 +70,11 @@ export function setupDatabase() {
     CREATE TABLE IF NOT EXISTS accounts (
       id TEXT PRIMARY KEY,
       username TEXT NOT NULL UNIQUE,
+      email TEXT UNIQUE,
+      full_name TEXT,
       password_hash TEXT NOT NULL,
       is_temp INTEGER NOT NULL DEFAULT 0,
+      is_locked INTEGER NOT NULL DEFAULT 0,
       duration_hours INTEGER,
       expires_at TEXT,
       created_by_admin_id TEXT REFERENCES admins(id),
@@ -200,6 +203,10 @@ export function setupDatabase() {
       last_scan_at TEXT,
       created_at TEXT NOT NULL DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS app_settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       profile_id TEXT NOT NULL REFERENCES profiles(id),
@@ -214,6 +221,17 @@ export function setupDatabase() {
       created_at TEXT NOT NULL DEFAULT ''
     );
   `);
+
+  // Ensure accounts table has email and full_name columns
+  try {
+    _sqlite.exec(`ALTER TABLE accounts ADD COLUMN email TEXT UNIQUE;`);
+  } catch {}
+  try {
+    _sqlite.exec(`ALTER TABLE accounts ADD COLUMN full_name TEXT;`);
+  } catch {}
+  try {
+    _sqlite.exec(`ALTER TABLE accounts ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0;`);
+  } catch {}
 
   try {
     const existingAdmin = _sqlite.prepare("SELECT * FROM admins WHERE username = 'admin'").get();

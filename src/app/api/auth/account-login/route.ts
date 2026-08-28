@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { accounts, profiles } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, or } from "drizzle-orm";
 import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 
@@ -14,15 +14,25 @@ export async function POST(request: NextRequest) {
       return errorResponse("Username and password are required", 400);
     }
 
-    // Find account
+    // Find account by username or email
     const [account] = await db
       .select()
       .from(accounts)
-      .where(eq(accounts.username, username))
+      .where(
+        or(
+          eq(accounts.username, username),
+          eq(accounts.email, username)
+        )
+      )
       .limit(1);
 
     if (!account) {
       return errorResponse("Invalid username or password", 401);
+    }
+
+    // Check if account is locked
+    if (account.isLocked) {
+      return errorResponse("This account has been locked. Please contact support.", 403);
     }
 
     // Verify password

@@ -21,6 +21,7 @@ import {
   Sparkles,
   Server,
   FolderOpen,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -44,6 +45,7 @@ interface Account {
   id: string;
   username: string;
   isTemp: boolean;
+  isLocked: boolean;
   durationHours: number | null;
   expiresAt: string | null;
   createdAt: string;
@@ -112,6 +114,8 @@ export default function AdminPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
+  const [newFullName, setNewFullName] = useState("");
   const [weeks, setWeeks] = useState<number | null>(null);
   const [days, setDays] = useState<number | null>(null);
   const [hours, setHours] = useState<number | null>(null);
@@ -180,6 +184,8 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           username: newUsername.trim(),
+          email: newEmail.trim() || undefined,
+          fullName: newFullName.trim() || undefined,
           password: newPassword,
           durationHours: totalHours > 0 ? totalHours : undefined,
         }),
@@ -191,6 +197,8 @@ export default function AdminPage() {
         setAddModalOpen(false);
         setNewUsername("");
         setNewPassword("");
+        setNewEmail("");
+        setNewFullName("");
         setWeeks(null);
         setDays(null);
         setHours(null);
@@ -276,6 +284,29 @@ export default function AdminPage() {
       }
     } catch {
       alert("Failed to delete account");
+    }
+  }
+
+  async function handleToggleLock(account: Account) {
+    const newLockState = !account.isLocked;
+    const action = newLockState ? "Lock" : "Unlock";
+    if (!confirm(`${action} account "${account.username}"?`)) return;
+
+    try {
+      const response = await fetch(`/api/admin/accounts/${account.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isLocked: newLockState }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        fetchAccounts();
+      } else {
+        alert(data.error || `Failed to ${action.toLowerCase()} account`);
+      }
+    } catch {
+      alert(`Failed to ${action.toLowerCase()} account`);
     }
   }
 
@@ -555,6 +586,16 @@ export default function AdminPage() {
 
                       {/* Action Controls */}
                       <div className="flex flex-shrink-0 items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/15"
+                          onClick={() => handleToggleLock(account)}
+                        >
+                          <Lock className={`mr-1.5 h-3.5 w-3.5 ${account.isLocked ? 'text-red-400' : 'text-neutral-400'}`} />
+                          {account.isLocked ? "Unlock" : "Lock"}
+                        </Button>
+
                         {account.isTemp && (
                           <Button
                             variant="outline"
@@ -654,6 +695,27 @@ export default function AdminPage() {
                 placeholder="e.g. john"
                 className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
                 autoFocus
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Full Name</Label>
+              <Input
+                value={newFullName}
+                onChange={(e) => setNewFullName(e.target.value)}
+                placeholder="e.g. John Doe"
+                className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+              />
+            </div>
+
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Email Address</Label>
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="john@example.com"
+                className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
               />
             </div>
 
