@@ -52,7 +52,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
 
   const safeIndex = currentIndex % items.length;
   const item = items[safeIndex] || items[0];
-  const backdropUrl = item.backdropUrl || item.posterUrl;
+  const backdropUrl = `/api/media/${item.id}/image?kind=backdrop`;
 
   // Check if added within 48 hours
   const isWithin48h = item.createdAt

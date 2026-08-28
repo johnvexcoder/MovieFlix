@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { HeroBanner } from "@/components/home/hero-banner";
 import { ContentRow } from "@/components/home/content-row";
 import { NetflixNavbar } from "@/components/layout/netflix-navbar";
-import { AccountCountdownBanner } from "@/components/account/account-countdown-banner";
+import { ExpirationReminder } from "@/components/account/expiration-reminder";
 import type { Profile, HomeData, MediaWithProgress } from "@/types";
 
 interface MeResponse extends Profile {
@@ -22,8 +22,6 @@ export default function ProfileHomePage() {
   const profileId = params.id as string;
   const [profile, setProfile] = useState<Profile | null>(null);
   const [accountExpiresAt, setAccountExpiresAt] = useState<string | null>(null);
-  const [accountCreatedAt, setAccountCreatedAt] = useState<string | null>(null);
-  const [accountUsername, setAccountUsername] = useState<string>("");
   const [homeData, setHomeData] = useState<HomeData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -50,8 +48,6 @@ export default function ProfileHomePage() {
         }
         setProfile(profileData);
         setAccountExpiresAt(profileData.accountExpiresAt || null);
-        setAccountCreatedAt(profileData.accountCreatedAt || null);
-        setAccountUsername(profileData.accountUsername || profileData.name);
       } else {
         router.push("/login");
       }
@@ -104,19 +100,11 @@ export default function ProfileHomePage() {
 
   return (
     <div className="min-h-screen bg-[#08080a] text-white">
-      {/* Trial Countdown Banner if applicable */}
-      {accountExpiresAt && (
-        <div className="relative z-50">
-          <AccountCountdownBanner
-            expiresAt={accountExpiresAt}
-            startedAt={accountCreatedAt}
-            username={accountUsername}
-          />
-        </div>
-      )}
-
       {/* Floating Netflix Navbar */}
       <NetflixNavbar profile={profile} accountExpiresAt={accountExpiresAt} />
+
+      {/* Expiration Reminder Popup */}
+      <ExpirationReminder />
 
       {/* Main Container */}
       <main className="relative pb-24">
@@ -128,7 +116,7 @@ export default function ProfileHomePage() {
         )}
 
         {/* Content Rows with Negative Margin for Depth Overlay */}
-        <div className={`relative z-20 space-y-10 sm:space-y-12 px-4 sm:px-8 md:px-12 ${carouselItems.length > 0 ? "-mt-24 md:-mt-36" : "mt-6"}`}>
+        <div className={`relative z-20 space-y-10 sm:space-y-12 px-4 sm:px-8 md:px-12 ${carouselItems.length > 0 ? "-mt-2 md:-mt-8" : "mt-6"}`}>
           {/* 1. Continue Watching (if any in progress) */}
           {continueWatching.length > 0 && (
             <ContentRow

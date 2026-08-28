@@ -221,6 +221,22 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
                   </div>
 
                   <div className="py-1 space-y-0.5">
+                    {accountExpiresAt && (
+                      <div className="mx-1 mb-1 rounded-xl border border-white/10 bg-white/5 px-3 py-2">
+                        <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                          Subscription Due On
+                        </p>
+                        <p className="mt-0.5 text-xs font-semibold tabular-nums text-amber-300">
+                          {new Date(accountExpiresAt).toLocaleString(undefined, {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })}
+                        </p>
+                      </div>
+                    )}
                     <button
                       type="button"
                       onClick={() => {

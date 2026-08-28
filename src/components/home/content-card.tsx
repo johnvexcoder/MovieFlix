@@ -33,8 +33,8 @@ export function ContentCard({
   const [isHovered, setIsHovered] = useState(false);
   const [inList, setInList] = useState(false);
 
-  const posterUrl = item.posterUrl;
-  const backdropUrl = item.backdropUrl || item.posterUrl;
+  const posterUrl = `/api/media/${item.id}/image?kind=poster`;
+  const backdropUrl = `/api/media/${item.id}/image?kind=backdrop`;
 
   // Parse genres
   let parsedGenres: string[] = [];

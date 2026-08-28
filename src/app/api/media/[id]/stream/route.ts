@@ -18,6 +18,18 @@ const MIME_TYPES: Record<string, string> = {
   ".ts": "video/mp2t",
 };
 
+// Download protection: never serve a full file in one shot. These caps force a
+// browser to fetch in small range chunks, making direct file downloads infeasible.
+const MAX_CHUNK_BYTES = 8 * 1024 * 1024; // 8MB per range request
+
+const PROTECTION_HEADERS = {
+  "X-Content-Type-Options": "nosniff",
+  "Content-Disposition": "inline",
+  "Accept-Ranges": "bytes",
+  "X-Frame-Options": "DENY",
+  ReferrerPolicy: "no-referrer",
+};
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -78,10 +90,26 @@ export async function GET(
 
     const range = request.headers.get("range");
 
+    // Download protection: require a Range header. A plain GET without a range
+    // would be a full-file download, which we refuse.
+    if (!range) {
+      return new NextResponse("Range requests required", { status: 400 });
+    }
+
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
-      const start = parseInt(parts[0], 10);
-      const end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 * 4 - 1, fileSize - 1); // 4MB chunks
+      const start = parts[0] ? parseInt(parts[0], 10) : 0;
+      let end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 * 4 - 1, fileSize - 1); // 4MB chunks
+
+      // Cap chunk size to protect against bulk data harvesting
+      end = Math.min(end, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
+
+      if (start > end || start >= fileSize) {
+        return new NextResponse("Range not satisfiable", {
+          status: 416,
+          headers: { "Content-Range": `bytes */${fileSize}` },
+        });
+      }
 
       const chunkSize = end - start + 1;
       const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath, { start, end });
@@ -101,34 +129,15 @@ export async function GET(
         status: 206,
         headers: {
           "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-          "Accept-Ranges": "bytes",
           "Content-Length": String(chunkSize),
           "Content-Type": contentType,
+          ...PROTECTION_HEADERS,
           "Cache-Control": "no-cache, no-store, must-revalidate",
         },
       });
     }
 
-    const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath);
-    const webStream = new ReadableStream({
-      start(controller) {
-        fileStream.on("data", (chunk) => controller.enqueue(chunk));
-        fileStream.on("end", () => controller.close());
-        fileStream.on("error", (err) => controller.error(err));
-      },
-      cancel() {
-        fileStream.destroy();
-      },
-    });
-
-    return new NextResponse(webStream, {
-      status: 200,
-      headers: {
-        "Content-Length": String(fileSize),
-        "Content-Type": contentType,
-        "Accept-Ranges": "bytes",
-      },
-    });
+    return new NextResponse("Range requests required", { status: 400 });
   } catch (error) {
     console.error("Video stream error:", error);
     return new NextResponse("Stream error", { status: 500 });

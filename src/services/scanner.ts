@@ -7,6 +7,7 @@ import { eq, and } from "drizzle-orm";
 import { parseFilename, isVideoFile, extractSeasonFromPath } from "./filename-parser";
 import { probeFile, needsTranscode, generateThumbnail } from "./ffmpeg-probe";
 import { searchMovie, searchTV, getSeasonDetails } from "./tmdb";
+import { findLocalPoster, findLocalBackdrop } from "@/lib/local-media";
 import type { ScanLog } from "@/types";
 
 let currentScan: ScanLog | null = null;
@@ -147,6 +148,10 @@ async function processFile(
   const mediaId = uuidv4();
   const now = new Date().toISOString();
 
+  // Local poster / backdrop fallback images (adjacent to the video file)
+  const localPoster = findLocalPoster(filePath);
+  const localBackdrop = findLocalBackdrop(filePath);
+
   // Create media entry
   await db.insert(media).values({
     id: mediaId,
@@ -173,8 +178,8 @@ async function processFile(
     videoHeight: probe?.height || null,
     audioCodec: probe?.audioCodec || null,
     thumbnailPath: thumbnailPath,
-    backdropPath: null,
-    posterPath: null,
+    backdropPath: localBackdrop || null,
+    posterPath: localPoster || null,
     needsTranscode: probe ? needsTranscode(probe) : false,
     scanId,
     createdAt: now,

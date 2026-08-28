@@ -57,6 +57,20 @@ export function setupDatabase() {
   getDb(); // Ensure db is initialized
   if (!_sqlite) return;
 
+  const sqlite = _sqlite;
+
+  const ensureColumn = (table: string, column: string, definition: string) => {
+    try {
+      const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as { name: string }[];
+      if (!cols.some((c) => c.name === column)) {
+        sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition};`);
+        console.log(`Migrated: added column ${table}.${column}`);
+      }
+    } catch (e) {
+      console.error(`Migrate ${table}.${column} error:`, e);
+    }
+  };
+
   const bcrypt = require("bcryptjs");
   const { v4: uuidv4 } = require("uuid");
 
@@ -222,16 +236,10 @@ export function setupDatabase() {
     );
   `);
 
-  // Ensure accounts table has email and full_name columns
-  try {
-    _sqlite.exec(`ALTER TABLE accounts ADD COLUMN email TEXT UNIQUE;`);
-  } catch {}
-  try {
-    _sqlite.exec(`ALTER TABLE accounts ADD COLUMN full_name TEXT;`);
-  } catch {}
-  try {
-    _sqlite.exec(`ALTER TABLE accounts ADD COLUMN is_locked INTEGER NOT NULL DEFAULT 0;`);
-  } catch {}
+  // Ensure accounts table has email, full_name, and is_locked columns
+  ensureColumn("accounts", "email", "TEXT UNIQUE");
+  ensureColumn("accounts", "full_name", "TEXT");
+  ensureColumn("accounts", "is_locked", "INTEGER NOT NULL DEFAULT 0");
 
   try {
     const existingAdmin = _sqlite.prepare("SELECT * FROM admins WHERE username = 'admin'").get();

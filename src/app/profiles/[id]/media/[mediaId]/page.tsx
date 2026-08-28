@@ -36,7 +36,7 @@ interface Episode {
   seasonNumber: number;
   title: string | null;
   overview: string | null;
-  stillPath: string | null;
+  stillUrl: string | null;
   durationMinutes: number | null;
 }
 
@@ -116,8 +116,8 @@ export default function MediaDetailPage() {
     );
   }
 
-  const backdropUrl = media.backdropUrl || media.posterUrl;
-  const posterUrl = media.posterUrl;
+  const backdropUrl = `/api/media/${media.id}/image?kind=backdrop`;
+  const posterUrl = `/api/media/${media.id}/image?kind=poster`;
 
   let genres: string[] = [];
   if (media.genres) {
@@ -306,9 +306,9 @@ export default function MediaDetailPage() {
                 >
                   {/* Episode Thumbnail */}
                   <div className="relative aspect-video w-full sm:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-900 shadow-md">
-                    {episode.stillPath ? (
+                    {episode.stillUrl ? (
                       <img
-                        src={`https://image.tmdb.org/t/p/w300${episode.stillPath}`}
+                        src={episode.stillUrl}
                         alt={episode.title || ""}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
