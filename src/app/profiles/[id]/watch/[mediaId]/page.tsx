@@ -26,6 +26,7 @@ import {
   Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { MessageToast } from "@/components/account/message-toast";
 import type { Profile, Media } from "@/types";
 
 interface Season {
@@ -691,6 +692,9 @@ export default function WatchPage() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Fullscreen admin message toast */}
+      <MessageToast variant="fullscreen" />
 
       {/* Underlying Video Player */}
       <video

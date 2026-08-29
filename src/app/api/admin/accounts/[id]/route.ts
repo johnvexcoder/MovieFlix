@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { accounts } from "@/db/schema";
+import { accounts, profiles, sessions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { sendEmail } from "@/lib/email";
+import { revokeTokenVersion } from "@/lib/redis";
+
+const revokeAccountSessions = async (accountId: string) => {
+  const accountProfiles = await db
+    .select({ id: profiles.id })
+    .from(profiles)
+    .where(eq(profiles.accountId, accountId));
+
+  for (const profile of accountProfiles) {
+    await db.delete(sessions).where(eq(sessions.profileId, profile.id));
+    await revokeTokenVersion(profile.id);
+  }
+};
 
 export async function PATCH(
   request: NextRequest,
@@ -44,6 +57,12 @@ export async function PATCH(
         })
         .where(eq(accounts.id, id));
 
+      // When locking, immediately revoke all of the account's active sessions so
+      // existing users are cut off right away (not just on their next login).
+      if (isLocked) {
+        await revokeAccountSessions(id);
+      }
+
       return successResponse({
         account: {
           id: account.id,
@@ -66,9 +85,15 @@ export async function PATCH(
         .update(accounts)
         .set({
           passwordHash,
+          mustChangePassword: true,
           updatedAt: new Date().toISOString(),
         })
         .where(eq(accounts.id, id));
+
+      // Never send the plaintext password over email. Mark the account so the
+      // user is forced to set a new password on their next login, and revoke
+      // existing sessions so the old credential cannot be reused.
+      await revokeAccountSessions(id);
 
       if (account.email) {
         await sendEmail({
@@ -76,11 +101,10 @@ export async function PATCH(
           subject: "Your MovieFlix Password has been Reset",
           html: `
             <h1>Password Reset Notice</h1>
-            <p>Your MovieFlix account password has been reset by an administrator.</p>
+            <p>Your MovieFlix account password was reset by an administrator for security reasons.</p>
             <p><strong>Username:</strong> ${account.username}</p>
-            <p><strong>New Password:</strong> ${newPassword}</p>
-            <br/>
-            <p>Please log in using your new credentials.</p>
+            <p>You will be required to set a new password the next time you log in.</p>
+            <p>If you did not request this, please contact support immediately.</p>
           `,
         });
       }

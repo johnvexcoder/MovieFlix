@@ -2,8 +2,9 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { accounts, profiles } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
-import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet } from "@/lib/auth";
+import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { setRateLimit, getTokenVersion } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,6 +13,17 @@ export async function POST(request: NextRequest) {
 
     if (!username || !password) {
       return errorResponse("Username and password are required", 400);
+    }
+
+    const ip = getClientIp(request);
+
+    // Rate limit: 5 login attempts per 15 minutes per IP + username. Keying on
+    // the pair (rather than IP alone) keeps a single compromised/misconfigured
+    // proxy from trivially defeating the limit via spoofed X-Forwarded-For.
+    const rateKey = `ratelimit:account-login:${ip}:${String(username).toLowerCase()}`;
+    const rateLimit = await setRateLimit(rateKey, 15 * 60 * 1000, 5);
+    if (!rateLimit.allowed) {
+      return errorResponse("Too many login attempts. Please try again later.", 429);
     }
 
     // Find account by username or email
@@ -55,8 +67,6 @@ export async function POST(request: NextRequest) {
       .from(profiles)
       .where(eq(profiles.accountId, account.id));
 
-    const ip = request.headers.get("x-forwarded-for") || "0.0.0.0";
-
     const mainProfile = accountProfiles.find((p) => p.isMainProfile) || accountProfiles[0];
 
     if (!mainProfile) {
@@ -70,13 +80,17 @@ export async function POST(request: NextRequest) {
       fingerprint: extractIpSubnet(ip),
     });
 
-    const refreshToken = generateRefreshToken(mainProfile.id, 1);
+    // Use the current token version so a subsequent logout/revocation correctly
+    // invalidates this refresh token (the old hard-coded value of 1 broke this).
+    const tokenVersion = await getTokenVersion(mainProfile.id);
+    const refreshToken = generateRefreshToken(mainProfile.id, tokenVersion);
 
     const response = successResponse({
       account: {
         id: account.id,
         username: account.username,
         expiresAt: account.expiresAt,
+        mustChangePassword: Boolean(account.mustChangePassword),
       },
       profiles: accountProfiles.map((p) => ({
         id: p.id,

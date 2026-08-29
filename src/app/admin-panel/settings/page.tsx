@@ -30,6 +30,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { checkAdminSession } from "@/lib/client-auth";
+import { PaymentMethodsManager } from "@/components/admin/payment-methods-manager";
 
 interface AdminUser {
   id: string;
@@ -196,8 +197,9 @@ export default function AdminSettingsPage() {
         if (s.smtp_host) setSmtpHost(s.smtp_host);
         if (s.smtp_port) setSmtpPort(s.smtp_port);
         if (s.smtp_user) setSmtpUser(s.smtp_user);
-        if (s.smtp_pass) setSmtpPass(s.smtp_pass);
         if (s.smtp_from) setSmtpFrom(s.smtp_from);
+        // SMTP password is never returned; show a placeholder indicating whether one is set.
+        setSmtpPass(s.smtp_pass_set === "true" ? "••••••••••" : "");
         if (s.reminder_days) setReminderDays(parseInt(s.reminder_days));
         if (s.reminder_message) setReminderMessage(s.reminder_message);
       }
@@ -210,6 +212,9 @@ export default function AdminSettingsPage() {
   async function handleSave() {
     setSaving(true);
     try {
+      // Don't send the masked placeholder back; the backend preserves the stored
+      // password when smtp_pass is empty. Only a fresh value is saved.
+      const smtpPassToSend = smtpPass === "••••••••••" ? "" : smtpPass;
       await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -218,7 +223,7 @@ export default function AdminSettingsPage() {
             smtp_host: smtpHost,
             smtp_port: smtpPort,
             smtp_user: smtpUser,
-            smtp_pass: smtpPass,
+            smtp_pass: smtpPassToSend,
             smtp_from: smtpFrom,
             reminder_days: reminderDays.toString(),
             reminder_message: reminderMessage,
@@ -461,6 +466,9 @@ export default function AdminSettingsPage() {
               </div>
             </div>
           </div>
+
+          {/* Payment Methods */}
+          <PaymentMethodsManager />
 
           {/* Administrators Roster */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">

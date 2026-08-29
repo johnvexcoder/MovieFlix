@@ -74,6 +74,26 @@ export async function incrementTokenVersion(
   return client.incr(`token_version:${profileId}`);
 }
 
+/**
+ * Revoke a token version for a profile while guaranteeing the new version can
+ * never collide with an already-issued token.
+ *
+ * The naive `incr` (from a missing key) would start at 1 again, which is the
+ * same value tokens signed at the very first issuance used, leaving them valid.
+ * Instead we explicitly initialise to 2 when no version exists, so every
+ * previously-issued token (which was signed at a version <= 1) becomes invalid.
+ */
+export async function revokeTokenVersion(profileId: string): Promise<number> {
+  const client = getRedisClient();
+  const key = `token_version:${profileId}`;
+  const exists = await client.exists(key);
+  if (exists === 0) {
+    await client.set(key, "2");
+    return 2;
+  }
+  return client.incr(key);
+}
+
 export async function setRateLimit(
   key: string,
   windowMs: number,

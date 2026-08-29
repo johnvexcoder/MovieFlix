@@ -3,6 +3,7 @@ import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { getEnv } from "@/lib/env";
+import { isSafeFfmpegInput } from "@/lib/ffmpeg-security";
 
 // Quality ladder (heights), ordered high -> low
 export const QUALITY_LADDER = [2160, 1440, 1080, 720, 480, 360];
@@ -133,6 +134,10 @@ export async function ensureTranscode(
   filePath: string,
   height: number
 ): Promise<{ status: "ready" | "running" | "failed" }> {
+  if (!isSafeFfmpegInput(filePath)) {
+    console.error(`Refusing to transcode unsafe input path: ${filePath}`);
+    return { status: "failed" };
+  }
   const key = transcodeKey(filePath);
   if (isRenditionReady(key, height)) {
     return { status: "ready" };

@@ -62,6 +62,8 @@ export async function GET(request: NextRequest) {
       accountExpiresAt: account.expiresAt,
       accountCreatedAt: account.createdAt,
       accountUsername: account.username,
+      accountEmail: account.email,
+      mustChangePassword: Boolean(account.mustChangePassword),
     });
   } catch (error) {
     console.error("Get me error:", error);

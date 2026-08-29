@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { successResponse } from "@/lib/api-response";
 import { verifyToken, verifyRefreshToken } from "@/lib/auth";
-import { incrementTokenVersion } from "@/lib/redis";
+import { revokeTokenVersion } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   try {
@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
     if (refreshToken) {
       const payload = await verifyRefreshToken(refreshToken);
       if (payload) {
-        await incrementTokenVersion(payload.profileId);
+        await revokeTokenVersion(payload.profileId);
       }
     }
 

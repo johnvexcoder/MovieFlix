@@ -129,6 +129,9 @@ export async function POST(request: NextRequest) {
       fullName: fullName || null,
       passwordHash,
       isTemp: isTemp || false,
+      // Force the user to set their own password on first login instead of
+      // relying on a plaintext credential shared over email.
+      mustChangePassword: true,
       durationHours: durationHours || null,
       expiresAt,
       createdByAdminId: payload.profileId,
@@ -165,9 +168,8 @@ export async function POST(request: NextRequest) {
           <h1>Welcome to MovieFlix, ${fullName || username}!</h1>
           <p>Your streaming account has been successfully created.</p>
           <p><strong>Username:</strong> ${username}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Password:</strong> ${password}</p>
-          <br/>
+          <p>Your temporary password has been shared with you separately. For security,
+             you will be required to set a new password of your own the first time you log in.</p>
           <p>You can now log in and start watching at your convenience.</p>
         `,
       });

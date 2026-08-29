@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
+import path from "path";
 import { db } from "@/db";
 import { media, episodes } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -78,17 +79,27 @@ export async function GET(
       }
 
       const dir = targetFilePath ? dirnameOf(targetFilePath) : "";
-      const normalized = normalizePath(filePath);
-      if (!normalized.startsWith(normalizePath(dir))) {
+      const safeDir = path.resolve(dir);
+      const safeFile = path.resolve(filePath);
+
+      // Resolve symlinks on both sides so a link pointing outside the media
+      // directory cannot bypass the containment check.
+      const resolvedDir = fs.existsSync(safeDir) ? fs.realpathSync(safeDir) : safeDir;
+      const resolvedFile = fs.existsSync(safeFile) ? fs.realpathSync(safeFile) : safeFile;
+
+      // Strict descendant check: the requested file must live inside the
+      // media's own directory (a trailing separator prevents the classic
+      // prefix-byte collision, e.g. /media/movie-vs-movie2).
+      if (!resolvedFile.startsWith(resolvedDir + path.sep)) {
         return new NextResponse("Forbidden", { status: 403 });
       }
 
-      if (!fs.existsSync(filePath)) {
+      if (!fs.existsSync(resolvedFile) || !fs.statSync(resolvedFile).isFile()) {
         return new NextResponse("Subtitle file not found", { status: 404 });
       }
 
-      const content = fs.readFileSync(filePath, "utf-8");
-      const isVtt = /\.vtt$/.test(filePath);
+      const content = fs.readFileSync(resolvedFile, "utf-8");
+      const isVtt = /\.vtt$/.test(resolvedFile);
       let body = content;
 
       // Convert SRT to WebVTT so the browser <track> can render it
@@ -123,10 +134,6 @@ function dirnameOf(p: string): string {
   return idx >= 0 ? p.slice(0, idx) : p;
 }
 
-function normalizePath(p: string): string {
-  return p.replace(/\\/g, "/").replace(/\/+/g, "/").replace(/\/$/, "");
-}
-
 function srtToVtt(srt: string): string {
   let vtt = "WEBVTT\n\n";
   const cleaned = srt.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
@@ -145,7 +152,7 @@ function srtToVtt(srt: string): string {
     const timeIdx = lines.findIndex((l, i) => i >= bodyStart && /-->/.test(l));
     if (timeIdx === -1) continue;
 
-    let time = lines[timeIdx].replace(/,/g, ".").trim();
+    const time = lines[timeIdx].replace(/,/g, ".").trim();
     // Ensure cue with no end time is excluded or given a default
     const text = lines.slice(timeIdx + 1).join("\n");
     vtt += `${time}\n${text}\n\n`;

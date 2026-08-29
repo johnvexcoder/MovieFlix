@@ -3,6 +3,7 @@ import { drizzle } from "drizzle-orm/better-sqlite3";
 import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
+import { v4 as uuidv4 } from "uuid";
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _sqlite: InstanceType<typeof Database> | null = null;
@@ -71,9 +72,6 @@ export function setupDatabase() {
     }
   };
 
-  const bcrypt = require("bcryptjs");
-  const { v4: uuidv4 } = require("uuid");
-
   _sqlite.exec(`
     CREATE TABLE IF NOT EXISTS admins (
       id TEXT PRIMARY KEY,
@@ -89,6 +87,7 @@ export function setupDatabase() {
       password_hash TEXT NOT NULL,
       is_temp INTEGER NOT NULL DEFAULT 0,
       is_locked INTEGER NOT NULL DEFAULT 0,
+      must_change_password INTEGER NOT NULL DEFAULT 0,
       duration_hours INTEGER,
       expires_at TEXT,
       created_by_admin_id TEXT REFERENCES admins(id),
@@ -234,29 +233,75 @@ export function setupDatabase() {
       expires_at TEXT NOT NULL,
       created_at TEXT NOT NULL DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS password_reset_tokens (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      token_hash TEXT NOT NULL,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS admin_messages (
+      id TEXT PRIMARY KEY,
+      message TEXT NOT NULL,
+      account_id TEXT REFERENCES accounts(id),
+      created_by_admin_id TEXT REFERENCES admins(id),
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS contact_submissions (
+      id TEXT PRIMARY KEY,
+      type TEXT NOT NULL,
+      subject TEXT,
+      message TEXT NOT NULL,
+      account_id TEXT REFERENCES accounts(id),
+      profile_id TEXT REFERENCES profiles(id),
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS payment_methods (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      account_number TEXT NOT NULL,
+      icon_path TEXT,
+      qr_path TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS payment_submissions (
+      id TEXT PRIMARY KEY,
+      payment_method_id TEXT REFERENCES payment_methods(id),
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      sender_name TEXT NOT NULL,
+      sender_account_number TEXT NOT NULL,
+      amount REAL NOT NULL,
+      reference_number TEXT NOT NULL,
+      receipt_path TEXT,
+      status TEXT NOT NULL DEFAULT 'pending',
+      admin_note TEXT,
+      reviewed_by_admin_id TEXT REFERENCES admins(id),
+      created_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    );
   `);
 
-  // Ensure accounts table has email, full_name, and is_locked columns
+  // Ensure accounts table has email, full_name, is_locked, and must_change_password columns
   ensureColumn("accounts", "email", "TEXT UNIQUE");
   ensureColumn("accounts", "full_name", "TEXT");
   ensureColumn("accounts", "is_locked", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
 
+  // No longer auto-create a default "admin/admin123" account (widely-known
+  // default credential). Admins are created via the admin-panel "Add Admin"
+  // flow. If no admins exist at all, warn loudly in the logs.
   try {
-    const existingAdmin = _sqlite.prepare("SELECT * FROM admins WHERE username = 'admin'").get();
-    if (!existingAdmin) {
-      const adminId = uuidv4();
-      const adminHash = bcrypt.hashSync("admin123", 10);
-      _sqlite.prepare("INSERT INTO admins (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
-        adminId,
-        "admin",
-        adminHash,
-        new Date().toISOString()
+    const adminCount = _sqlite.prepare("SELECT count(*) as count FROM admins").get() as { count: number };
+    if (adminCount.count === 0) {
+      console.warn(
+        "⚠️  No admin accounts exist. Create an admin through the admin panel, or seed one manually with a strong password."
       );
-      console.log("👑 Initialized default admin account: admin / admin123");
     }
-  } catch (err) {
-    console.error("Admin bootstrap error:", err);
-  }
+  } catch {}
 
   try {
     const libCount = _sqlite.prepare("SELECT count(*) as count FROM library_config").get() as { count: number };

@@ -1,15 +1,33 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { verifyToken } from "./lib/auth";
+import { db } from "./db";
+import { accounts } from "./db/schema";
+import { eq } from "drizzle-orm";
 
 // Public paths that don't require authentication
 const PUBLIC_PATHS = [
   "/",
   "/login",
+  "/forgot-password",
+  "/reset-password",
   "/api/auth/account-login",
   "/api/auth/profile-login",
   "/api/auth/refresh",
+  "/api/auth/forgot-password",
+  "/api/auth/reset-password",
   "/api/health",
+];
+
+// Paths a user may still visit while required to change their password. These
+// bypass the must-change gate so the user can actually complete the change.
+const MUST_CHANGE_ALLOWED_PATHS = [
+  "/change-password",
+  "/api/auth/change-password",
+  "/api/auth/me",
+  "/api/auth/logout",
+  "/api/auth/refresh",
+  "/login",
 ];
 
 // Admin paths that require admin authentication
@@ -34,6 +52,12 @@ function isPublicPath(pathname: string): boolean {
 
 function isAdminPath(pathname: string): boolean {
   return ADMIN_PATHS.some((path) => pathname === path || pathname.startsWith(path + "/"));
+}
+
+function isMustChangeAllowedPath(pathname: string): boolean {
+  return MUST_CHANGE_ALLOWED_PATHS.some(
+    (path) => pathname === path || pathname.startsWith(path + "/")
+  );
 }
 
 function isAdminApiPath(pathname: string): boolean {
@@ -131,6 +155,50 @@ export async function proxy(request: NextRequest) {
 
     response.cookies.delete("access_token");
     return response;
+  }
+
+  // Verify the account is still active (not locked or expired). This makes
+  // admin account locking take effect immediately for already-signed-in users,
+  // not just on new logins or token refreshes.
+  const [account] = await db
+    .select({
+      isLocked: accounts.isLocked,
+      expiresAt: accounts.expiresAt,
+      mustChangePassword: accounts.mustChangePassword,
+    })
+    .from(accounts)
+    .where(eq(accounts.id, payload.accountId))
+    .limit(1);
+
+  const accountInvalid =
+    !account ||
+    account.isLocked ||
+    (account.expiresAt && new Date(account.expiresAt) < new Date());
+
+  if (accountInvalid) {
+    const response = pathname.startsWith("/api/")
+      ? NextResponse.json(
+          { error: "Account has been locked or expired" },
+          { status: 403 }
+        )
+      : NextResponse.redirect(getRedirectUrl("/login", request));
+
+    response.cookies.delete("access_token");
+    return response;
+  }
+
+  // Enforce the "must change password" requirement: before the user can reach
+  // any protected content, force them through the change-password page.
+  if (account?.mustChangePassword && !isMustChangeAllowedPath(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      return NextResponse.json(
+        { error: "Password change required" },
+        { status: 403 }
+      );
+    }
+    return NextResponse.redirect(
+      getRedirectUrl("/change-password?required=1", request)
+    );
   }
 
   // Validate fingerprint (optional same-network policy if strict mode is enabled)

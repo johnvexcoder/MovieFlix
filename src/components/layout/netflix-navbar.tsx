@@ -7,17 +7,19 @@ import {
   Search,
   LogOut,
   User,
-  Shield,
-  Film,
-  Tv,
-  Sparkles,
   ChevronDown,
   X,
-  Clock,
+  KeyRound,
+  AlertTriangle,
+  MessageSquareHeart,
+  Lightbulb,
+  Info,
+  CreditCard,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { MovieFlixLogo } from "@/components/movieflix-logo";
+import { SuggestionModal } from "@/components/account/suggestion-modal";
+import { MessageToast } from "@/components/account/message-toast";
 import type { Profile } from "@/types";
 
 interface NetflixNavbarProps {
@@ -32,6 +34,7 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [profileDropdown, setProfileDropdown] = useState(false);
+  const [suggestionOpen, setSuggestionOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const profileId = profile.id;
@@ -250,6 +253,75 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
                     </button>
                   </div>
 
+                  <div className="py-1 pt-1 space-y-0.5 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/update-payment");
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <CreditCard className="h-4 w-4 text-emerald-400" />
+                      Payment / Renew
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/change-password");
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <KeyRound className="h-4 w-4 text-neutral-400" />
+                      Change Password
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/report");
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <AlertTriangle className="h-4 w-4 text-red-400" />
+                      Report a Problem
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/feedback");
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <MessageSquareHeart className="h-4 w-4 text-emerald-400" />
+                      Give Feedback
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        setSuggestionOpen(true);
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <Lightbulb className="h-4 w-4 text-amber-400" />
+                      Send a Suggestion
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/about");
+                      }}
+                      className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-xs font-semibold text-neutral-300 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                      <Info className="h-4 w-4 text-sky-400" />
+                      About MovieFlix
+                    </button>
+                  </div>
+
                   <div className="pt-1 border-t border-white/10">
                     <button
                       type="button"
@@ -266,6 +338,12 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
           </div>
         </div>
       </div>
+
+      {/* Suggestion Modal */}
+      <SuggestionModal open={suggestionOpen} onClose={() => setSuggestionOpen(false)} />
+
+      {/* Admin message toast notifications */}
+      <MessageToast variant="sliding" />
     </header>
   );
 }

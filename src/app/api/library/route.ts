@@ -7,8 +7,17 @@ import { successResponse, errorResponse } from "@/lib/api-response";
 import { startScan, getScanStatus, getScanHistory } from "@/services/scanner";
 import { v4 as uuidv4 } from "uuid";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    if (!adminToken) {
+      return errorResponse("Unauthorized", 401);
+    }
+    const payload = await verifyToken(adminToken);
+    if (!payload?.isAdmin) {
+      return errorResponse("Admin access required", 403);
+    }
+
     const libraries = await db.select().from(libraryConfig);
     const scan = getScanStatus();
 

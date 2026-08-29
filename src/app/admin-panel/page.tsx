@@ -22,6 +22,7 @@ import {
   Server,
   FolderOpen,
   Lock,
+  Megaphone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -35,6 +36,9 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { checkAdminSession } from "@/lib/client-auth";
+import { PaymentSubmissionsAdmin } from "@/components/admin/payment-submissions";
+import { MessageHistory } from "@/components/admin/message-history";
+import { ContactSubmissionsAdmin } from "@/components/admin/contact-submissions";
 
 interface AdminUser {
   id: string;
@@ -130,6 +134,14 @@ export default function AdminPage() {
   const [resetAccount, setResetAccount] = useState<Account | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [resetting, setResetting] = useState(false);
+
+  // Send message form
+  const [messageDialog, setMessageDialog] = useState<{
+    account: Account | null; // null => broadcast
+  } | null>(null);
+  const [messageText, setMessageText] = useState("");
+  const [broadcastOpen, setBroadcastOpen] = useState(false);
+  const [sendingMessage, setSendingMessage] = useState(false);
 
   useEffect(() => {
     checkAuth();
@@ -315,6 +327,37 @@ export default function AdminPage() {
     router.push("/admin-panel/login");
   }
 
+  async function handleSendMessage(account: Account | null) {
+    if (!messageText.trim()) {
+      alert("Please enter a message.");
+      return;
+    }
+    setSendingMessage(true);
+    try {
+      const response = await fetch("/api/admin/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: messageText.trim(),
+          accountId: account ? account.id : null,
+        }),
+      });
+      const data = await response.json();
+      if (data.success) {
+        setMessageText("");
+        setMessageDialog(null);
+        setBroadcastOpen(false);
+        alert(data.data?.message || "Message sent.");
+      } else {
+        alert(data.error || "Failed to send message");
+      }
+    } catch {
+      alert("Failed to send message");
+    } finally {
+      setSendingMessage(false);
+    }
+  }
+
   const filteredAccounts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return accounts;
@@ -493,6 +536,18 @@ export default function AdminPage() {
               </div>
 
               <Button
+                variant="outline"
+                onClick={() => {
+                  setMessageText("");
+                  setBroadcastOpen(true);
+                }}
+                className="h-9 rounded-xl border-white/15 bg-white/5 px-4 text-xs font-bold text-neutral-200 hover:bg-white/15"
+              >
+                <Megaphone className="mr-1.5 h-4 w-4 text-[#e50914]" />
+                Broadcast Message
+              </Button>
+
+              <Button
                 onClick={() => setAddModalOpen(true)}
                 className="btn-brand h-9 rounded-xl px-4 text-xs font-bold"
               >
@@ -625,6 +680,19 @@ export default function AdminPage() {
                         </Button>
 
                         <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/15"
+                          onClick={() => {
+                            setMessageText("");
+                            setMessageDialog({ account });
+                          }}
+                        >
+                          <Megaphone className="mr-1.5 h-3.5 w-3.5 text-[#e50914]" />
+                          Message
+                        </Button>
+
+                        <Button
                           variant="destructive"
                           size="sm"
                           className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20"
@@ -640,6 +708,15 @@ export default function AdminPage() {
             )}
           </div>
         </div>
+
+        {/* Payment Submissions */}
+        <PaymentSubmissionsAdmin />
+
+        {/* Sent Messages */}
+        <MessageHistory />
+
+        {/* Contact Submissions */}
+        <ContactSubmissionsAdmin />
 
         {/* Author Credits & Support Footer */}
         <footer className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-neutral-400">
@@ -891,6 +968,63 @@ export default function AdminPage() {
             >
               {resetting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <KeyRound className="mr-2 h-4 w-4" />}
               Update Password
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Message Modal (targeted or broadcast) */}
+      <Dialog
+        open={!!messageDialog || broadcastOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setMessageDialog(null);
+            setBroadcastOpen(false);
+          }
+        }}
+      >
+        <DialogContent className="glass-panel border-white/15 sm:max-w-md rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">Send a Message</DialogTitle>
+            <DialogDescription className="text-neutral-400">
+              {broadcastOpen
+                ? "Broadcast this message to every account. It appears as a toast on their next visit."
+                : `Send a private message to ${messageDialog?.account?.username}. It appears as a toast on their next visit.`}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-2">
+            <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Message</Label>
+            <textarea
+              value={messageText}
+              onChange={(e) => setMessageText(e.target.value)}
+              rows={5}
+              maxLength={2000}
+              placeholder="Enter your message…"
+              className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#e50914]/40"
+              autoFocus
+            />
+            <p className="mt-1 text-right text-[11px] text-neutral-500">{messageText.length}/2000</p>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button
+              variant="outline"
+              className="rounded-xl border-white/10"
+              onClick={() => {
+                setMessageDialog(null);
+                setBroadcastOpen(false);
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              className="btn-brand rounded-xl"
+              onClick={() => handleSendMessage(messageDialog?.account || null)}
+              disabled={sendingMessage || messageText.trim().length === 0}
+            >
+              {sendingMessage ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Megaphone className="mr-2 h-4 w-4" />}
+              Send
             </Button>
           </div>
         </DialogContent>

@@ -350,11 +350,11 @@ A `200` response confirms the app, database, and migration are healthy.
 
 ## Default Credentials
 
-- **Admin Panel:** `http://localhost:9000/admin-panel`
-- **Username:** `admin`
-- **Password:** `admin123`
+- **Admin Panel:** `http://localhost:9000/admin-panel/login`
 
-> **Immediately change the default password** in Admin Panel → Settings after first login.
+> There is **no seeded default admin**. On a fresh database the server logs a warning until you create an
+> administrator. Create the first admin from the Admin Panel → Settings → Administrators Roster → "Add Admin"
+> (requires admin session; start the app and use the Add Admin dialog, or add the admin row manually via the DB).
 
 ---
 

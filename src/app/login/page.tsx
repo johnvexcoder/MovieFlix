@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2, Lock, User, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -135,6 +136,12 @@ export default function LoginPage() {
                   <Label htmlFor="password" className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
                     Password
                   </Label>
+                  <Link
+                    href="/forgot-password"
+                    className="text-xs font-semibold text-neutral-400 transition-colors hover:text-[#e50914]"
+                  >
+                    Forgot password?
+                  </Link>
                 </div>
                 <div className="relative">
                   <Lock className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-neutral-500" />

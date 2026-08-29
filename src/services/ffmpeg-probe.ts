@@ -2,6 +2,7 @@ import ffmpeg from "fluent-ffmpeg";
 import ffmpegStatic from "ffmpeg-static";
 import path from "path";
 import fs from "fs/promises";
+import { isSafeFfmpegInput } from "@/lib/ffmpeg-security";
 
 let ffmpegConfigured = false;
 function ensureFfmpeg() {
@@ -28,6 +29,10 @@ export interface ProbeResult {
 
 export async function probeFile(filePath: string): Promise<ProbeResult | null> {
   try {
+    if (!isSafeFfmpegInput(filePath)) {
+      console.error(`Refusing to probe unsafe input path: ${filePath}`);
+      return null;
+    }
     ensureFfmpeg();
     await fs.access(filePath);
 
@@ -84,6 +89,10 @@ export async function generateThumbnail(
   percentage: number = 25
 ): Promise<boolean> {
   try {
+    if (!isSafeFfmpegInput(filePath)) {
+      console.error(`Refusing to generate thumbnail for unsafe input path: ${filePath}`);
+      return false;
+    }
     ensureFfmpeg();
     const dir = path.dirname(outputPath);
     await fs.mkdir(dir, { recursive: true });

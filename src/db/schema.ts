@@ -26,9 +26,80 @@ export const accounts = sqliteTable("accounts", {
   passwordHash: text("password_hash").notNull(),
   isTemp: integer("is_temp", { mode: "boolean" }).notNull().default(false),
   isLocked: integer("is_locked", { mode: "boolean" }).notNull().default(false),
+  mustChangePassword: integer("must_change_password", { mode: "boolean" }).notNull().default(false),
   durationHours: integer("duration_hours"),
   expiresAt: text("expires_at"),
   createdByAdminId: text("created_by_admin_id").references(() => admins.id),
+  createdAt: text("created_at").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+// ===========================================
+// PASSWORD RESET TOKENS TABLE
+// ===========================================
+export const passwordResetTokens = sqliteTable("password_reset_tokens", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull().references(() => accounts.id),
+  tokenHash: text("token_hash").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
+// ADMIN MESSAGES TABLE (targeted or broadcast)
+// ===========================================
+export const adminMessages = sqliteTable("admin_messages", {
+  id: text("id").primaryKey(),
+  message: text("message").notNull(),
+  accountId: text("account_id").references(() => accounts.id),
+  createdByAdminId: text("created_by_admin_id").references(() => admins.id),
+  createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
+// CONTACT SUBMISSIONS TABLE (Report / Feedback / Suggestion)
+// ===========================================
+export const contactSubmissions = sqliteTable("contact_submissions", {
+  id: text("id").primaryKey(),
+  type: text("type").notNull(),
+  subject: text("subject"),
+  message: text("message").notNull(),
+  accountId: text("account_id").references(() => accounts.id),
+  profileId: text("profile_id").references(() => profiles.id),
+  createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
+// PAYMENT METHODS TABLE (admin-managed)
+// ===========================================
+export const paymentMethods = sqliteTable("payment_methods", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  accountNumber: text("account_number").notNull(),
+  iconPath: text("icon_path"),
+  qrPath: text("qr_path"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+// ===========================================
+// PAYMENT SUBMISSIONS TABLE (user-submitted payments)
+// ===========================================
+export const paymentSubmissions = sqliteTable("payment_submissions", {
+  id: text("id").primaryKey(),
+  paymentMethodId: text("payment_method_id").references(() => paymentMethods.id),
+  accountId: text("account_id").notNull().references(() => accounts.id),
+  senderName: text("sender_name").notNull(),
+  senderAccountNumber: text("sender_account_number").notNull(),
+  amount: real("amount").notNull(),
+  referenceNumber: text("reference_number").notNull(),
+  receiptPath: text("receipt_path"),
+  status: text("status").notNull().default("pending"),
+  adminNote: text("admin_note"),
+  reviewedByAdminId: text("reviewed_by_admin_id").references(() => admins.id),
   createdAt: text("created_at").notNull().default(""),
   updatedAt: text("updated_at").notNull().default(""),
 });

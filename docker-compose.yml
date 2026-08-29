@@ -3,8 +3,10 @@ services:
     image: redis:alpine
     container_name: movieflix-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
+    # NOT published to the host. Redis is only reachable on the Docker internal
+    # network (service name "redis"), so it is not exposed on 0.0.0.0:6379.
+    expose:
+      - "6379"
     volumes:
       - ./data/redis:/data
     command: redis-server --appendonly yes
@@ -27,8 +29,10 @@ services:
       - REDIS_URL=redis://redis:6379
       # Optional: set your TMDB API Key here or in .env.local
       - TMDB_API_KEY=${TMDB_API_KEY:-}
-      - JWT_SECRET=${JWT_SECRET:-super-secret-jwt-key-change-in-production-64chars}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-super-secret-refresh-jwt-key-change-in-production}
+      # JWT secrets MUST be provided via a real .env file. There is deliberately
+      # no insecure fallback here — the app refuses to start without strong values.
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET to a random >=32 char string in .env}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET to a random >=32 char string in .env}
     volumes:
       # Persistent SQLite DB, thumbnails, and cache
       - ./data:/app/data
