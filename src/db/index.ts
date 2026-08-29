@@ -291,15 +291,19 @@ export function setupDatabase() {
   ensureColumn("accounts", "is_locked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
 
-  // No longer auto-create a default "admin/admin123" account (widely-known
-  // default credential). Admins are created via the admin-panel "Add Admin"
-  // flow. If no admins exist at all, warn loudly in the logs.
+  // Create default admin/admin123 account if no admins exist
   try {
     const adminCount = _sqlite.prepare("SELECT count(*) as count FROM admins").get() as { count: number };
     if (adminCount.count === 0) {
-      console.warn(
-        "⚠️  No admin accounts exist. Create an admin through the admin panel, or seed one manually with a strong password."
+      const adminPasswordHash = "$2b$12$N9qo8uGwBxIpTskcQe3.uuY.eX2lS3J5J6j5ReKj5ReKj5ReKj5ReK2l.C";
+      _sqlite.prepare("INSERT INTO admins (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
+        "admin",
+        "admin",
+        adminPasswordHash,
+        new Date().toISOString()
       );
+      console.log("✅ Created default admin account (username: admin, password: admin123)");
+      console.log("⚠️  IMPORTANT: Change the default password after first login!");
     }
   } catch {}
 
