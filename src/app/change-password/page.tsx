@@ -122,24 +122,22 @@ function ChangePasswordForm() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!required && (
-              <div className="space-y-1.5">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                  Current Password
-                </Label>
-                <div className="relative">
-                  <Lock className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-                  <Input
-                    type="password"
-                    value={current}
-                    onChange={(e) => setCurrent(e.target.value)}
-                    placeholder="Enter current password"
-                    className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500"
-                    required
-                  />
-                </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                Current Password
+              </Label>
+              <div className="relative">
+                <Lock className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+                <Input
+                  type="password"
+                  value={current}
+                  onChange={(e) => setCurrent(e.target.value)}
+                  placeholder={required ? "Enter temporary password" : "Enter current password"}
+                  className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500"
+                  required
+                />
               </div>
-            )}
+            </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">New Password</Label>
