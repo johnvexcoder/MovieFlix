@@ -165,12 +165,21 @@ export async function POST(request: NextRequest) {
         to: email,
         subject: "Welcome to MovieFlix!",
         html: `
-          <h1>Welcome to MovieFlix, ${fullName || username}!</h1>
-          <p>Your streaming account has been successfully created.</p>
-          <p><strong>Username:</strong> ${username}</p>
-          <p>Your temporary password has been shared with you separately. For security,
-             you will be required to set a new password of your own the first time you log in.</p>
-          <p>You can now log in and start watching at your convenience.</p>
+          <div style="max-width:600px; margin:0 auto; font-family:Arial,sans-serif;">
+            <div style="text-align:center; padding:20px 0;">
+              <img src="https://static.netflix.com/assets.netflix.com/sites/netflix/assets/branding/logo-red-4K-600x320.png"
+                alt="MovieFlix" style="max-height:40px;" />
+            </div>
+            <h1 style="color:#e50914; margin:20px 0 10px;">Hi ${fullName || username}!</h1>
+            <p>Thank you for joining MovieFlix. Your streaming account has been successfully created.</p>
+            <p><strong>Username:</strong> ${username}</p>
+            <p>For security, you will be required to set a new password of your own the first time you log in. Your temporary credentials were shared with you separately.</p>
+            <p>You can now log in and start watching at your convenience.</p>
+            <hr style="margin:30px 0; border-color:#eee;" />
+            <p style="font-size:12px; color:#666;;">Need help? Email us at support@movieflix.stream</p>
+            <img src="https://static.netflix.com/assets.netflix.com/sites/netflix/assets/branding/logo-red-4K-600x320.png"
+              alt="MovieFlix" style="display:block; margin:20px auto 0; max-height:40px;" />
+          </div>
         `,
       });
     }

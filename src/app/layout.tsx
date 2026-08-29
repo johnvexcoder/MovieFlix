@@ -22,6 +22,7 @@ export const metadata: Metadata = {
     template: "%s | MovieFlix",
   },
   description: "Self-hosted, private cinema and media streaming platform.",
+  viewport: "width=device-width, initial-scale=1",
   icons: {
     icon: [
       { url: "/favicon.ico", sizes: "32x32" },

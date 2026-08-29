@@ -422,9 +422,20 @@ export default function WatchPage() {
     if (!document.fullscreenElement) {
       container.requestFullscreen().catch(() => {});
       setFullscreen(true);
+      // Auto-rotate to landscape on mobile when entering fullscreen
+      if (/Mobi|Android/i.test(navigator.userAgent)) {
+        // Use screen orientation lock if available
+        ;(screen as any).orientation.lock
+          ? (screen as any).orientation.lock('landscape')
+          : void 0;
+      }
     } else {
       document.exitFullscreen().catch(() => {});
       setFullscreen(false);
+      // Unlock orientation when exiting fullscreen
+      ;(screen as any).orientation.unlock
+        ? (screen as any).orientation.unlock()
+        : void 0;
     }
     resetControlsTimer();
   }, [resetControlsTimer]);

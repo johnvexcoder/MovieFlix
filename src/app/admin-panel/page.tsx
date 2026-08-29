@@ -55,6 +55,7 @@ interface Account {
   createdAt: string;
   profileCount: number;
   isActive: boolean;
+  lastIp: string | null;
 }
 
 function formatRemaining(expiresAt: string | null, now: number): string {
@@ -113,6 +114,7 @@ export default function AdminPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [now, setNow] = useState(() => Date.now());
+  const [ipInfo, setIpInfo] = useState<Map<string, { ip: string | null; location: string | null }>>(new Map());
 
   // Add account form
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -183,6 +185,31 @@ export default function AdminPage() {
       setLoading(false);
     }
   }
+  useEffect(() => {
+    let mounted = true;
+    async function fetchIpInfo() {
+      try {
+        const res = await fetch("/api/admin/account-ip", { cache: "no-store" });
+        const data = await res.json();
+        if (data.success && mounted) {
+          const map = new Map<string, { ip: string | null; location: string | null }>();
+          data.data.accounts.forEach((a: any) => {
+            map.set(a.id, {
+              ip: a.lastIp || "Not available",
+              location: a.lastIp ? "Last connected" : null,
+            });
+          });
+          setIpInfo(map);
+        }
+      } catch (error) {
+        console.error("Failed to fetch IP info:", error);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    fetchIpInfo();
+    return () => { mounted = false; };
+  }, []);
 
   async function handleAddAccount() {
     if (!newUsername.trim() || !newPassword.trim()) return;
