@@ -295,7 +295,7 @@ export function setupDatabase() {
   try {
     const adminCount = _sqlite.prepare("SELECT count(*) as count FROM admins").get() as { count: number };
     if (adminCount.count === 0) {
-      const adminPasswordHash = "$2b$12$N9qo8uGwBxIpTskcQe3.uuY.eX2lS3J5J6j5ReKj5ReKj5ReKj5ReK2l.C";
+      const adminPasswordHash = "$2b$12$7Uw.WZV9BZzZu.3pG6.xZefujxDf0iQAU8UHBv/uPs8ZhIEPX6VLW";
       _sqlite.prepare("INSERT INTO admins (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
         "admin",
         "admin",
