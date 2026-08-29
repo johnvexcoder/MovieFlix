@@ -70,3 +70,57 @@ export async function GET(
     return errorResponse("Internal server error", 500);
   }
 }
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id } = await params;
+    const accessToken = request.cookies.get("access_token")?.value;
+    if (!accessToken) {
+      return errorResponse("Unauthorized", 401);
+    }
+
+    const payload = await verifyToken(accessToken);
+    if (!payload) {
+      return errorResponse("Invalid token", 401);
+    }
+
+    // Only admins can delete media
+    if (!payload.isAdmin) {
+      return errorResponse("Admin access required", 403);
+    }
+
+    const [mediaItem] = await db
+      .select()
+      .from(media)
+      .where(eq(media.id, id))
+      .limit(1);
+
+    if (!mediaItem) {
+      return errorResponse("Media not found", 404);
+    }
+
+    // Delete associated seasons and episodes for series
+    if (mediaItem.type === "series") {
+      const mediaSeasons = await db
+        .select()
+        .from(seasons)
+        .where(eq(seasons.mediaId, id));
+
+      for (const season of mediaSeasons) {
+        await db.delete(episodes).where(eq(episodes.seasonId, season.id));
+      }
+      await db.delete(seasons).where(eq(seasons.mediaId, id));
+    }
+
+    // Delete the media item
+    await db.delete(media).where(eq(media.id, id));
+
+    return successResponse({ message: "Media deleted successfully" });
+  } catch (error) {
+    console.error("Delete media error:", error);
+    return errorResponse("Internal server error", 500);
+  }
+}

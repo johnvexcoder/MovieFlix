@@ -187,6 +187,26 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
+  // Validate session ID (single-session enforcement)
+  if (payload.sessionId) {
+    const { getActiveSessions } = await import("@/lib/redis");
+    const activeSessions = await getActiveSessions(payload.profileId);
+    const isSessionValid = activeSessions.some((s) => s.sessionId === payload.sessionId);
+    
+    if (!isSessionValid) {
+      const response = pathname.startsWith("/api/")
+        ? NextResponse.json(
+            { error: "Session expired - logged in elsewhere" },
+            { status: 401 }
+          )
+        : NextResponse.redirect(getRedirectUrl("/login?session_expired=1", request));
+      
+      response.cookies.delete("access_token");
+      response.cookies.delete("refresh_token");
+      return response;
+    }
+  }
+
   // Enforce the "must change password" requirement: before the user can reach
   // any protected content, force them through the change-password page.
   if (account?.mustChangePassword && !isMustChangeAllowedPath(pathname)) {

@@ -53,3 +53,28 @@ export async function GET(request: NextRequest) {
     return errorResponse("Internal server error", 500);
   }
 }
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    if (!adminToken) {
+      return errorResponse("Unauthorized", 401);
+    }
+    const payload = await verifyToken(adminToken);
+    if (!payload?.isAdmin) {
+      return errorResponse("Admin access required", 403);
+    }
+
+    const body = await request.json();
+    const { id } = body;
+    if (!id) {
+      return errorResponse("Method ID is required", 400);
+    }
+
+    await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
+    return successResponse({ message: "Payment method deleted" });
+  } catch (error) {
+    console.error("Delete payment method error:", error);
+    return errorResponse("Internal server error", 500);
+  }
+}

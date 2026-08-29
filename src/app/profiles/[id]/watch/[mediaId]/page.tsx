@@ -113,6 +113,23 @@ export default function WatchPage() {
   const [preparingQuality, setPreparingQuality] = useState(false);
   const preparingAbortRef = useRef<AbortController | null>(null);
 
+  // Handle fullscreen change (e.g., user presses ESC, uses browser menu)
+  useEffect(() => {
+    const onFullscreenChange = () => {
+      const video = videoRef.current;
+      if (!document.fullscreenElement) {
+        setFullscreen(false);
+        if (video) video.setAttribute('playsInline', '');
+        ;(screen as any).orientation.unlock
+          ? (screen as any).orientation.unlock()
+          : void 0;
+      }
+    };
+
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+  }, []);
+
   // Build the transcode base URL for this media/episode
   const transcodeBase = `/api/media/${mediaId}/transcode${episodeParam ? `?episode=${episodeParam}` : ""}`;
 
@@ -417,10 +434,16 @@ export default function WatchPage() {
 
   const toggleFullscreen = useCallback(() => {
     const container = containerRef.current;
-    if (!container) return;
+    const video = videoRef.current;
+    if (!container || !video) return;
 
     if (!document.fullscreenElement) {
-      container.requestFullscreen().catch(() => {});
+      // Remove playsInline for iOS fullscreen support
+      video.removeAttribute('playsInline');
+      container.requestFullscreen().catch(() => {
+        // Re-add playsInline if fullscreen fails
+        video.setAttribute('playsInline', '');
+      });
       setFullscreen(true);
       // Auto-rotate to landscape on mobile when entering fullscreen
       if (/Mobi|Android/i.test(navigator.userAgent)) {
@@ -432,6 +455,8 @@ export default function WatchPage() {
     } else {
       document.exitFullscreen().catch(() => {});
       setFullscreen(false);
+      // Re-add playsInline when exiting fullscreen
+      video.setAttribute('playsInline', '');
       // Unlock orientation when exiting fullscreen
       ;(screen as any).orientation.unlock
         ? (screen as any).orientation.unlock()

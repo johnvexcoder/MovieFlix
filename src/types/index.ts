@@ -182,6 +182,7 @@ export interface JWTPayload {
   isAdmin: boolean;
   fingerprint: string;
   tokenVersion: number;
+  sessionId?: string;
 }
 
 export interface AccountWithProfiles extends Account {

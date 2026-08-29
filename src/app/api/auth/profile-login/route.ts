@@ -4,7 +4,8 @@ import { profiles, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { comparePin, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { setRateLimit, getTokenVersion } from "@/lib/redis";
+import { setRateLimit, getTokenVersion, revokeTokenVersion, setActiveSession, getActiveSessions, revokeAllSessionsExcept } from "@/lib/redis";
+import { v4 as uuidv4 } from "uuid";
 
 export async function POST(request: NextRequest) {
   try {
@@ -70,11 +71,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Check for existing active sessions for this profile
+    const sessionId = uuidv4();
+    const activeSessions = await getActiveSessions(profile.id);
+    
+    if (activeSessions.length > 0) {
+      // Revoke all existing sessions (single-session policy)
+      await revokeAllSessionsExcept(profile.id, sessionId);
+      // Also revoke token version to invalidate existing tokens
+      await revokeTokenVersion(profile.id);
+      
+      // TODO: In a real implementation, you'd want to notify the existing session(s)
+      // via WebSocket or Server-Sent Events to show a "logged in elsewhere" message
+    }
+
+    // Register the new active session
+    await setActiveSession(profile.id, sessionId, {
+      ip: getClientIp(request),
+      userAgent: request.headers.get("user-agent") || "",
+      loginTime: Date.now(),
+    });
+
     const accessToken = generateAccessToken({
       profileId: profile.id,
       accountId: account.id,
       isAdmin: false,
       fingerprint: extractIpSubnet(ip),
+      sessionId,
     });
 
     const tokenVersion = await getTokenVersion(profile.id);

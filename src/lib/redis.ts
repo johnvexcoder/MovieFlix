@@ -124,3 +124,64 @@ export async function closeRedis(): Promise<void> {
     redis = null;
   }
 }
+
+/**
+ * Track active sessions per profile to enforce single-session policy
+ */
+export async function setActiveSession(
+  profileId: string,
+  sessionId: string,
+  metadata: Record<string, unknown> = {},
+  expirySeconds: number = 7 * 24 * 60 * 60
+): Promise<void> {
+  const client = getRedisClient();
+  const key = `active_sessions:${profileId}`;
+  const sessionData = JSON.stringify({
+    sessionId,
+    createdAt: Date.now(),
+    ...metadata,
+  });
+  await client.hset(key, sessionId, sessionData);
+  await client.expire(key, expirySeconds);
+}
+
+export async function getActiveSessions(profileId: string): Promise<
+  Array<{ sessionId: string; createdAt: number; metadata: Record<string, unknown> }>
+> {
+  const client = getRedisClient();
+  const sessions = await client.hgetall(`active_sessions:${profileId}`);
+  return Object.entries(sessions).map(([sessionId, data]) => {
+    const parsed = JSON.parse(data);
+    return { sessionId, createdAt: parsed.createdAt, metadata: parsed };
+  });
+}
+
+export async function removeActiveSession(profileId: string, sessionId: string): Promise<void> {
+  const client = getRedisClient();
+  await client.hdel(`active_sessions:${profileId}`, sessionId);
+}
+
+export async function revokeAllSessionsExcept(profileId: string, keepSessionId: string): Promise<number> {
+  const client = getRedisClient();
+  const key = `active_sessions:${profileId}`;
+  const sessions = await client.hkeys(key);
+  const toRemove = sessions.filter((id) => id !== keepSessionId);
+  if (toRemove.length > 0) {
+    await client.hdel(key, ...toRemove);
+  }
+  return toRemove.length;
+}
+
+/**
+ * Get the current session ID from a refresh token (if available)
+ */
+export function extractSessionIdFromToken(token: string): string | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const payload = JSON.parse(Buffer.from(parts[1], 'base64').toString());
+    return payload.sessionId || null;
+  } catch {
+    return null;
+  }
+}
