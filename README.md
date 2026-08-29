@@ -1,228 +1,395 @@
 <div align="center">
 
-<img src="public/logo.svg" width="120" height="120" alt="MovieFlix Logo" />
+<img src="public/logo.svg" width="110" height="110" alt="MovieFlix Logo" />
 
 # MovieFlix
 
 **Self-Hosted, Private Media Streaming Platform**
 
-An enterprise-grade media streaming server and client designed to deliver an authentic Netflix-inspired streaming experience from local and networked storage (NAS / HDD).
+An enterprise-grade media streaming server and client delivering an authentic Netflix-inspired experience from your own local and networked storage (NAS / HDD). Index, enrich, protect, and stream your movie and TV library — all under your control.
 
-[![Author](https://img.shields.io/badge/Author-John%20Vex%20Coder-red?style=for-the-badge&logo=github)](https://github.com/johnvexcoder)
-[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Ko--Fi-orange?style=for-the-badge&logo=kofi)](https://ko-fi.com/johnvexcoder)
 [![Next.js](https://img.shields.io/badge/Next.js-16.3-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
-[![React](https://img.shields.io/badge/React-19-blue?style=for-the-badge&logo=react)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind-4.0-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com)
-[![SQLite](https://img.shields.io/badge/SQLite-Drizzle%20ORM-003B57?style=for-the-badge&logo=sqlite)](https://orm.drizzle.team)
+[![React](https://img.shields.io/badge/React-19-61DAFB?style=for-the-badge&logo=react)](https://react.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript)](https://www.typescriptlang.org)
+[![Tailwind](https://img.shields.io/badge/Tailwind_CSS-4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com)
+[![SQLite](https://img.shields.io/badge/SQLite-Drizzle-003B57?style=for-the-badge&logo=sqlite)](https://orm.drizzle.team)
+[![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?style=for-the-badge&logo=redis)](https://redis.io)
+[![FFmpeg](https://img.shields.io/badge/FFmpeg-Transcode-007808?style=for-the-badge&logo=ffmpeg)](https://ffmpeg.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com)
-
----
+[![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge&logo=gnu)](LICENSE)
 
 </div>
 
-## Overview
+---
 
-MovieFlix indexes local media directories into an organized, responsive streaming platform. The system inspects media files using FFprobe, extracts metadata and high-resolution artwork via The Movie Database (TMDB) API, and serves video streams via HTTP 206 Partial Content range requests.
+## Table of Contents
 
-The interface includes a Web Audio startup intro animation, multi-profile user management with optional 4-digit PIN access, temporary guest accounts with automated background cleanup, and an administrative command center for library monitoring and system configuration.
+- [Overview](#overview)
+- [Features](#features)
+- [System Architecture](#system-architecture)
+- [Tech Stack](#tech-stack)
+- [Quick Start](#quick-start)
+- [Environment Configuration](#environment-configuration)
+- [Media Directory Structure](#media-directory-structure)
+- [Maintenance & Operations](#maintenance--operations)
+- [Updating](#updating)
+- [Troubleshooting](#troubleshooting)
+- [Default Credentials](#default-credentials)
+- [Contributing](#contributing)
+- [Author & Credits](#author--credits)
+- [License](#license)
 
 ---
 
-## Core Capabilities
+## Overview
 
-### 1. Cinematic Startup Animation
-- **3D Laser Ribbons:** Multi-layered, gradient-shaded laser ribbons forming the MovieFlix "M" monogram with specular highlights.
-- **Hyperspace Light Burst:** 42 radial spectrum light beams with particle acceleration, shockwave rings, and optical dispersion.
-- **Synthesized Audio:** Multi-harmonic sub-bass impact, brass swells, and high-frequency shimmer synthesized in real-time using the browser Web Audio API with zero external audio assets.
-- **Controls:** Sound toggle, click-to-skip, or keyboard shortcuts (`Space` / `Escape`).
+MovieFlix scans your local media directories and turns them into an organized, responsive streaming platform. It probes every file with **FFprobe**, enriches titles with rich artwork and metadata from **The Movie Database (TMDB)**, and streams video over **HTTP 206 partial-content** requests with support for transcoding, subtitles, and download protection.
 
-### 2. Multi-Profile Management and Security
-- **Profile Architecture:** Up to 5 customizable user profiles per account with independent watch history and preferences.
-- **Avatar Browser:** Categorized emoji and avatar icon browser with search capabilities.
-- **PIN Lock Protection:** Optional 4-digit PIN security with animated digit dials, auto-focus, and input validation.
+The platform includes a cinematic Web Audio startup intro, multi-profile management with optional 4-digit PIN locking, time-limited trial accounts with automated cleanup, and a full administrative command center.
 
-### 3. Temporary and Trial Account Lifecycle
-- **Configurable Durations:** Admin provisioning of time-limited accounts (12 hours, 24 hours, 3 days, 7 days, or custom durations).
-- **Time Remaining Meters:** Visual time-remaining indicators with color-coded status alerts.
-- **Automated Daemon Cleanup:** Periodic background service executing every 5 minutes to identify expired accounts and purge associated profiles and watch data.
+---
 
-### 4. Automated Media Scanning and Metadata
-- **Filesystem Indexing:** Recursive directory scanning supporting `.mp4`, `.mkv`, `.webm`, `.avi`, `.mov`, and `.ts` files.
-- **Filename Parser:** Pattern matching for titles, release years, seasons, and episodes.
-- **TMDB Integration:** Automated retrieval of synopses, cast, directors, genres, release dates, maturity ratings, posters, backdrops, and episode stills.
-- **Media Probing:** FFprobe inspection of video/audio codecs, bitrates, dimensions, and automated 25% duration thumbnail extraction.
+## Features
 
-### 5. Television Series Structure
-- **Hierarchy:** Season-by-season tabbed navigation with episode lists, stills, and descriptions.
-- **Auto-Play Progression:** Automated countdown overlay leading into the next episode.
-- **In-Player Episode Selector:** Switch episodes without leaving the active playback session.
+### Player & Streaming
+- **HTTP 206 Range Streaming** — low-latency byte-range delivery with random seeking and download protection (chunk caps + integrity headers).
+- **Adaptive Quality** — user-selectable transcoded renditions (360p → 4K), produced on demand with FFmpeg and cached to disk.
+- **Subtitles** — automatic detection of local `.srt` / `.vtt` files adjacent to your media, served with SRT→VTT conversion and an in-player CC menu.
+- **Error Recovery** — automatic reload-and-resume on playback errors or stalls, with a manual retry overlay as a fallback.
+- **Smart Resume** — watch position synced every 5 seconds; tap resume exactly where you left off.
 
-### 6. Video Player and Streaming Engine
-- **HTTP 206 Range Streaming:** Low-latency byte-range delivery supporting random seeking.
-- **Smart Progress Resume:** Periodic watch progress synchronization (every 5 seconds) allowing instant playback resumption.
-- **Custom Player HUD:** Auto-hiding control bar (3.5s inactivity timeout) with cursor concealment.
-- **Controls and Shortcuts:**
-  - Fast seek (`±10s`) via `J` / `L` or Arrow keys.
-  - Playback rate adjustment (`0.75x`, `1.0x`, `1.25x`, `1.5x`, `2.0x`).
-  - Native Fullscreen (`F`) and Picture-in-Picture (`P`).
-  - Interactive scrubber with buffer tracker and hover timestamp tooltips.
-  - Shortcut cheatsheet (`?`).
+### Media Library & Metadata
+- **Automated Media Scanning** — recursive directory indexing for `.mp4`, `.mkv`, `.webm`, `.avi`, `.mov`, and `.ts`.
+- **Smart Filename Parsing** — extracts titles, release years, seasons, and episodes from file names.
+- **TMDB Metadata** — synopses, genres, ratings, maturity ratings, posters, backdrops, and episode stills.
+- **Local Artwork Fallback** — a matching `poster.jpg` / `folder.jpg` / `backdrop.jpg` next to your video is used automatically before falling back to TMDB.
 
-### 7. Administration Command Center (`/admin-panel`)
-- **System Telemetry:** Real-time metrics for active accounts, expired accounts, total profiles, and server health.
-- **Account Control:** 1-click duration extensions (+24h, +48h, +7d), credential resets, and account deletion.
-- **Library Configuration:** Directory mapping, content category assignment (Movies / TV Series), enable/disable toggles, and manual scan triggers.
-- **Settings Management:** TMDB API key configuration, scanner interval tuning, session limits, and administrator credentials.
+### Profiles & Accounts
+- **Multi-Profile Accounts** — up to 5 profiles per account with independent watch history and preferences.
+- **PIN Lock** — optional 4-digit PIN protection with animated input.
+- **Trial & Temporary Accounts** — configurable durations with automated cleanup daemon.
+- **Account Locking** — admins can lock/unlock accounts and enforce it on every auth path.
+
+### Administration (`/admin-panel`)
+- Real-time system telemetry (accounts, profiles, server health).
+- One-click duration extensions, credential resets, and account deletion.
+- Library path mapping with Movies/TV category assignment and manual scan triggers.
+- Settings: TMDB key, scanner intervals, session limits, SMTP, and admin credentials.
 
 ---
 
 ## System Architecture
 
 ```
-+-------------------------------------------------------------------+
-|                        CLIENT BROWSER                             |
-|  - Startup Intro Animation (Web Audio API Synthesizer)            |
-|  - Profile Selector with 4-Digit PIN Authentication               |
-|  - Floating Navbar, Hero Spotlight & Content Carousels            |
-|  - Custom Video Player (HTTP 206 Range Streaming & Resume)        |
-+---------------------------------+---------------------------------+
-                                  |
-                           Port 9000 (HTTP)
-                                  |
-+---------------------------------v---------------------------------+
-|                      NEXT.JS 16 APP SERVER                        |
-|                                                                   |
-|  +------------------------------+  +---------------------------+  |
-|  |         API Routes           |  |    Services & Daemons     |  |
-|  |  /api/auth/*                 |  |  Media Scanner            |  |
-|  |  /api/media/*                |  |  TMDB Metadata Service    |  |
-|  |  /api/media/[id]/stream      |  |  FFprobe Inspector        |  |
-|  |  /api/admin/*                |  |  Account Cleanup Daemon   |  |
-|  +--------------+---------------+  +-------------+-------------+  |
-|                 |                                |                |
-|  +--------------v--------------------------------v-------------+  |
-|  |                    SQLite (Drizzle ORM)                     |  |
-|  |  Admins | Accounts | Profiles | Media | WatchHistory | Logs |  |
-|  +-------------------------------------------------------------+  |
-+---------------------------------+---------------------------------+
-                                  |
-+---------------------------------v---------------------------------+
-|                   LOCAL / NAS MEDIA VOLUMES                       |
-|           /media/movies/                /media/series/            |
-+-------------------------------------------------------------------+
++---------------------------------------------------------------------------------------------------+
+|                                     CLIENT BROWSER                                                 |
+|   Startup Intro · Profile Selector · PIN Auth · Navbar · Hero · Carousels · Custom Video Player   |
++----------------------------------------------+----------------------------------------------------+
+                                               |
+                                       Port 9000 (HTTP)
+                                               |
++----------------------------------------------v----------------------------------------------------+
+|                                    NEXT.JS 16 (APP SERVER)                                          |
+|                                                                                                    |
+|   +-----------------------------+        +-----------------------------+                          |
+|   |   API Routes                |        |   Services & Background     |                          |
+|   | /api/auth/*   auth/JWT      |        |  Media Scanner (cron)       |                          |
+|   | /api/media/*  library/home  |        |  TMDB Metadata Service     |                          |
+|   | /api/media/[id]/stream      |        |  FFprobe Inspector         |                          |
+|   | /api/media/[id]/transcode   |        |  Transcode Worker          |                          |
+|   | /api/media/[id]/subtitles   |        |  Account Cleanup Daemon    |                          |
+|   | /api/media/[id]/image       |        |  Expiry Reminder / Email   |                          |
+|   | /api/reminder  settings     |        +-------------+--------------+                          |
+|   +-------------+---------------+                      |                                           |
+|                 |                                      |                                           |
+|   +-------------v--------------------------------------v---------------------------------------+   |
+|   |   Persistence                                                 | Media Processing                |   |
+|   |   SQLite (Drizzle ORM)     Admins/Accounts/Profiles/Media/... | FFmpeg/FFprobe (transcode,      |   |
+|   |   Redis (sessions/cache)                                      | thumbnails, probes)             |   |
+|   +---------------------------------------------------------------+--------------------------------+   |
++---------------------------------------------------------------------------------------------------+
+                                               |
+                                               | Read-only mounts
+                                               |
++----------------------------------------------v----------------------------------------------------+
+|                              LOCAL / NAS MEDIA VOLUMES                                               |
+|                    /media/movies        /media/series                                                 |
++---------------------------------------------------------------------------------------------------+
 ```
+
+### Data Flow
+
+1. **Scan** — the media scanner walks configured library paths, parses filenames, probes files with FFprobe, and fetches metadata from TMDB.
+2. **Index** — results are stored in SQLite; posters/backdrops use local files when present.
+3. **Browse** — the client loads carousels from `/api/media` including per-profile watch progress.
+4. **Stream** — the player requests byte-range chunks from `/api/media/[id]/stream`; lower qualities are transcoded on demand via `/api/media/[id]/transcode`.
+5. **Protect** — all streams and images are auth-gated, range-restricted, and capped to prevent unauthorized bulk downloads.
 
 ---
 
 ## Tech Stack
 
-- **Framework:** Next.js 16 (App Router, Turbopack)
-- **UI & Components:** React 19, Tailwind CSS 4, shadcn/ui
-- **Motion & Transitions:** Framer Motion
-- **Database:** SQLite with better-sqlite3 and Drizzle ORM
-- **Media Processing:** FFmpeg and FFprobe via fluent-ffmpeg & ffmpeg-static
-- **Metadata Provider:** The Movie Database (TMDB) API
-- **Security:** JWT Access/Refresh Tokens (`jose`), `bcryptjs` password/PIN hashing
+| Layer | Technology |
+|-------|-----------|
+| Framework | Next.js 16 (App Router, Turbopack) |
+| UI | React 19, Tailwind CSS 4, shadcn/ui + Base UI |
+| Motion | Framer Motion |
+| Database | SQLite (better-sqlite3) with Drizzle ORM |
+| Cache / Sessions | Redis (ioredis) |
+| Media Processing | FFmpeg / FFprobe (fluent-ffmpeg, ffmpeg-static) |
+| Metadata | The Movie Database (TMDB) API |
+| Auth | JWT Access/Refresh (`jose`), `bcryptjs` password/PIN hashing |
+| Email | Nodemailer (SMTP — Gmail app passwords) |
 
 ---
 
-## Getting Started
+## Quick Start
 
-### Method 1: Local Installation
+### Option A — Docker Compose (recommended)
 
-#### 1. Requirements
-- Node.js 20+ LTS
-- npm or pnpm
+Requirements: **Docker** + **Docker Compose**, and a valid **TMDB API key** (free at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)).
 
-#### 2. Installation
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/johnvexcoder/MovieFlix.git
+   cd MovieFlix
+   ```
+
+2. **Configure environment variables** via the shell (used by `docker-compose.yml`):
+   ```bash
+   cp .env.example .env.local
+   # Then export TMDB_API_KEY, JWT_SECRET, JWT_REFRESH_SECRET in your shell or .env
+   export TMDB_API_KEY=your_tmdb_api_key
+   export JWT_SECRET=$(openssl rand -hex 32)
+   export JWT_REFRESH_SECRET=$(openssl rand -hex 32)
+   ```
+
+3. **Point the mounts at your media** — edit the `volumes:` block in `docker-compose.yml`:
+   ```yaml
+   volumes:
+     - ./data:/app/data                                  # Persistent SQLite + thumbnails
+     - /path/to/your/movies:/media/movies:ro             # Read-only movie library
+     - /path/to/your/series:/media/series:ro             # Read-only series library
+   ```
+
+4. **Build & start:**
+   ```bash
+   docker compose up -d --build
+   ```
+
+5. **Verify:**
+   ```bash
+   docker compose ps
+   curl http://localhost:9000/api/health
+   ```
+   Then open **http://localhost:9000**.
+
+### Option B — Local Development
+
+Requirements: **Node.js 20+**, npm, and a running **Redis** instance (or use Docker for just Redis).
+
 ```bash
 npm install
+cp .env.example .env.local     # then edit values
+npm run db:seed                # initialize the database
+npm run dev                    # starts server on :9000
 ```
 
-#### 3. Environment Configuration
-Copy `.env.example` to `.env.local`:
-```bash
-cp .env.example .env.local
-```
+Scripts:
 
-#### 4. Database Initialization
-```bash
-npm run db:seed
-```
-
-#### 5. Start Application
-```bash
-npm run dev
-```
-Navigate to `http://localhost:9000`.
+| Command | Description |
+|---------|-------------|
+| `npm run dev` | Start the dev server on `:9000` |
+| `npm run build` | Build for production |
+| `npm run start` | Start the production build |
+| `npm run typecheck` | Run the TypeScript type checker |
+| `npm run lint` | Run ESLint |
+| `npm run db:seed` | Seed the database |
+| `npm run db:studio` | Open Drizzle Studio |
+| `npm run db:generate` / `db:migrate` / `db:push` | Drizzle migrations |
 
 ---
 
-### Method 2: Docker Compose
+## Environment Configuration
 
-Deploy the application within an isolated Docker container with persistent volumes for database records and media files:
+Full reference (see [.env.example](.env.example)):
 
-#### 1. Directory Mapping in `docker-compose.yml`
-```yaml
-volumes:
-  - ./data:/app/data                        # Persistent SQLite database and thumbnails
-  - /path/to/your/movies:/media/movies:ro   # Read-only movie directory
-  - /path/to/your/series:/media/series:ro   # Read-only series directory
-```
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `APP_PORT` | Main app port | `9000` |
+| `DATABASE_PATH` | SQLite database file path | `./data/database.sqlite` |
+| `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
+| `JWT_SECRET` / `JWT_REFRESH_SECRET` | JWT signing secrets (use long random strings) | *(required)* |
+| `TMDB_API_KEY` | Movie Database API key | *(required for metadata)* |
+| `MEDIA_MOVIES_PATH` / `MEDIA_SERIES_PATH` | Library mount paths | `/media/movies`, `/media/series` |
+| `FFMPEG_PATH` | Path to the ffmpeg binary | `ffmpeg` |
+| `TRANSCODE_TEMP_DIR` | Where transcoded renditions are cached | `./data/transcode-temp` |
+| `TRANSCODE_MAX_CONCURRENT` | Max simultaneous transcodes | `2` |
+| `SCAN_INTERVAL_MINUTES` | Auto-scan interval | `10` |
+| `SCAN_ON_STARTUP` | Scan when the app boots | `true` |
+| `TRIAL_*` | Trial account durations, cleanup, and reminders | — |
+| `MAX_CONCURRENT_SESSIONS` | Sessions allowed per account | `3` |
+| `ADMIN_ALLOWED_IPS` | CIDR allow-list for the admin panel | — |
+| `SMTP_HOST/PORT/USER/PASS/FROM` | Outbound email (notifications/reset) | — |
 
-#### 2. Start Services
-```bash
-docker compose up -d --build
-```
-
-#### 3. Inspection and Health
-```bash
-docker compose logs -f
-curl http://localhost:9000/api/health
-```
-
----
-
-## Default Credentials
-
-- **Admin Panel URL:** `http://localhost:9000/admin-panel`
-- **Default Username:** `admin`
-- **Default Password:** `admin123`
-
-*Administrator credentials can be updated inside Admin Panel -> Settings.*
+> **Security:** always set strong, unique `JWT_SECRET` and `JWT_REFRESH_SECRET` values — never ship the defaults.
 
 ---
 
 ## Media Directory Structure
 
+MovieFlix auto-discovers content recursively. **Movies** are parsed as single titles; **series** are organized by season and episode. Name files so the title, year, season, and episode are extractable, and drop artwork/subtitles next to the video for automatic pickup.
+
 ```
-/media/
+/media
 ├── movies/
 │   ├── Inception (2010)/
-│   │   └── Inception (2010).mp4
+│   │   ├── Inception (2010).mp4
+│   │   └── poster.jpg                 ← optional local artwork (auto-used)
 │   ├── Interstellar (2014).mkv
 │   └── The Matrix (1999).mp4
 └── series/
     └── Breaking Bad/
         ├── Season 1/
-        │   ├── S01E01.mp4
-        │   └── S01E02.mp4
+        │   ├── Breaking Bad - S01E01.mp4
+        │   ├── Breaking Bad - S01E01.en.srt   ← optional subtitle
+        │   └── Breaking Bad - S01E02.mp4
         └── Season 2/
-            ├── S02E01.mp4
-            └── S02E02.mp4
+            └── Breaking Bad - S02E01.mp4
 ```
+
+### Naming Conventions
+
+| Type | Example | How it's parsed |
+|------|---------|-----------------|
+| Movie | `Inception (2010).mp4` | Title + year |
+| Episode | `Breaking Bad - S01E02` | Series + season `01` + episode `02` |
+| Quality tag | `Movie 1080p.mkv` | Optional extra metadata |
+
+### Supported Formats
+
+- **Video:** `.mp4`, `.mkv`, `.webm`, `.avi`, `.mov`, `.ts`
+- **Artwork:** `poster.jpg/.png/.webp`, `folder.jpg`, `backdrop.jpg`, `fanart.jpg`, or `<movie-name>.jpg`
+- **Subtitles:** `.srt`, `.vtt` (place alongside the video, optional `en`/`english` language tag, e.g. `Movie.en.srt`)
+
+> If a media file requires transcoding (e.g. a codec browsers can't play natively), MovieFlix flags it and can produce an H.264/AAC rendition on demand.
 
 ---
 
-## Author and Credits
+## Maintenance & Operations
 
-- **Author:** **John Vex Coder**
-- **GitHub:** [https://github.com/johnvexcoder](https://github.com/johnvexcoder)
-- **Support / Buy Me a Coffee:** [https://ko-fi.com/johnvexcoder](https://ko-fi.com/johnvexcoder)
+### Data & Persistence
+- **Database:** SQLite file at `./data/database.sqlite` — back it up regularly (see below).
+- **Renditions:** transcoded qualities are cached under `./data/transcode-temp`; cleared automatically on re-transcode.
+- **Artwork/Thumbnails:** stored under `./data/thumbnails` and `./data/artwork`.
+- **Redis:** session/cache data in `./data/redis` (Docker volume) — safe to flush; sessions will simply re-issue tokens.
+
+### Backups
+Stop-safe backup (or use `sqlite3 .backup` for a live snapshot):
+```bash
+docker compose exec movieflix sh -c 'sqlite3 /app/data/database.sqlite ".backup /backup.sqlite"'
+# Then copy /backup.sqlite and your media library to another disk.
+```
+
+### Re-scanning the Library
+- **Manual:** Admin Panel → Libraries → *Scan now*.
+- **Automatic:** the scanner runs on the interval set in env (`SCAN_INTERVAL_MINUTES`, default 10) and at startup (`SCAN_ON_STARTUP`).
+
+### Resetting the Database (fresh start)
+```bash
+docker compose down
+rm -rf ./data/database.sqlite
+docker compose exec redis redis-cli FLUSHALL
+docker compose up -d --build
+```
+This wipes accounts, profiles, and watch history — keep a backup first.
+
+### Logs
+```bash
+docker compose logs -f movieflix
+docker compose logs -f redis
+```
+
+### Health
+```bash
+curl http://localhost:9000/api/health
+```
+A `200` response confirms the app, database, and migration are healthy.
+
+---
+
+## Updating
+
+1. **Pull & rebuild:**
+   ```bash
+   cd MovieFlix
+   git pull origin main
+   docker compose up -d --build
+   curl http://localhost:9000/api/health   # triggers any DB migrations
+   ```
+2. Database schema migrations run automatically on startup via the health check.
+3. If you maintain a fork or local changes, stash them before pulling (`git stash`), then re-apply.
+
+> **Release notes** are recorded in the commit history — `git log --oneline` gives a quick changelog for each update.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| App won't start / health fails | Missing `JWT_SECRET` or bad env | Set strong secrets, check `.env`/compose env |
+| No posters / metadata | Missing TMDB key or no internet | Add `TMDB_API_KEY`, confirm outbound HTTPS |
+| Media not showing | Wrong mount path or disabled library | Verify mounts are read-only-visible and library enabled in Admin Panel |
+| Playback fails for some files | Codec not browser-compatible | Let on-demand transcode produce an H.264/AAC rendition |
+| Downloading full file possible | Direct GET | Range-restriction is enforced; use a player that sends `Range` headers |
+| Redis connection errors | Redis down / wrong URL | `docker compose up -d redis`, confirm `REDIS_URL` |
+| Emails not sending | SMTP not configured | Configure SMTP in Admin Panel Settings (or env) |
+
+---
+
+## Default Credentials
+
+- **Admin Panel:** `http://localhost:9000/admin-panel`
+- **Username:** `admin`
+- **Password:** `admin123`
+
+> **Immediately change the default password** in Admin Panel → Settings after first login.
+
+---
+
+## Contributing
+
+Contributions, bug reports, and feature requests are welcome.
+
+1. Fork the repository and create a feature branch.
+2. Follow existing code style; run `npm run typecheck` and `npm run lint` before submitting.
+3. Open a pull request describing your change.
+4. For security issues, report privately rather than opening a public issue.
+
+---
+
+## Author & Credits
+
+Built with care by **[John Vex Coder](https://github.com/johnvexcoder)** ✨
+
+[![GitHub](https://img.shields.io/badge/GitHub-@johnvexcoder-181717?style=for-the-badge&logo=github)](https://github.com/johnvexcoder)
+[![Ko-Fi](https://img.shields.io/badge/Support%20me-Ko--Fi-FF5E5B?style=for-the-badge&logo=kofi&logoColor=white)](https://ko-fi.com/johnvexcoder)
+
+**Special thanks** to the open-source projects this platform builds upon: Next.js, React, Tailwind CSS, Drizzle ORM, FFmpeg, Redis, and The Movie Database (TMDB).
 
 ---
 
 ## License
 
-This project is open-source and intended for self-hosted, personal media streaming environments.
+This project is licensed under the **GNU General Public License v3.0 (GPL-3.0)**.
+
+You are free to use, modify, and distribute it, provided all derivative works are also distributed under the GPLv3. This project is intended for self-hosted, personal media streaming environments.
+
+See the full text in the [LICENSE](LICENSE) file, or at [gnu.org/licenses/gpl-3.0.html](https://www.gnu.org/licenses/gpl-3.0.html).
+
+---
+
+<div align="center">
+<p>Made with ❤️ for self-hosters.</p>
+</div>
