@@ -25,6 +25,28 @@ interface PaymentMethod {
 
 const FILE_PICKER_BASE = "/api/files?file=";
 
+// Method icon with a graceful fallback: if the stored image fails to load
+// (deleted file, revoked access, broken record), show a tidy letter tile
+// instead of the browser's broken-image glyph.
+function MethodIcon({ name, iconPath }: { name: string; iconPath: string | null }) {
+  const [failed, setFailed] = useState(false);
+  const tile = (
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 text-sm font-bold text-white">
+      {name.charAt(0).toUpperCase()}
+    </div>
+  );
+  if (!iconPath || failed) return tile;
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={FILE_PICKER_BASE + encodeURIComponent(iconPath)}
+      alt={name}
+      onError={() => setFailed(true)}
+      className="h-10 w-10 rounded-xl bg-white/10 object-contain"
+    />
+  );
+}
+
 export function PaymentMethodsManager() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
   const [loading, setLoading] = useState(true);
@@ -200,18 +222,7 @@ export function PaymentMethodsManager() {
               className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
             >
               <div className="flex items-center gap-3">
-                {m.iconPath ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={FILE_PICKER_BASE + encodeURIComponent(m.iconPath)}
-                    alt={m.name}
-                    className="h-10 w-10 rounded-xl bg-white/10 object-contain"
-                  />
-                ) : (
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-600 to-teal-800 text-sm font-bold text-white">
-                    {m.name.charAt(0).toUpperCase()}
-                  </div>
-                )}
+                <MethodIcon name={m.name} iconPath={m.iconPath} />
                 <div>
                   <p className="text-sm font-bold text-white">{m.name}</p>
                   <p className="text-[11px] font-mono text-neutral-400">{m.accountNumber}</p>

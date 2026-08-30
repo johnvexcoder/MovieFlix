@@ -275,3 +275,67 @@ export function extractSessionIdFromToken(token: string): string | null {
     return null;
   }
 }
+
+/**
+ * PIN brute-force protection.
+ *
+ * State is keyed by PROFILE (never by IP), so a shared egress IP can never
+ * lock a profile out and a mistake on one profile never affects another. A
+ * legitimate user gets effectively unlimited attempts between cooldowns;
+ * escalating backoff only kicks in after 5+ CONSECUTIVE failures, and any
+ * correct PIN clears the counter immediately.
+ */
+
+const PIN_FAIL_TTL_SECONDS = 15 * 60;
+
+export interface PinFailures {
+  count: number;
+  lockUntil: number;
+}
+
+export async function getPinFailures(profileId: string): Promise<PinFailures | null> {
+  try {
+    const raw = await getRedisClient().get(`pin_fail:${profileId}`);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<PinFailures>;
+    return {
+      count: Number(parsed.count) || 0,
+      lockUntil: Number(parsed.lockUntil) || 0,
+    };
+  } catch {
+    return null; // redis unavailable -> fail open (no lockout)
+  }
+}
+
+function nextPinLockUntil(count: number): number {
+  if (count >= 12) return Date.now() + 5 * 60 * 1000;
+  if (count >= 8) return Date.now() + 60 * 1000;
+  if (count >= 5) return Date.now() + 30 * 1000;
+  return 0;
+}
+
+/**
+ * Record one failed PIN attempt. Returns the lock-until timestamp (0 = not
+ * locked yet). The counter expires after `PIN_FAIL_TTL_SECONDS` of inactivity
+ * so old failures never translate into a permanent lockout.
+ */
+export async function recordPinFailure(profileId: string): Promise<number> {
+  try {
+    const key = `pin_fail:${profileId}`;
+    const prev = await getPinFailures(profileId);
+    const count = (prev?.count || 0) + 1;
+    const lockUntil = nextPinLockUntil(count);
+    await getRedisClient().setex(key, PIN_FAIL_TTL_SECONDS, JSON.stringify({ count, lockUntil }));
+    return lockUntil;
+  } catch {
+    return 0;
+  }
+}
+
+export async function clearPinFailures(profileId: string): Promise<void> {
+  try {
+    await getRedisClient().del(`pin_fail:${profileId}`);
+  } catch {
+    // noop
+  }
+}

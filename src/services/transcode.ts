@@ -84,6 +84,11 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
           "-c:a aac",
           "-b:a 128k",
           "-ac 2",
+          // Light volume gain on the transcoded rendition only (source file is
+          // never modified). Purely a perceptual boost for quiet sources —
+          // no dynamics processing, no loudness normalization.
+          "-af",
+          "volume=6dB",
           "-movflags",
           "frag_keyframe+empty_moov+faststart",
           "-f",

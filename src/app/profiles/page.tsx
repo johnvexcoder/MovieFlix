@@ -402,15 +402,20 @@ export default function ProfilesPage() {
         router.push(`/profiles/${profileId}/home`);
       } else {
         // Session rejected (409 profile in use / 429 account cap) or bad PIN.
-        if (response.status === 409) {
+        // Prefer the machine-readable code when present so the user sees a
+        // precise reason (PIN lockout stays inside the modal, for example).
+        if (data.code === "PROFILE_IN_USE" || response.status === 409) {
           setPinModal({ open: false, profile: null });
           setLoginError(
             data.error ||
               "This profile is already in use on another device. Select another profile to continue."
           );
-        } else if (response.status === 429) {
+        } else if (data.code === "ACCOUNT_SESSION_LIMIT" || response.status === 429) {
           setPinModal({ open: false, profile: null });
           setLoginError(data.error || "Too many active sessions. Please try again later.");
+        } else if (data.code === "PIN_LOCKOUT") {
+          setPinError("Too many incorrect PIN attempts. Please wait a moment and try again.");
+          setPinDigits(["", "", "", ""]);
         } else {
           setPinError(data.error || "Incorrect PIN code");
           setPinDigits(["", "", "", ""]);

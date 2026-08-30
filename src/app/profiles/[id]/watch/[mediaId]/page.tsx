@@ -58,9 +58,16 @@ export default function WatchPage() {
   const mediaId = params.mediaId as string;
   const episodeParam = searchParams.get("episode");
 
+  // Base URLs for the two stream modes (raw source vs transcoded rendition).
+  // Defined early so autoplay/fallback logic can reference them cleanly.
+  const streamSrc = `/api/media/${mediaId}/stream${episodeParam ? `?episode=${episodeParam}` : ""}`;
+
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const autoPlayAttemptedRef = useRef(false);
+  const autoFallbackDoneRef = useRef(false);
+  const userPausedRef = useRef(false);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [media, setMedia] = useState<MediaDetail | null>(null);
@@ -98,6 +105,13 @@ export default function WatchPage() {
   const [streamError, setStreamError] = useState<string | null>(null);
   const [buffering, setBuffering] = useState(false);
   const lastPositionRef = useRef(0);
+  // Current stream URL used by the <video> element. Switches between the raw
+  // source and transcoded renditions (manual quality pick or auto-fallback).
+  const [streamUrl, setStreamUrl] = useState(streamSrc);
+  const actionRefs = useRef<{
+    switchQuality: (height: number) => Promise<void>;
+    refreshSession: () => Promise<void>;
+  } | null>(null);
 
   // Subtitle state
   const [subtitles, setSubtitles] = useState<
@@ -112,6 +126,9 @@ export default function WatchPage() {
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [preparingQuality, setPreparingQuality] = useState(false);
   const preparingAbortRef = useRef<AbortController | null>(null);
+  // Latest values for the error-recovery handler: keeps the <video> listener
+  // effect's dependency list stable while still avoiding stale closures.
+  const latestValuesRef = useRef({ activeQuality, qualityHeights });
 
   // Handle fullscreen change (e.g., user presses ESC, uses browser menu)
   useEffect(() => {
@@ -231,6 +248,35 @@ export default function WatchPage() {
     }
   }
 
+  // Silent session refresh. The access token lives only 15 minutes and the
+  // middleware rejects requests past that — which kills the browser video
+  // element's ongoing range requests mid-playback ("Playback was interrupted").
+  // Refreshing quietly keeps a valid token on every fetch the player issues.
+  const refreshSession = useCallback(async () => {
+    try {
+      await fetch("/api/auth/refresh", { method: "POST", cache: "no-store" });
+    } catch {
+      // Silently ignore — next attempt/retry will surface a real error if any.
+    }
+  }, []);
+
+  // Refresh immediately on mount and every 4 minutes (safely under the
+  // 15-minute expiry), plus whenever the tab becomes visible again after an
+  // extended pause (a common trigger for an expired token mid-session).
+  useEffect(() => {
+    const timer = setInterval(() => {
+      refreshSession();
+    }, 4 * 60 * 1000);
+    const onVisibility = () => {
+      if (document.visibilityState === "visible") refreshSession();
+    };
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refreshSession]);
+
   // Restore watch progress on metadata load
   const restoreProgress = useCallback(async () => {
     if (initialSeekDoneRef.current) return;
@@ -309,11 +355,16 @@ export default function WatchPage() {
 
     const onLoadedMetadata = () => {
       setDuration(video.duration);
+      // A fresh source is loaded: re-allow the one-shot autoplay attempt.
+      autoPlayAttemptedRef.current = false;
       restoreProgress();
     };
 
     const onPlay = () => setPlaying(true);
-    const onPause = () => setPlaying(false);
+    const onPause = () => {
+      setPlaying(false);
+      userPausedRef.current = true;
+    };
     const onEnded = () => {
       setPlaying(false);
       if (nextEpisode) {
@@ -326,6 +377,13 @@ export default function WatchPage() {
     const onCanPlay = () => {
       setBuffering(false);
       setStreamError(null);
+      // Autoplay attempt: works when the user reached this page through a
+      // gesture (e.g. tapping Play Now). Browsers block it otherwise and
+      // reject the promise — the user then simply taps the center control.
+      if (!autoPlayAttemptedRef.current && !userPausedRef.current) {
+        autoPlayAttemptedRef.current = true;
+        video.play().catch(() => {});
+      }
     };
     const onWaiting = () => {
       if (video.paused) return;
@@ -338,7 +396,25 @@ export default function WatchPage() {
       setBuffering(false);
       setPlaying(false);
       const failedPos = video.currentTime || lastPositionRef.current;
-      // Retry a few times with the same stream key (reload current src)
+
+      // When the raw source fails to play (container/codec the browser cannot
+      // decode, or a transient 401 from an expired token), automatically fall
+      // back to a transcoded rendition if one is available. Only do this once.
+      const latest = latestValuesRef.current;
+      if (
+        latest.activeQuality === "source" &&
+        latest.qualityHeights.length > 0 &&
+        !autoFallbackDoneRef.current
+      ) {
+        autoFallbackDoneRef.current = true;
+        const autoHeight = latest.qualityHeights.find((h) => h <= 1080) ?? latest.qualityHeights[0];
+        void actionRefs.current?.switchQuality(autoHeight);
+        return;
+      }
+
+      // Otherwise retry the current source a few times — refreshing the
+      // session first, because a stale access token 401s the proxy and torches
+      // the media element's range requests.
       setRecoverAttempts((prev) => {
         if (prev >= 3) {
           setStreamError("Playback was interrupted. Tap to retry.");
@@ -346,15 +422,17 @@ export default function WatchPage() {
         }
         return prev + 1;
       });
-      // Slight delay, then reload and resume
-      setTimeout(() => {
-        if (failedPos > 0) {
-          video.currentTime = failedPos;
-          lastPositionRef.current = failedPos;
-        }
-        video.load();
-        video.play().catch(() => {});
-      }, 800);
+      // Refresh session, then reload and resume after a short delay.
+      void actionRefs.current?.refreshSession().then(() => {
+        setTimeout(() => {
+          if (failedPos > 0) {
+            video.currentTime = failedPos;
+            lastPositionRef.current = failedPos;
+          }
+          video.load();
+          video.play().catch(() => {});
+        }, 400);
+      });
     };
 
     const onLoadedData = () => {
@@ -398,6 +476,19 @@ export default function WatchPage() {
       video.removeEventListener("timeupdate", onTimeUpdateForRecovery);
     };
   }, [media, nextEpisode, profileId, mediaId, router, recoverAttempts]);
+
+  // Keep the error-recovery handler in sync with the latest quality state and
+  // the switch/refresh actions (declared below this effect) without forcing
+  // the listener effect to re-run on every render.
+  useEffect(() => {
+    latestValuesRef.current = { activeQuality, qualityHeights };
+  });
+  useEffect(() => {
+    actionRefs.current = {
+      switchQuality,
+      refreshSession,
+    };
+  });
 
   // Activity timer for controls auto-hiding
   const resetControlsTimer = useCallback(() => {
@@ -559,6 +650,8 @@ export default function WatchPage() {
     setBuffering(true);
     const resumePos = video?.currentTime || lastPositionRef.current || 0;
     setRecoverAttempts(0);
+    // The user explicitly asked to retry: re-enable autoplay for the reload.
+    userPausedRef.current = false;
     // Bump key to force a clean re-init of the <video> element
     setStreamKey((k) => k + 1);
     lastPositionRef.current = resumePos;
@@ -581,8 +674,6 @@ export default function WatchPage() {
     return () => clearTimeout(t);
   }, [streamKey]);
 
-  const streamSrc = `/api/media/${mediaId}/stream${episodeParam ? `?episode=${episodeParam}` : ""}`;
-
   // Switch to a specific transcoded quality rendition
   const switchQuality = useCallback(
     async (height: number) => {
@@ -603,11 +694,16 @@ export default function WatchPage() {
         for (let i = 0; i < 40; i++) {
           if (abort.signal.aborted) return;
           const res = await fetch(url, { signal: abort.signal });
+          if (res.status === 401 && i === 0) {
+            // Stale access token mid-session: refresh once, keep polling.
+            await refreshSession();
+          }
           if (res.status !== 503) {
             lastPositionRef.current = keepPos;
             initialSeekDoneRef.current = false;
             const prev = video.currentTime;
             video.src = url;
+            setStreamUrl(url);
             setActiveQuality(height);
             // Wait for metadata then restore position
             const onMeta = () => {
@@ -633,7 +729,7 @@ export default function WatchPage() {
         setPreparingQuality(false);
       }
     },
-    [transcodeBase]
+    [transcodeBase, refreshSession]
   );
 
   // Switch back to the source stream (native range streaming)
@@ -644,7 +740,10 @@ export default function WatchPage() {
     const keepPos = video.currentTime || lastPositionRef.current || 0;
     lastPositionRef.current = keepPos;
     initialSeekDoneRef.current = false;
+    // A fresh fallback opportunity if the user explicitly re-selects Source.
+    autoFallbackDoneRef.current = false;
     video.src = streamSrc;
+    setStreamUrl(streamSrc);
     setActiveQuality("source");
     setShowQualityMenu(false);
     setBuffering(true);
@@ -810,7 +909,7 @@ export default function WatchPage() {
       <video
         key={streamKey}
         ref={videoRef}
-        src={streamSrc}
+        src={streamUrl}
         poster={media.backdropUrl || media.posterUrl || `/api/media/${mediaId}/image?kind=backdrop`}
         className="h-full w-full object-contain"
         playsInline
@@ -905,7 +1004,16 @@ export default function WatchPage() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25 }}
-            onClick={(e) => e.stopPropagation()}
+            // A tap on an empty part of the HUD toggles play/pause (mobile
+            // relies on this since there is no cursor/hover). Interactive
+            // controls and menus bubble through but are ignored because their
+            // target is never this overlay itself.
+            onClick={(e) => {
+              if (e.target === e.currentTarget) {
+                togglePlay();
+                resetControlsTimer();
+              }
+            }}
             className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/90 via-transparent to-black/80 px-4 sm:px-8 py-6"
           >
             {/* Top Bar */}
@@ -1070,9 +1178,9 @@ export default function WatchPage() {
               </div>
 
               {/* Lower Control Actions */}
-              <div className="flex items-center justify-between">
+              <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
                 {/* Left Side: Playback buttons, Rewind, Volume, Time */}
-                <div className="flex items-center gap-3 sm:gap-4">
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 sm:gap-4">
                   {/* Play / Pause */}
                   <Button
                     variant="ghost"
@@ -1133,7 +1241,7 @@ export default function WatchPage() {
                       step={0.05}
                       value={muted ? 0 : volume}
                       onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                      className="h-1.5 w-0 opacity-0 group-hover/volume:w-20 group-hover/volume:opacity-100 transition-all duration-200 accent-[#e50914] cursor-pointer"
+                      className="h-1.5 w-0 opacity-0 group-hover/volume:w-20 group-hover/volume:opacity-100 transition-all duration-200 accent-[#e50914] cursor-pointer pointer-coarse:w-20 pointer-coarse:opacity-100"
                     />
                   </div>
 

@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { profiles, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyRefreshToken, generateAccessToken, extractIpSubnet, getClientIp } from "@/lib/auth";
-import { successResponse, errorResponse } from "@/lib/api-response";
+import { successResponse, errorResponse, ERROR_CODES } from "@/lib/api-response";
 import { getTokenVersion, setRateLimit, getActiveSessions, touchActiveSession } from "@/lib/redis";
 import { getSessionIdleTimeoutSeconds } from "@/lib/app-settings";
 import type { JWTPayload } from "@/types";
@@ -16,23 +16,28 @@ export async function POST(request: NextRequest) {
       return errorResponse("Refresh token required", 401);
     }
 
-    const ip = getClientIp(request);
-    
-    // Rate limit: 5 refresh attempts per 1 minute per IP
-    const rateLimit = await setRateLimit(`ratelimit:refresh:${ip}`, 60 * 1000, 5);
-    if (!rateLimit.allowed) {
-      return errorResponse("Too many requests. Please try again later.", 429);
-    }
-
     const payload = await verifyRefreshToken(refreshToken);
     if (!payload) {
-      return errorResponse("Invalid refresh token", 401);
+      return errorResponse("Invalid refresh token", 401, ERROR_CODES.AUTHENTICATION_EXPIRED);
+    }
+
+    // Per-session cap (NOT per-IP): a browser/device refreshes only a few
+    // times per minute during normal use, and keying by sessionId means a
+    // shared egress IP (Tailscale) can never cause false lockouts across
+    // devices. The token is verified first so unauthenticated callers cannot
+    // burn another session's budget.
+    const sessionKey = payload.sessionId || payload.profileId;
+    const rateLimit = await setRateLimit(`ratelimit:refresh:${sessionKey}`, 60 * 1000, 20);
+    if (!rateLimit.allowed) {
+      return errorResponse("Too many requests. Please try again later.", 429, ERROR_CODES.RATE_LIMITED);
     }
 
     const currentVersion = await getTokenVersion(payload.profileId);
     if (payload.tokenVersion !== currentVersion) {
-      return errorResponse("Token revoked", 401);
+      return errorResponse("Token revoked", 401, ERROR_CODES.AUTHENTICATION_EXPIRED);
     }
+
+    const ip = getClientIp(request);
 
     // Find profile
     const [profile] = await db
@@ -83,7 +88,7 @@ export async function POST(request: NextRequest) {
     if (payload.sessionId) {
       const sessions = await getActiveSessions(profile.id);
       if (sessions && !sessions.some((s) => s.sessionId === payload.sessionId)) {
-        return errorResponse("Session expired", 401);
+        return errorResponse("Session expired", 401, ERROR_CODES.AUTHENTICATION_EXPIRED);
       }
       await touchActiveSession(profile.id, payload.sessionId, idleTimeout);
     }

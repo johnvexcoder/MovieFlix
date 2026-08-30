@@ -2,8 +2,8 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { admins } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { verifyRefreshToken, generateAccessToken, getClientIp } from "@/lib/auth";
-import { successResponse, errorResponse } from "@/lib/api-response";
+import { verifyRefreshToken, generateAccessToken } from "@/lib/auth";
+import { successResponse, errorResponse, ERROR_CODES } from "@/lib/api-response";
 import { getTokenVersion, setRateLimit } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
@@ -14,22 +14,22 @@ export async function POST(request: NextRequest) {
       return errorResponse("Admin session required", 401);
     }
 
-    const ip = getClientIp(request);
-    
-    // Rate limit: 5 refresh attempts per 1 minute per IP
-    const rateLimit = await setRateLimit(`ratelimit:admin_refresh:${ip}`, 60 * 1000, 5);
-    if (!rateLimit.allowed) {
-      return errorResponse("Too many requests. Please try again later.", 429);
-    }
-
     const payload = await verifyRefreshToken(sessionToken);
     if (!payload) {
-      return errorResponse("Invalid admin session", 401);
+      return errorResponse("Invalid admin session", 401, ERROR_CODES.AUTHENTICATION_EXPIRED);
+    }
+
+    // Per-session cap (NOT per-IP), checked after the token is verified so a
+    // shared egress IP can never lock the admin out via other traffic.
+    const sessionKey = payload.sessionId || payload.profileId;
+    const rateLimit = await setRateLimit(`ratelimit:admin_refresh:${sessionKey}`, 60 * 1000, 20);
+    if (!rateLimit.allowed) {
+      return errorResponse("Too many requests. Please try again later.", 429, ERROR_CODES.RATE_LIMITED);
     }
 
     const currentVersion = await getTokenVersion(payload.profileId);
     if (payload.tokenVersion !== currentVersion) {
-      return errorResponse("Token revoked", 401);
+      return errorResponse("Token revoked", 401, ERROR_CODES.AUTHENTICATION_EXPIRED);
     }
 
     // Find admin

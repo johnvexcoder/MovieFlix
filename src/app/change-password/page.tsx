@@ -3,7 +3,7 @@
 import { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, Lock, KeyRound, ShieldCheck } from "lucide-react";
+import { Loader2, Lock, KeyRound, ShieldCheck, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -21,6 +21,9 @@ function ChangePasswordForm() {
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ ok: boolean; text: string } | null>(null);
   const [checking, setChecking] = useState(true);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,35 +125,44 @@ function ChangePasswordForm() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
-                Current Password
-              </Label>
-              <div className="relative">
-                <Lock className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-neutral-500" />
-                <Input
-                  type="password"
-                  value={current}
-                  onChange={(e) => setCurrent(e.target.value)}
-                  placeholder={required ? "Enter temporary password" : "Enter current password"}
-                  className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500"
-                  required
-                />
-              </div>
-            </div>
+                  <div className="relative">
+                    <Lock className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-neutral-500" />
+                    <Input
+                      type={showCurrentPassword ? "text" : "password"}
+                      value={current}
+                      onChange={(e) => setCurrent(e.target.value)}
+                      placeholder={required ? "Enter temporary password" : "Enter current password"}
+                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 text-white placeholder:text-neutral-500"
+                      required
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                      className="absolute top-1/2 right-3.5 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 transition-colors p-1"
+                    >
+                      {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
 
             <div className="space-y-1.5">
               <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">New Password</Label>
               <div className="relative">
                 <KeyRound className="pointer-events-none absolute top-1/2 left-3.5 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                 <Input
-                  type="password"
+                  type={showNewPassword ? "text" : "password"}
                   value={next}
                   onChange={(e) => setNext(e.target.value)}
                   placeholder="Min 6 characters"
-                  className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500"
+                  className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 text-white placeholder:text-neutral-500"
                   required
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowNewPassword(!showNewPassword)}
+                  className="absolute top-1/2 right-3.5 -translate-y-1/2 text-neutral-400 hover:text-neutral-200 transition-colors p-1"
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
               </div>
             </div>
 

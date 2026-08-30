@@ -145,6 +145,11 @@ export default function AdminPage() {
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
 
+  // Per-account delete guard: prevents double-submits while a delete request
+  // is in flight (a duplicate DELETE from a double click would otherwise hit
+  // the server twice and surface a confusing error on the second call).
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   useEffect(() => {
     checkAuth();
     fetchAccounts();
@@ -308,8 +313,10 @@ export default function AdminPage() {
   }
 
   async function handleDeleteAccount(id: string, username: string) {
+    if (deletingId) return; // duplicate-submit guard
     if (!confirm(`Delete account "${username}"? All profile data and watch progress will be permanently removed.`)) return;
 
+    setDeletingId(id);
     try {
       const response = await fetch(`/api/admin/accounts?id=${id}`, {
         method: "DELETE",
@@ -323,6 +330,8 @@ export default function AdminPage() {
       }
     } catch {
       alert("Failed to delete account");
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -550,7 +559,7 @@ export default function AdminPage() {
               </span>
             </div>
 
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <div className="relative">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                 <Input
@@ -722,10 +731,15 @@ export default function AdminPage() {
                         <Button
                           variant="destructive"
                           size="sm"
-                          className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                          disabled={deletingId !== null}
+                          className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={() => handleDeleteAccount(account.id, account.username)}
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {deletingId === account.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </Button>
                       </div>
                     </div>

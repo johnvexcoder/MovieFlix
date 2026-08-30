@@ -66,7 +66,7 @@ export function ExpirationReminder() {
             exit={{ opacity: 0, y: 16, scale: 0.96 }}
             transition={{ duration: 0.2, ease: "easeOut" }}
             onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-md rounded-3xl border border-amber-400/30 bg-[#141416] p-6 shadow-2xl"
+            className="relative flex max-h-[85vh] w-full max-w-md flex-col overflow-hidden rounded-3xl border border-amber-400/30 bg-[#141416] p-6 shadow-2xl"
           >
             <button
               type="button"
@@ -81,8 +81,14 @@ export function ExpirationReminder() {
               <CalendarClock className="h-7 w-7" />
             </div>
 
-            <h2 className="text-xl font-bold text-white">Subscription Expiring Soon</h2>
-            <p className="mt-2 text-sm leading-relaxed text-neutral-300">{data.reminderMessage}</p>
+            <h2 className="shrink-0 text-xl font-bold text-white">
+              Subscription Expiring Soon
+            </h2>
+            {/* Only this scrollable message area scrolls; the rest of the modal
+            stays fixed. The header, date, and actions never move/overflow. */}
+            <p className="mt-2 max-h-40 shrink overflow-y-auto pr-1 text-sm leading-relaxed text-neutral-300">
+              {data.reminderMessage}
+            </p>
 
             <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
               <p className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">

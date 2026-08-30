@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { eq, and, or } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
+import { db } from "@/db";
+import { paymentSubmissions, paymentMethods } from "@/db/schema";
 
 export const dynamic = "force-dynamic";
 
@@ -22,18 +25,59 @@ function uploadsRoot(): string {
 
 export async function GET(request: NextRequest) {
   try {
+    // Accept either a user session (access_token) OR the admin session
+    // (admin_token). The shared-auth proxy passes both through to this route.
     const accessToken = request.cookies.get("access_token")?.value;
-    if (!accessToken) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    const token = adminToken || accessToken;
+    if (!token) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
-    const payload = await verifyToken(accessToken);
+    const payload = await verifyToken(token);
     if (!payload) {
-      return new NextResponse("Invalid token", { status: 401 });
+      return new NextResponse("Unauthorized", { status: 401 });
     }
 
     const fileParam = request.nextUrl.searchParams.get("file");
     if (!fileParam) {
       return new NextResponse("Missing file", { status: 400 });
+    }
+
+    // Ownership check. Admins may read any file under the uploads root (they
+    // manage receipts, payment-method icons and QR codes), while a regular
+    // account may only read files that belong to it: its own payment
+    // submissions' receipt images, or currently-active payment method icons.
+    if (!payload.isAdmin) {
+      const [ownReceipt] = await db
+        .select({ id: paymentSubmissions.id })
+        .from(paymentSubmissions)
+        .where(
+          and(
+            eq(paymentSubmissions.accountId, payload.accountId),
+            eq(paymentSubmissions.receiptPath, fileParam)
+          )
+        )
+        .limit(1);
+
+      if (!ownReceipt) {
+        const [activeMethod] = await db
+          .select({ id: paymentMethods.id })
+          .from(paymentMethods)
+          .where(
+            and(
+              eq(paymentMethods.isActive, true),
+              or(
+                eq(paymentMethods.iconPath, fileParam),
+                eq(paymentMethods.qrPath, fileParam)
+              )
+            )
+          )
+          .limit(1);
+
+        if (!activeMethod) {
+          return new NextResponse("Forbidden", { status: 403 });
+        }
+      }
     }
 
     const root = uploadsRoot();

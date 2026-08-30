@@ -90,54 +90,52 @@ export async function GET(
 
     const range = request.headers.get("range");
 
-    // Download protection: require a Range header. A plain GET without a range
-    // would be a full-file download, which we refuse.
-    if (!range) {
-      return new NextResponse("Range requests required", { status: 400 });
-    }
+    // Range-tolerant streaming: some mobile browsers' first request (and any
+    // probing request) omits the Range header. Instead of rejecting with 400,
+    // answer with the first capped chunk as a 206 — the browser learns the
+    // resource supports ranges and continues with normal range requests. The
+    // 8MB chunk cap still prevents full-file download in a single request.
+    const start = 0;
+    let end = Math.min(start + MAX_CHUNK_BYTES - 1, fileSize - 1);
 
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
-      const start = parts[0] ? parseInt(parts[0], 10) : 0;
-      let end = parts[1] ? parseInt(parts[1], 10) : Math.min(start + 1024 * 1024 * 4 - 1, fileSize - 1); // 4MB chunks
+      const requestedStart = parts[0] ? parseInt(parts[0], 10) : 0;
+      const requestedEnd = parts[1] ? parseInt(parts[1], 10) : Math.min(requestedStart + 1024 * 1024 * 4 - 1, fileSize - 1);
+      end = Math.min(requestedEnd, requestedStart + MAX_CHUNK_BYTES - 1, fileSize - 1);
 
-      // Cap chunk size to protect against bulk data harvesting
-      end = Math.min(end, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
-
-      if (start > end || start >= fileSize) {
+      if (requestedStart > end || requestedStart >= fileSize) {
         return new NextResponse("Range not satisfiable", {
           status: 416,
           headers: { "Content-Range": `bytes */${fileSize}` },
         });
       }
-
-      const chunkSize = end - start + 1;
-      const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath, { start, end });
-
-      const webStream = new ReadableStream({
-        start(controller) {
-          fileStream.on("data", (chunk) => controller.enqueue(chunk));
-          fileStream.on("end", () => controller.close());
-          fileStream.on("error", (err) => controller.error(err));
-        },
-        cancel() {
-          fileStream.destroy();
-        },
-      });
-
-      return new NextResponse(webStream, {
-        status: 206,
-        headers: {
-          "Content-Range": `bytes ${start}-${end}/${fileSize}`,
-          "Content-Length": String(chunkSize),
-          "Content-Type": contentType,
-          ...PROTECTION_HEADERS,
-          "Cache-Control": "no-cache, no-store, must-revalidate",
-        },
-      });
     }
 
-    return new NextResponse("Range requests required", { status: 400 });
+    const chunkSize = end - start + 1;
+    const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath, { start, end });
+
+    const webStream = new ReadableStream({
+      start(controller) {
+        fileStream.on("data", (chunk) => controller.enqueue(chunk));
+        fileStream.on("end", () => controller.close());
+        fileStream.on("error", (err) => controller.error(err));
+      },
+      cancel() {
+        fileStream.destroy();
+      },
+    });
+
+    return new NextResponse(webStream, {
+      status: 206,
+      headers: {
+        "Content-Range": `bytes ${start}-${end}/${fileSize}`,
+        "Content-Length": String(chunkSize),
+        "Content-Type": contentType,
+        ...PROTECTION_HEADERS,
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+      },
+    });
   } catch (error) {
     console.error("Video stream error:", error);
     return new NextResponse("Stream error", { status: 500 });

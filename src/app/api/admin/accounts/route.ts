@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { accounts, profiles, profileSettings, watchHistory, sessions, adminMessages, contactSubmissions, paymentSubmissions } from "@/db/schema";
+import { accounts, profiles, profileSettings, watchHistory, sessions, adminMessages, contactSubmissions, paymentSubmissions, messageViews, passwordResetTokens } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -280,9 +280,19 @@ export async function DELETE(request: NextRequest) {
         await tx.delete(profiles).where(eq(profiles.id, profile.id));
       }
 
+      // Clear message views FIRST: they FK to both adminMessages.messageId and
+      // accounts.accountId with no ON DELETE CASCADE, so deleting either parent
+      // fails whenever a view row exists. Deleting by accountId removes this
+      // account's views of targeted AND broadcast messages, unblocking both
+      // parent deletions below.
+      await tx.delete(messageViews).where(eq(messageViews.accountId, accountId));
+
       await tx.delete(adminMessages).where(eq(adminMessages.accountId, accountId));
       await tx.delete(contactSubmissions).where(eq(contactSubmissions.accountId, accountId));
       await tx.delete(paymentSubmissions).where(eq(paymentSubmissions.accountId, accountId));
+
+      // Password reset tokens FK to accounts.accountId (no cascade).
+      await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.accountId, accountId));
 
       // Delete account
       await tx.delete(accounts).where(eq(accounts.id, accountId));

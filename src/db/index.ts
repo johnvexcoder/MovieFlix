@@ -291,11 +291,18 @@ export function setupDatabase() {
     );
   `);
 
-  // Ensure accounts table has email, full_name, is_locked, and must_change_password columns
-  ensureColumn("accounts", "email", "TEXT UNIQUE");
+  // Ensure accounts table has email, full_name, is_locked, and must_change_password columns.
+  // NOTE: SQLite forbids ADD COLUMN with a UNIQUE constraint, so we add a plain
+  // TEXT column and enforce uniqueness with a partial index (NULLs stay unique-free).
+  ensureColumn("accounts", "email", "TEXT");
   ensureColumn("accounts", "full_name", "TEXT");
   ensureColumn("accounts", "is_locked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
+  try {
+    _sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;");
+  } catch (e) {
+    console.error("Migrate accounts.email index error:", e);
+  }
 
   // Create default admin/admin123 account if no admins exist
   try {
