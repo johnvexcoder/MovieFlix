@@ -202,6 +202,8 @@ export default function AdminSettingsPage() {
         setSmtpPass(s.smtp_pass_set === "true" ? "••••••••••" : "");
         if (s.reminder_days) setReminderDays(parseInt(s.reminder_days));
         if (s.reminder_message) setReminderMessage(s.reminder_message);
+        if (s.max_sessions) setMaxSessions(parseInt(s.max_sessions));
+        if (s.session_timeout) setSessionTimeout(parseInt(s.session_timeout));
       }
     } catch (e) {
       console.error("Failed to load DB settings", e);
@@ -227,6 +229,8 @@ export default function AdminSettingsPage() {
             smtp_from: smtpFrom,
             reminder_days: reminderDays.toString(),
             reminder_message: reminderMessage,
+            max_sessions: maxSessions.toString(),
+            session_timeout: sessionTimeout.toString(),
           }
         }),
       });
@@ -363,7 +367,19 @@ export default function AdminSettingsPage() {
                   className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
                 />
                 <p className="text-[11px] text-neutral-400">
-                  Maximum simultaneous video streams permitted per account.
+                  Maximum simultaneous video streams permitted per account (Session Security).
+                </p>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300 mt-4 block">Session Idle Timeout (Minutes)</Label>
+                <Input
+                  type="number"
+                  min={5}
+                  max={1440}
+                  value={sessionTimeout}
+                  onChange={(e) => setSessionTimeout(parseInt(e.target.value) || 30)}
+                  className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                />
+                <p className="text-[11px] text-neutral-400">
+                  Automatically log out sessions inactive for this long.
                 </p>
               </div>
             </div>

@@ -115,19 +115,49 @@ export default function WatchPage() {
 
   // Handle fullscreen change (e.g., user presses ESC, uses browser menu)
   useEffect(() => {
+    const isFullscreenActive = () =>
+      Boolean(
+        document.fullscreenElement ||
+          (document as any).webkitFullscreenElement ||
+          (videoRef.current && (videoRef.current as any).webkitDisplayingFullscreen)
+      );
+
     const onFullscreenChange = () => {
       const video = videoRef.current;
-      if (!document.fullscreenElement) {
+      if (!isFullscreenActive()) {
         setFullscreen(false);
         if (video) video.setAttribute('playsInline', '');
-        ;(screen as any).orientation.unlock
-          ? (screen as any).orientation.unlock()
-          : void 0;
+        try {
+          if ((screen as any).orientation && (screen as any).orientation.unlock) {
+            (screen as any).orientation.unlock();
+          }
+        } catch {
+          // noop
+        }
+      } else {
+        setFullscreen(true);
+        if (video) video.removeAttribute('playsInline');
       }
     };
 
     document.addEventListener('fullscreenchange', onFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', onFullscreenChange);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange as any);
+
+    const video = videoRef.current;
+    // iOS Safari: native video fullscreen (webkitEnterFullscreen) does not fire
+    // document fullscreenchange, so sync state from the video's own events.
+    const onVideoFullscreenChange = () => setFullscreen(Boolean((videoRef.current as any)?.webkitDisplayingFullscreen));
+    video?.addEventListener?.('webkitbeginfullscreen', onVideoFullscreenChange);
+    video?.addEventListener?.('webkitendfullscreen', onVideoFullscreenChange);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange as any);
+      video?.removeEventListener?.('webkitbeginfullscreen', onVideoFullscreenChange);
+      video?.removeEventListener?.('webkitendfullscreen', onVideoFullscreenChange);
+    };
   }, []);
 
   // Build the transcode base URL for this media/episode
@@ -437,30 +467,74 @@ export default function WatchPage() {
     const video = videoRef.current;
     if (!container || !video) return;
 
-    if (!document.fullscreenElement) {
-      // Remove playsInline for iOS fullscreen support
+    const isFS = Boolean(
+      document.fullscreenElement ||
+        (document as any).webkitFullscreenElement ||
+        (video as any).webkitDisplayingFullscreen
+    );
+
+    if (!isFS) {
+      const isMobile = /Mobi|Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+      const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+
+      // iOS Safari only supports native video fullscreen; requestFullscreen on
+      // a div is silently ignored there. webkitEnterFullscreen goes landscape
+      // automatically, no playsInline tricks needed.
+      if (isIOS && typeof (video as any).webkitEnterFullscreen === 'function') {
+        try {
+          (video as any).webkitEnterFullscreen();
+        } catch {
+          // fall through to the standard path
+        }
+        return;
+      }
+
+      // Standard fullscreen. playsInline must be removed for iOS to honor it.
       video.removeAttribute('playsInline');
-      container.requestFullscreen().catch(() => {
-        // Re-add playsInline if fullscreen fails
+      const req =
+        container.requestFullscreen ||
+        (container as any).webkitRequestFullscreen ||
+        (container as any).msRequestFullscreen;
+      const p = req
+        ? req.call(container)
+        : Promise.reject(new Error('Fullscreen API unavailable'));
+      p.then(() => {
+        setFullscreen(true);
+      }).catch(() => {
+        // Fullscreen failed (e.g. permission / not allowed here): restore
+        // playsInline and never leave the UI stuck in a bogus fullscreen state.
         video.setAttribute('playsInline', '');
+        setFullscreen(false);
       });
-      setFullscreen(true);
-      // Auto-rotate to landscape on mobile when entering fullscreen
-      if (/Mobi|Android/i.test(navigator.userAgent)) {
-        // Use screen orientation lock if available
-        ;(screen as any).orientation.lock
-          ? (screen as any).orientation.lock('landscape')
-          : void 0;
+
+      // Auto-rotate to landscape on mobile when entering fullscreen.
+      if (isMobile) {
+        try {
+          if ((screen as any).orientation && (screen as any).orientation.lock) {
+            (screen as any).orientation.lock('landscape').catch(() => {
+              // Some browsers only allow landscape-lock inside fullscreen
+            });
+          }
+        } catch {
+          // noop
+        }
       }
     } else {
-      document.exitFullscreen().catch(() => {});
+      if ((video as any).webkitDisplayingFullscreen && typeof (video as any).webkitExitFullscreen === 'function') {
+        (video as any).webkitExitFullscreen();
+      } else {
+        const exit = document.exitFullscreen || (document as any).webkitExitFullscreen;
+        exit?.call(document)?.catch?.(() => {});
+      }
       setFullscreen(false);
-      // Re-add playsInline when exiting fullscreen
       video.setAttribute('playsInline', '');
-      // Unlock orientation when exiting fullscreen
-      ;(screen as any).orientation.unlock
-        ? (screen as any).orientation.unlock()
-        : void 0;
+      try {
+        if ((screen as any).orientation && (screen as any).orientation.unlock) {
+          (screen as any).orientation.unlock();
+        }
+      } catch {
+        // noop
+      }
     }
     resetControlsTimer();
   }, [resetControlsTimer]);
@@ -737,7 +811,7 @@ export default function WatchPage() {
         key={streamKey}
         ref={videoRef}
         src={streamSrc}
-        poster={media.backdropUrl || media.posterUrl || undefined}
+        poster={media.backdropUrl || media.posterUrl || `/api/media/${mediaId}/image?kind=backdrop`}
         className="h-full w-full object-contain"
         playsInline
         preload="auto"

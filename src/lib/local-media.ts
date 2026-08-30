@@ -29,6 +29,74 @@ export function isLocalImageFile(name: string): boolean {
 }
 
 /**
+ * Normalize a video/search base name into a comparable token for fuzzy matching:
+ * lowercase, alphanumeric only, and sections in brackets removed.
+ */
+function normalizeStem(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[\[\(].*?[\]\)]/g, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/^ +| +$| +/g, " ")
+    .trim();
+}
+
+/**
+ * Resolve a stored local path from the DB to an actual file that exists on
+ * this machine. Media can be rescanned/re-mounted at different roots, so we
+ * try, in order:
+ *   1. the path as stored (absolute)
+ *   2. relative to process.cwd()
+ *   3. relative to each enabled library root from the DB (longest match wins)
+ */
+export function resolveLocalFile(filePath: string): string | null {
+  if (!filePath) return null;
+  try {
+    if (fs.existsSync(filePath)) return filePath;
+
+    const cwdResolved = path.resolve(process.cwd(), filePath);
+    if (fs.existsSync(cwdResolved)) return cwdResolved;
+
+    // Try each configured library root as a candidate prefix.
+    const candidates: { root: string; relative: string }[] = [];
+    const libs = loadLibraryRoots();
+    for (const lib of libs) {
+      if (filePath.startsWith(lib + path.sep)) {
+        candidates.push({ root: lib, relative: filePath });
+      } else {
+        candidates.push({ root: lib, relative: filePath.replace(/^[./\\]+/, "") });
+      }
+    }
+    // Prefer the longest matching root so the most specific mount wins.
+    candidates.sort((a, b) => b.root.length - a.root.length);
+    for (const c of candidates) {
+      const candidate = path.resolve(c.root, c.relative);
+      if (fs.existsSync(candidate)) return candidate;
+    }
+  } catch {
+    // ignore path resolution / fs errors
+  }
+  return null;
+}
+
+function loadLibraryRoots(): string[] {
+  try {
+    // Lazy import to avoid pulling the DB at module load time.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const sqlite = require("better-sqlite3");
+    const rawPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
+    const dbPath = rawPath.startsWith("file:") ? rawPath.replace(/^file:/, "") : rawPath;
+    if (!fs.existsSync(dbPath)) return [];
+    const db = new sqlite(dbPath, { readonly: true });
+    const rows = db.prepare("SELECT path FROM library_config WHERE enabled = 1").all() as { path: string }[];
+    db.close();
+    return (rows || []).map((r) => r.path).filter(Boolean);
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Find the best-guess poster image adjacent to a media file.
  * Looks for the movie's base name (e.g. "Movie (2020).jpg") or common
  * filenames (poster.jpg, folder.jpg) in the same directory.
@@ -36,6 +104,7 @@ export function isLocalImageFile(name: string): boolean {
 export function findLocalPoster(videoFilePath: string): string | null {
   const dir = path.dirname(videoFilePath);
   const base = path.basename(videoFilePath, path.extname(videoFilePath));
+  const baseToken = normalizeStem(base);
 
   let entries: string[];
   try {
@@ -44,7 +113,7 @@ export function findLocalPoster(videoFilePath: string): string | null {
     return null;
   }
 
-  // 1. Poster matching the video's base name
+  // 1. Poster matching the video's base name exactly
   for (const file of entries) {
     const stem = path.basename(file, path.extname(file)).toLowerCase();
     if (stem === base.toLowerCase() && isLocalImageFile(file)) {
@@ -58,6 +127,24 @@ export function findLocalPoster(videoFilePath: string): string | null {
     if (found) return path.join(dir, found);
   }
 
+  // 3. Fuzzy: any image whose stem shares the video's normalized title token
+  //    (accepts e.g. "Movie (2020) [2160p].jpg" for file "Movie (2020).mkv")
+  const imageFiles = entries.filter((f) => isLocalImageFile(f));
+  let best: { file: string; score: number } | null = null;
+  for (const file of imageFiles) {
+    const fileToken = normalizeStem(path.basename(file, path.extname(file)));
+    if (!fileToken) continue;
+    const baseWords = baseToken.split(" ").filter((w) => w.length > 1);
+    let score = 0;
+    for (const word of baseWords) {
+      if (fileToken.split(" ").includes(word)) score++;
+    }
+    if (score > 0 && (!best || score > best.score)) {
+      best = { file, score };
+    }
+  }
+  if (best) return path.join(dir, best.file);
+
   return null;
 }
 
@@ -66,6 +153,8 @@ export function findLocalPoster(videoFilePath: string): string | null {
  */
 export function findLocalBackdrop(videoFilePath: string): string | null {
   const dir = path.dirname(videoFilePath);
+  const base = path.basename(videoFilePath, path.extname(videoFilePath));
+  const baseToken = normalizeStem(base);
 
   let entries: string[];
   try {
@@ -78,6 +167,23 @@ export function findLocalBackdrop(videoFilePath: string): string | null {
     const found = entries.find((f) => f.toLowerCase() === name);
     if (found) return path.join(dir, found);
   }
+
+  // Fuzzy: prefer a wide image adjacent to the video sharing its title token
+  const imageFiles = entries.filter((f) => isLocalImageFile(f));
+  let best: { file: string; score: number } | null = null;
+  for (const file of imageFiles) {
+    const fileToken = normalizeStem(path.basename(file, path.extname(file)));
+    if (!fileToken) continue;
+    const baseWords = baseToken.split(" ").filter((w) => w.length > 1);
+    let score = 0;
+    for (const word of baseWords) {
+      if (fileToken.split(" ").includes(word)) score++;
+    }
+    if (score > 0 && (!best || score > best.score)) {
+      best = { file, score };
+    }
+  }
+  if (best) return path.join(dir, best.file);
 
   return null;
 }

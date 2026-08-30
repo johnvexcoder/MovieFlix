@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { media, episodes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
-import { findLocalPoster, findLocalBackdrop } from "@/lib/local-media";
+import { findLocalPoster, findLocalBackdrop, resolveLocalFile } from "@/lib/local-media";
 
 export const dynamic = "force-dynamic";
 
@@ -53,8 +53,8 @@ export async function GET(
       // For episodes, get the episode's file path and use the parent media's images
       const [episode] = await db
         .select()
-        .from(require("@/db/schema").episodes)
-        .where(eq(require("@/db/schema").episodes.id, episodeId))
+        .from(episodes)
+        .where(eq(episodes.id, episodeId))
         .limit(1);
 
       if (episode) {
@@ -85,10 +85,11 @@ export async function GET(
 
     // 1. Try stored local path from DB
     const storedLocalPath = kind === "backdrop" ? mediaItem.backdropPath : mediaItem.posterPath;
-    if (storedLocalPath && fs.existsSync(storedLocalPath)) {
-      const ext = path.extname(storedLocalPath).toLowerCase();
+    const resolvedStored = storedLocalPath ? resolveLocalFile(storedLocalPath) : null;
+    if (resolvedStored && fs.existsSync(resolvedStored)) {
+      const ext = path.extname(resolvedStored).toLowerCase();
       const mime = IMAGE_MIME[ext] || "image/jpeg";
-      const buf = fs.readFileSync(storedLocalPath);
+      const buf = fs.readFileSync(resolvedStored);
       return new NextResponse(new Uint8Array(buf), {
         headers: {
           "Content-Type": mime,
@@ -98,12 +99,16 @@ export async function GET(
       });
     }
 
-    // 2. Re-scan local directory for poster/backdrop if filePath is available
-    if (filePath && fs.existsSync(filePath)) {
-      const localFound = kind === "backdrop" 
-        ? findLocalBackdrop(filePath) 
-        : findLocalPoster(filePath);
-      
+    // 2. Re-scan local directory for poster/backdrop if filePath is available.
+    //    Resolve the stored video path first (mounts/roots can change) so the
+    //    directory scan works even when the DB path is stale.
+    let resolvedVideo = filePath ? resolveLocalFile(filePath) : null;
+    if (!resolvedVideo) resolvedVideo = filePath && fs.existsSync(filePath) ? filePath : null;
+    if (resolvedVideo) {
+      const localFound = kind === "backdrop"
+        ? findLocalBackdrop(resolvedVideo)
+        : findLocalPoster(resolvedVideo);
+
       if (localFound && fs.existsSync(localFound)) {
         const ext = path.extname(localFound).toLowerCase();
         const mime = IMAGE_MIME[ext] || "image/jpeg";

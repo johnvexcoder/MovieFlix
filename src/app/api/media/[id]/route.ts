@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { media, seasons, episodes } from "@/db/schema";
+import { media, seasons, episodes, watchHistory } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -12,11 +12,13 @@ export async function GET(
   try {
     const { id } = await params;
     const accessToken = request.cookies.get("access_token")?.value;
-    if (!accessToken) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    const token = accessToken || adminToken;
+    if (!token) {
       return errorResponse("Unauthorized", 401);
     }
 
-    const payload = await verifyToken(accessToken);
+    const payload = await verifyToken(token);
     if (!payload) {
       return errorResponse("Invalid token", 401);
     }
@@ -77,12 +79,16 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
+    // Admins act through the admin panel (admin_token); allow either token so
+    // nothing blocks an authenticated admin from deleting media.
     const accessToken = request.cookies.get("access_token")?.value;
-    if (!accessToken) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    const token = accessToken || adminToken;
+    if (!token) {
       return errorResponse("Unauthorized", 401);
     }
 
-    const payload = await verifyToken(accessToken);
+    const payload = await verifyToken(token);
     if (!payload) {
       return errorResponse("Invalid token", 401);
     }
@@ -102,21 +108,28 @@ export async function DELETE(
       return errorResponse("Media not found", 404);
     }
 
-    // Delete associated seasons and episodes for series
-    if (mediaItem.type === "series") {
-      const mediaSeasons = await db
-        .select()
-        .from(seasons)
-        .where(eq(seasons.mediaId, id));
+    // Delete dependents within one transaction: watch_history references the
+    // media row (FK), so it must go first or the delete fails with SQLite
+    // foreign-key constraint errors.
+    await db.transaction(async (tx) => {
+      await tx.delete(watchHistory).where(eq(watchHistory.mediaId, id));
 
-      for (const season of mediaSeasons) {
-        await db.delete(episodes).where(eq(episodes.seasonId, season.id));
+      // Delete associated seasons and episodes for series
+      if (mediaItem.type === "series") {
+        const mediaSeasons = await tx
+          .select()
+          .from(seasons)
+          .where(eq(seasons.mediaId, id));
+
+        for (const season of mediaSeasons) {
+          await tx.delete(episodes).where(eq(episodes.seasonId, season.id));
+        }
+        await tx.delete(seasons).where(eq(seasons.mediaId, id));
       }
-      await db.delete(seasons).where(eq(seasons.mediaId, id));
-    }
 
-    // Delete the media item
-    await db.delete(media).where(eq(media.id, id));
+      // Delete the media item
+      await tx.delete(media).where(eq(media.id, id));
+    });
 
     return successResponse({ message: "Media deleted successfully" });
   } catch (error) {

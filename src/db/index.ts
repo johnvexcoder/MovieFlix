@@ -248,6 +248,12 @@ export function setupDatabase() {
       created_by_admin_id TEXT REFERENCES admins(id),
       created_at TEXT NOT NULL DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS message_views (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      message_id TEXT NOT NULL REFERENCES admin_messages(id),
+      viewed_at TEXT NOT NULL DEFAULT ''
+    );
     CREATE TABLE IF NOT EXISTS contact_submissions (
       id TEXT PRIMARY KEY,
       type TEXT NOT NULL,

@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { adminMessages } from "@/db/schema";
+import { adminMessages, messageViews } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -27,7 +27,11 @@ export async function DELETE(
       return errorResponse("Message not found", 404);
     }
 
-    await db.delete(adminMessages).where(eq(adminMessages.id, id));
+    // message_views.message_id references this row (FK), so drop those first.
+    await db.transaction(async (tx) => {
+      await tx.delete(messageViews).where(eq(messageViews.messageId, id));
+      await tx.delete(adminMessages).where(eq(adminMessages.id, id));
+    });
     return successResponse({ message: "Message deleted" });
   } catch (error) {
     console.error("Admin delete message error:", error);

@@ -4,7 +4,8 @@ import { profiles, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyRefreshToken, generateAccessToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { getTokenVersion, setRateLimit } from "@/lib/redis";
+import { getTokenVersion, setRateLimit, getActiveSessions, touchActiveSession } from "@/lib/redis";
+import { getSessionIdleTimeoutSeconds } from "@/lib/app-settings";
 import type { JWTPayload } from "@/types";
 
 export async function POST(request: NextRequest) {
@@ -73,7 +74,19 @@ export async function POST(request: NextRequest) {
       accountId: account.id,
       isAdmin: false,
       fingerprint: extractIpSubnet(ip),
+      sessionId: payload.sessionId,
     };
+
+    // Keep the session alive and re-issue an access token that still carries the
+    // sessionId so the middleware session check keeps working after refresh.
+    const idleTimeout = await getSessionIdleTimeoutSeconds();
+    if (payload.sessionId) {
+      const sessions = await getActiveSessions(profile.id);
+      if (sessions && !sessions.some((s) => s.sessionId === payload.sessionId)) {
+        return errorResponse("Session expired", 401);
+      }
+      await touchActiveSession(profile.id, payload.sessionId, idleTimeout);
+    }
 
     const newAccessToken = generateAccessToken(tokenPayload);
 

@@ -189,21 +189,26 @@ export async function proxy(request: NextRequest) {
 
   // Validate session ID (single-session enforcement)
   if (payload.sessionId) {
-    const { getActiveSessions } = await import("@/lib/redis");
-    const activeSessions = await getActiveSessions(payload.profileId);
-    const isSessionValid = activeSessions.some((s) => s.sessionId === payload.sessionId);
-    
-    if (!isSessionValid) {
-      const response = pathname.startsWith("/api/")
-        ? NextResponse.json(
-            { error: "Session expired - logged in elsewhere" },
-            { status: 401 }
-          )
-        : NextResponse.redirect(getRedirectUrl("/login?session_expired=1", request));
-      
-      response.cookies.delete("access_token");
-      response.cookies.delete("refresh_token");
-      return response;
+    const { getActiveSessions, touchActiveSession } = await import("@/lib/redis");
+    const sessions = await getActiveSessions(payload.profileId);
+    // `null` means Redis is unreachable -> fail open (don't kick everyone out).
+    // `[]` means Redis is fine but this session no longer exists (revoked,
+    // expired, or replaced by another device) -> force a re-login.
+    if (sessions !== null) {
+      const isSessionValid = sessions.some((s) => s.sessionId === payload.sessionId);
+      if (!isSessionValid) {
+        const response = pathname.startsWith("/api/")
+          ? NextResponse.json(
+              { error: "Session expired - logged in elsewhere" },
+              { status: 401 }
+            )
+          : NextResponse.redirect(getRedirectUrl("/login?session_expired=1", request));
+
+        response.cookies.delete("access_token");
+        response.cookies.delete("refresh_token");
+        return response;
+      }
+      await touchActiveSession(payload.profileId, payload.sessionId);
     }
   }
 

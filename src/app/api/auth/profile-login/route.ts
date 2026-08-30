@@ -2,15 +2,23 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { profiles, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { v4 as uuidv4 } from "uuid";
 import { comparePin, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { setRateLimit, getTokenVersion, revokeTokenVersion, setActiveSession, getActiveSessions, revokeAllSessionsExcept } from "@/lib/redis";
-import { v4 as uuidv4 } from "uuid";
+import {
+  setRateLimit,
+  getTokenVersion,
+  setActiveSession,
+  getActiveSessions,
+  getAccountActiveSessions,
+  removeSessionsByDevice,
+} from "@/lib/redis";
+import { getDeviceId, getMaxSessions, getSessionIdleTimeoutSeconds } from "@/lib/app-settings";
 
 export async function POST(request: NextRequest) {
   try {
     const ip = getClientIp(request);
-    
+
     // Rate limit: 5 login attempts per 15 minutes per IP
     const rateLimit = await setRateLimit(`ratelimit:login:${ip}`, 15 * 60 * 1000, 5);
     if (!rateLimit.allowed) {
@@ -71,26 +79,62 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check for existing active sessions for this profile
-    const sessionId = uuidv4();
-    const activeSessions = await getActiveSessions(profile.id);
-    
-    if (activeSessions.length > 0) {
-      // Revoke all existing sessions (single-session policy)
-      await revokeAllSessionsExcept(profile.id, sessionId);
-      // Also revoke token version to invalidate existing tokens
-      await revokeTokenVersion(profile.id);
-      
-      // TODO: In a real implementation, you'd want to notify the existing session(s)
-      // via WebSocket or Server-Sent Events to show a "logged in elsewhere" message
+    const maxSessions = await getMaxSessions();
+    const idleTimeout = await getSessionIdleTimeoutSeconds();
+
+    // All profiles belonging to this account (needed for account-wide count).
+    const accountProfiles = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.accountId, account.id));
+    const accountProfileIds = accountProfiles.map((p) => p.id);
+
+    // Device identity: the same browser/device re-logs in by REPLACING its own
+    // earlier sessions rather than stacking them up (handles profile switching
+    // and re-login on one device without burning extra session slots).
+    let deviceId = getDeviceId(request);
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+    if (!deviceId) {
+      deviceId = uuidv4();
     }
 
-    // Register the new active session
-    await setActiveSession(profile.id, sessionId, {
+    const sessionId = uuidv4();
+    const sessionMeta = {
+      deviceId,
       ip: getClientIp(request),
       userAgent: request.headers.get("user-agent") || "",
-      loginTime: Date.now(),
-    });
+    };
+
+    // 1. This device's own stale sessions are superseded by this login.
+    await removeSessionsByDevice(accountProfileIds, deviceId, sessionId);
+
+    // 2. One active session per profile. If ANOTHER device is already using
+    //    this profile it must NOT be kicked — reject the new login instead.
+    const profileSessions = await getActiveSessions(profile.id);
+    if (profileSessions && profileSessions.length > 0) {
+      const other = profileSessions.find((s) => s.sessionId !== sessionId);
+      if (other) {
+        return errorResponse(
+          "This profile is already in use on another device. Please choose another profile, or end that session from the other device before continuing.",
+          409
+        );
+      }
+    }
+
+    // 3. Account-wide session cap (Session Security setting). Count sessions
+    //    across ALL profiles after this device's sessions were replaced.
+    if (profileSessions !== null) {
+      const accountSessions = await getAccountActiveSessions(accountProfileIds);
+      if (accountSessions.length >= maxSessions) {
+        return errorResponse(
+          `Your account has reached the maximum of ${maxSessions} active sessions. End a session on another device, or contact support to raise the limit.`,
+          429
+        );
+      }
+    }
+
+    // Register the new active session for this profile.
+    await setActiveSession(profile.id, sessionId, sessionMeta, idleTimeout);
 
     const accessToken = generateAccessToken({
       profileId: profile.id,
@@ -101,7 +145,7 @@ export async function POST(request: NextRequest) {
     });
 
     const tokenVersion = await getTokenVersion(profile.id);
-    const refreshToken = generateRefreshToken(profile.id, tokenVersion);
+    const refreshToken = generateRefreshToken(profile.id, tokenVersion, sessionId);
 
     const response = successResponse({
       profile: {
@@ -118,8 +162,6 @@ export async function POST(request: NextRequest) {
       accessToken,
     });
 
-    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
-
     response.cookies.set("access_token", accessToken, {
       httpOnly: true,
       secure: Boolean(isHttps),
@@ -133,6 +175,14 @@ export async function POST(request: NextRequest) {
       secure: Boolean(isHttps),
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60,
+      path: "/",
+    });
+
+    response.cookies.set("device_id", deviceId, {
+      httpOnly: false,
+      secure: Boolean(isHttps),
+      sameSite: "lax",
+      maxAge: 365 * 24 * 60 * 60,
       path: "/",
     });
 

@@ -2,9 +2,9 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { accounts, profiles } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { verifyToken, comparePassword, hashPassword, generateAccessToken, extractIpSubnet, getClientIp } from "@/lib/auth";
+import { verifyToken, comparePassword, hashPassword, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { revokeTokenVersion, setRateLimit } from "@/lib/redis";
+import { revokeTokenVersion, getTokenVersion, setRateLimit } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   try {
@@ -62,18 +62,22 @@ export async function POST(request: NextRequest) {
       })
       .where(eq(accounts.id, account.id));
 
-    // Rotate the refresh token version for this profile so other devices are
-    // logged out after a credential change.
+    // Rotate the refresh token version for this profile so OTHER devices are
+    // logged out after a credential change...
     await revokeTokenVersion(payload.profileId);
 
-    // Re-issue a fresh access token so the current session remains valid with
-    // the must-change flag cleared downstream.
+    // ...but keep THIS session alive by re-issuing both tokens for this device,
+    // carrying the same sessionId so middleware session checks keep passing.
+    const sessionId = payload.sessionId;
+    const tokenVersion = await getTokenVersion(payload.profileId);
     const newAccessToken = generateAccessToken({
       profileId: payload.profileId,
       accountId: account.id,
       isAdmin: false,
-      fingerprint: accessToken ? extractIpSubnet(ip) : "0.0.0.0",
+      fingerprint: extractIpSubnet(ip),
+      ...(sessionId ? { sessionId } : {}),
     });
+    const newRefreshToken = generateRefreshToken(payload.profileId, tokenVersion, sessionId);
 
     const response = successResponse({ message: "Password updated" });
     const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
@@ -82,6 +86,13 @@ export async function POST(request: NextRequest) {
       secure: Boolean(isHttps),
       sameSite: "lax",
       maxAge: 15 * 60,
+      path: "/",
+    });
+    response.cookies.set("refresh_token", newRefreshToken, {
+      httpOnly: true,
+      secure: Boolean(isHttps),
+      sameSite: "lax",
+      maxAge: 7 * 24 * 60 * 60,
       path: "/",
     });
 

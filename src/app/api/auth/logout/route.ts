@@ -1,16 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 import { successResponse } from "@/lib/api-response";
 import { verifyToken, verifyRefreshToken } from "@/lib/auth";
-import { revokeTokenVersion } from "@/lib/redis";
+import { revokeTokenVersion, removeActiveSession } from "@/lib/redis";
 
 export async function POST(request: NextRequest) {
   try {
-    // Optionally revoke the refresh token by incrementing the version in Redis
+    // Remove the active Redis session so the profile's session slot frees up
+    // immediately (single-session-per-profile enforcement counts sessions here).
     const refreshToken = request.cookies.get("refresh_token")?.value;
+    const accessToken = request.cookies.get("access_token")?.value;
+
     if (refreshToken) {
       const payload = await verifyRefreshToken(refreshToken);
       if (payload) {
         await revokeTokenVersion(payload.profileId);
+        if (payload.sessionId) {
+          await removeActiveSession(payload.profileId, payload.sessionId);
+        }
+      }
+    } else if (accessToken) {
+      const payload = await verifyToken(accessToken);
+      if (payload?.sessionId && payload.profileId) {
+        await removeActiveSession(payload.profileId, payload.sessionId);
       }
     }
 

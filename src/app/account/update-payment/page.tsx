@@ -231,16 +231,16 @@ export default function UpdatePaymentPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-2 sm:p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[120] flex items-end justify-center bg-black/70 sm:items-center sm:p-4 backdrop-blur-sm"
             onClick={() => setSelectedMethod(null)}
           >
             <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              initial={{ opacity: 0, y: 40, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
+              exit={{ opacity: 0, y: 40, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
               onClick={(e) => e.stopPropagation()}
-              className="relative w-full max-w-[90vw] max-h-[90vh] overflow-y-auto rounded-3xl border border-white/10 bg-[#141416] p-4 sm:p-6 shadow-2xl"
+              className="relative w-full max-w-[94vw] max-h-[94dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl border border-white/10 bg-[#141416] p-4 sm:p-6 shadow-2xl"
             >
               <button
                 type="button"
@@ -357,14 +357,14 @@ export default function UpdatePaymentPage() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 p-2 sm:p-4 backdrop-blur-sm"
+            className="fixed inset-0 z-[130] flex items-end justify-center bg-black/70 sm:items-center sm:p-4 backdrop-blur-sm"
           >
             <motion.div
-              initial={{ opacity: 0, y: 16, scale: 0.96 }}
+              initial={{ opacity: 0, y: 40, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 16, scale: 0.96 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-              className="relative w-full max-w-[90vw] rounded-3xl border border-emerald-500/30 bg-[#141416] p-4 sm:p-6 text-center shadow-2xl"
+              exit={{ opacity: 0, y: 40, scale: 0.98 }}
+              transition={{ duration: 0.22, ease: "easeOut" }}
+              className="relative w-full max-w-[94vw] rounded-t-3xl sm:rounded-3xl border border-emerald-500/30 bg-[#141416] p-4 sm:p-6 text-center shadow-2xl"
             >
               <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400 ring-1 ring-emerald-500/30">
                 <CheckCircle2 className="h-7 w-7" />

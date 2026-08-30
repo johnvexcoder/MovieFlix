@@ -126,50 +126,140 @@ export async function closeRedis(): Promise<void> {
 }
 
 /**
- * Track active sessions per profile to enforce single-session policy
+ * Active-session tracking. Sessions are stored in a hash keyed by profile:
+ *
+ *   active_sessions:<profileId> -> { <sessionId>: JSON {...sessionData} }
+ *
+ * Each profile allows at most ONE active session at a time (enforced by the
+ * auth routes). The whole hash expires after `expirySeconds` of inactivity
+ * (idle timeout), which the proxy refreshes via `touchActiveSession`.
  */
+
+export interface ActiveSession {
+  sessionId: string;
+  createdAt: number;
+  lastActive: number;
+  deviceId?: string;
+  ip?: string;
+  userAgent?: string;
+}
+
 export async function setActiveSession(
   profileId: string,
   sessionId: string,
   metadata: Record<string, unknown> = {},
-  expirySeconds: number = 7 * 24 * 60 * 60
+  expirySeconds: number = 30 * 60
 ): Promise<void> {
-  const client = getRedisClient();
-  const key = `active_sessions:${profileId}`;
-  const sessionData = JSON.stringify({
-    sessionId,
-    createdAt: Date.now(),
-    ...metadata,
-  });
-  await client.hset(key, sessionId, sessionData);
-  await client.expire(key, expirySeconds);
+  try {
+    const client = getRedisClient();
+    const key = `active_sessions:${profileId}`;
+    const now = Date.now();
+    const sessionData = JSON.stringify({
+      sessionId,
+      createdAt: now,
+      lastActive: now,
+      ...metadata,
+    });
+    await client.hset(key, sessionId, sessionData);
+    await client.expire(key, expirySeconds);
+  } catch {
+    // fail open: if Redis is down, allow the session to proceed
+  }
 }
 
-export async function getActiveSessions(profileId: string): Promise<
-  Array<{ sessionId: string; createdAt: number; metadata: Record<string, unknown> }>
-> {
-  const client = getRedisClient();
-  const sessions = await client.hgetall(`active_sessions:${profileId}`);
-  return Object.entries(sessions).map(([sessionId, data]) => {
-    const parsed = JSON.parse(data);
-    return { sessionId, createdAt: parsed.createdAt, metadata: parsed };
-  });
+/**
+ * Returns the active sessions for a profile. Returns `null` when Redis is
+ * unavailable (callers fail open rather than locking everyone out), `[]` when
+ * Redis is reachable but no session exists.
+ */
+export async function getActiveSessions(profileId: string): Promise<ActiveSession[] | null> {
+  try {
+    const client = getRedisClient();
+    const sessions = await client.hgetall(`active_sessions:${profileId}`);
+    return Object.values(sessions).map((data) => {
+      try {
+        return JSON.parse(data) as ActiveSession;
+      } catch {
+        return null;
+      }
+    }).filter(Boolean) as ActiveSession[];
+  } catch {
+    return null;
+  }
 }
 
 export async function removeActiveSession(profileId: string, sessionId: string): Promise<void> {
-  const client = getRedisClient();
-  await client.hdel(`active_sessions:${profileId}`, sessionId);
+  try {
+    const client = getRedisClient();
+    await client.hdel(`active_sessions:${profileId}`, sessionId);
+  } catch {
+    // redis unavailable — in-memory enforcement still protects new logins
+  }
 }
 
-export async function revokeAllSessionsExcept(profileId: string, keepSessionId: string): Promise<number> {
-  const client = getRedisClient();
-  const key = `active_sessions:${profileId}`;
-  const sessions = await client.hkeys(key);
-  const toRemove = sessions.filter((id) => id !== keepSessionId);
-  if (toRemove.length > 0) {
-    await client.hdel(key, ...toRemove);
+/**
+ * Refresh the "last seen" timestamp (throttled to once/60s) and slide the idle
+ * TTL for an active session.
+ */
+export async function touchActiveSession(
+  profileId: string,
+  sessionId: string,
+  expirySeconds: number = 30 * 60
+): Promise<void> {
+  try {
+    const client = getRedisClient();
+    const key = `active_sessions:${profileId}`;
+    const raw = await client.hget(key, sessionId);
+    if (!raw) return;
+    const session = JSON.parse(raw) as ActiveSession;
+    if (session.lastActive && Date.now() - session.lastActive < 60_000) return;
+    session.lastActive = Date.now();
+    await client.hset(key, sessionId, JSON.stringify(session));
+    await client.expire(key, expirySeconds);
+  } catch {
+    // noop
   }
-  return toRemove.length;
+}
+
+/**
+ * Collect every active session across the given profiles (account-wide count).
+ */
+export async function getAccountActiveSessions(
+  profileIds: string[]
+): Promise<Array<ActiveSession & { profileId: string }>> {
+  const out: Array<ActiveSession & { profileId: string }> = [];
+  for (const pid of profileIds) {
+    const sessions = await getActiveSessions(pid);
+    if (!sessions) continue; // redis unavailable -> fail open
+    for (const s of sessions) {
+      out.push({ ...s, profileId: pid });
+    }
+  }
+  return out;
+}
+
+/**
+ * Remove all sessions belonging to a given device across the account's
+ * profiles. Used when the same device logs in again (re-login, profile switch)
+ * so it replaces its own older sessions instead of double-counting them.
+ */
+export async function removeSessionsByDevice(
+  profileIds: string[],
+  deviceId: string,
+  excludeSessionId?: string
+): Promise<string[]> {
+  const removed: string[] = [];
+  for (const pid of profileIds) {
+    const sessions = await getActiveSessions(pid);
+    if (!sessions) continue; // redis unavailable -> fail open
+    for (const s of sessions) {
+      if (s.deviceId === deviceId && s.sessionId !== excludeSessionId) {
+        await removeActiveSession(pid, s.sessionId);
+        removed.push(s.sessionId);
+      }
+    }
+  }
+  return removed;
 }
 
 /**

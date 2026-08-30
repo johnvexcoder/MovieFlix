@@ -57,6 +57,15 @@ export const adminMessages = sqliteTable("admin_messages", {
   createdAt: text("created_at").notNull().default(""),
 });
 
+// Tracks which accounts have already seen a message, so a message pops exactly
+// once and never reappears on a new login/session of the same account.
+export const messageViews = sqliteTable("message_views", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull().references(() => accounts.id),
+  messageId: text("message_id").notNull().references(() => adminMessages.id),
+  viewedAt: text("viewed_at").notNull().default(""),
+});
+
 // ===========================================
 // CONTACT SUBMISSIONS TABLE (Report / Feedback / Suggestion)
 // ===========================================

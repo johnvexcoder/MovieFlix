@@ -1,11 +1,28 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { accounts, profiles, profileSettings, watchHistory, sessions } from "@/db/schema";
+import { accounts, profiles, profileSettings, watchHistory, sessions, adminMessages, contactSubmissions, paymentSubmissions } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { v4 as uuidv4 } from "uuid";
 import { sendEmail } from "@/lib/email";
+import { getActiveSessions, removeActiveSession } from "@/lib/redis";
+
+async function getActiveSessionsForProfiles(profileIds: string[]) {
+  const results: { profileId: string; sessionId: string }[] = [];
+  for (const pid of profileIds) {
+    try {
+      const sessions = await getActiveSessions(pid);
+      if (!sessions) continue; // redis unavailable -> fail open
+      for (const s of sessions) {
+        results.push({ profileId: pid, sessionId: s.sessionId });
+      }
+    } catch {
+      // ignore per-profile redis errors
+    }
+  }
+  return results;
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -233,21 +250,43 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Account not found", 404);
     }
 
-    // Delete all profiles for this account
-    const accountProfiles = await db
-      .select({ id: profiles.id })
-      .from(profiles)
-      .where(eq(profiles.accountId, accountId));
-
-    for (const profile of accountProfiles) {
-      await db.delete(watchHistory).where(eq(watchHistory.profileId, profile.id));
-      await db.delete(sessions).where(eq(sessions.profileId, profile.id));
-      await db.delete(profileSettings).where(eq(profileSettings.profileId, profile.id));
-      await db.delete(profiles).where(eq(profiles.id, profile.id));
+    // Clean up any active Redis sessions for this account's profiles so a
+    // deleted account cannot keep watching through a cached session.
+    try {
+      const accountProfilesBefore = await db
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.accountId, accountId));
+      const sessionIds = await getActiveSessionsForProfiles(accountProfilesBefore.map((p) => p.id));
+      for (const sid of sessionIds) {
+        await removeActiveSession(sid.profileId, sid.sessionId);
+      }
+    } catch {
+      // Redis may be down; the DB cleanup below is the critical part.
     }
 
-    // Delete account
-    await db.delete(accounts).where(eq(accounts.id, accountId));
+    // Delete dependent rows first (FK constraints) inside one transaction so
+    // the account is never left half-deleted.
+    await db.transaction(async (tx) => {
+      const accountProfiles = await tx
+        .select({ id: profiles.id })
+        .from(profiles)
+        .where(eq(profiles.accountId, accountId));
+
+      for (const profile of accountProfiles) {
+        await tx.delete(watchHistory).where(eq(watchHistory.profileId, profile.id));
+        await tx.delete(sessions).where(eq(sessions.profileId, profile.id));
+        await tx.delete(profileSettings).where(eq(profileSettings.profileId, profile.id));
+        await tx.delete(profiles).where(eq(profiles.id, profile.id));
+      }
+
+      await tx.delete(adminMessages).where(eq(adminMessages.accountId, accountId));
+      await tx.delete(contactSubmissions).where(eq(contactSubmissions.accountId, accountId));
+      await tx.delete(paymentSubmissions).where(eq(paymentSubmissions.accountId, accountId));
+
+      // Delete account
+      await tx.delete(accounts).where(eq(accounts.id, accountId));
+    });
 
     return successResponse({ message: "Account deleted successfully" });
   } catch (error) {

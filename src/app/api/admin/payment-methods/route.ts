@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { paymentMethods } from "@/db/schema";
+import { paymentMethods, paymentSubmissions } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -143,7 +143,22 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Method ID is required", 400);
     }
 
-    await db.delete(paymentMethods).where(eq(paymentMethods.id, id));
+    const [existing] = await db
+      .select()
+      .from(paymentMethods)
+      .where(eq(paymentMethods.id, id))
+      .limit(1);
+    if (!existing) {
+      return errorResponse("Payment method not found", 404);
+    }
+
+    // payment_submissions.payment_method_id references this row (FK), so delete
+    // those first inside a transaction to avoid a constraint failure.
+    await db.transaction(async (tx) => {
+      await tx.delete(paymentSubmissions).where(eq(paymentSubmissions.paymentMethodId, id));
+      await tx.delete(paymentMethods).where(eq(paymentMethods.id, id));
+    });
+
     return successResponse({ message: "Payment method deleted" });
   } catch (error) {
     console.error("Delete payment method error:", error);

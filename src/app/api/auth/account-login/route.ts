@@ -1,10 +1,18 @@
 import { NextRequest } from "next/server";
+import { v4 as uuidv4 } from "uuid";
 import { db } from "@/db";
 import { accounts, profiles } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { setRateLimit, getTokenVersion } from "@/lib/redis";
+import {
+  setRateLimit,
+  getTokenVersion,
+  setActiveSession,
+  removeSessionsByDevice,
+  getAccountActiveSessions,
+} from "@/lib/redis";
+import { getDeviceId, getMaxSessions, getSessionIdleTimeoutSeconds } from "@/lib/app-settings";
 
 export async function POST(request: NextRequest) {
   try {
@@ -73,17 +81,54 @@ export async function POST(request: NextRequest) {
       return errorResponse("No profiles found for this account", 404);
     }
 
+    // Session enforcement for the account.
+    const maxSessions = await getMaxSessions();
+    const idleTimeout = await getSessionIdleTimeoutSeconds();
+    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
+
+    let deviceId = getDeviceId(request);
+    if (!deviceId) deviceId = uuidv4();
+
+    const sessionId = uuidv4();
+    const sessionMeta = {
+      deviceId,
+      ip: getClientIp(request),
+      userAgent: request.headers.get("user-agent") || "",
+    };
+
+    const profileIds = accountProfiles.map((p) => p.id);
+
+    // This device replaces its own previous sessions (profile switching /
+    // re-login must not double-count against the account cap).
+    await removeSessionsByDevice(profileIds, deviceId, sessionId);
+
+    const accountSessions = await getAccountActiveSessions(profileIds);
+    // Only enforce the cap if Redis is reachable (accountSessions is always an
+    // array here; null entries were skipped) — we can't count otherwise.
+    if (accountSessions.length >= maxSessions) {
+      return errorResponse(
+        `Your account has reached the maximum of ${maxSessions} active sessions. End a session on another device, or contact support to raise the limit.`,
+        429
+      );
+    }
+
+    // Register an initial session on the main profile. If the user picks a
+    // different profile afterwards, profile-login replaces this session for the
+    // same device.
+    await setActiveSession(mainProfile.id, sessionId, sessionMeta, idleTimeout);
+
     const accessToken = generateAccessToken({
       profileId: mainProfile.id,
       accountId: account.id,
       isAdmin: false,
       fingerprint: extractIpSubnet(ip),
+      sessionId,
     });
 
     // Use the current token version so a subsequent logout/revocation correctly
     // invalidates this refresh token (the old hard-coded value of 1 broke this).
     const tokenVersion = await getTokenVersion(mainProfile.id);
-    const refreshToken = generateRefreshToken(mainProfile.id, tokenVersion);
+    const refreshToken = generateRefreshToken(mainProfile.id, tokenVersion, sessionId);
 
     const response = successResponse({
       account: {
@@ -101,8 +146,6 @@ export async function POST(request: NextRequest) {
       accessToken,
     });
 
-    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
-
     response.cookies.set("access_token", accessToken, {
       httpOnly: true,
       secure: Boolean(isHttps),
@@ -116,6 +159,14 @@ export async function POST(request: NextRequest) {
       secure: Boolean(isHttps),
       sameSite: "lax",
       maxAge: 7 * 24 * 60 * 60,
+      path: "/",
+    });
+
+    response.cookies.set("device_id", deviceId, {
+      httpOnly: false,
+      secure: Boolean(isHttps),
+      sameSite: "lax",
+      maxAge: 365 * 24 * 60 * 60,
       path: "/",
     });
 

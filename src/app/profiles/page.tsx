@@ -224,6 +224,9 @@ export default function ProfilesPage() {
   const [pinError, setPinError] = useState<string | null>(null);
   const [pinLoggingIn, setPinLoggingIn] = useState(false);
 
+  // Mobile-friendly banner for session rejection (another device on this profile, or account cap reached)
+  const [loginError, setLoginError] = useState<string | null>(null);
+
   useEffect(() => {
     fetchProfiles();
   }, []);
@@ -385,6 +388,7 @@ export default function ProfilesPage() {
 
   async function loginToProfile(profileId: string, pin?: string) {
     setPinLoggingIn(true);
+    setLoginError(null);
     try {
       const response = await fetch("/api/auth/profile-login", {
         method: "POST",
@@ -397,8 +401,20 @@ export default function ProfilesPage() {
       if (data.success) {
         router.push(`/profiles/${profileId}/home`);
       } else {
-        setPinError(data.error || "Incorrect PIN code");
-        setPinDigits(["", "", "", ""]);
+        // Session rejected (409 profile in use / 429 account cap) or bad PIN.
+        if (response.status === 409) {
+          setPinModal({ open: false, profile: null });
+          setLoginError(
+            data.error ||
+              "This profile is already in use on another device. Select another profile to continue."
+          );
+        } else if (response.status === 429) {
+          setPinModal({ open: false, profile: null });
+          setLoginError(data.error || "Too many active sessions. Please try again later.");
+        } else {
+          setPinError(data.error || "Incorrect PIN code");
+          setPinDigits(["", "", "", ""]);
+        }
       }
     } catch {
       setPinError("Failed to connect to server");
@@ -472,6 +488,28 @@ export default function ProfilesPage() {
             Select your profile or enter your secure PIN to continue.
           </p>
         </div>
+
+        {/* Session rejection banner */}
+        <AnimatePresence>
+          {loginError && (
+            <motion.div
+              initial={{ opacity: 0, y: -12 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0 }}
+              className="mx-auto mb-6 flex max-w-xl items-center gap-3 rounded-2xl border border-red-500/40 bg-red-950/60 p-4 text-sm font-semibold text-red-200 backdrop-blur-md"
+            >
+              <ShieldAlert className="h-5 w-5 shrink-0 text-red-400" />
+              <span className="flex-1">{loginError}</span>
+              <button
+                type="button"
+                onClick={() => setLoginError(null)}
+                className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/10 text-neutral-300 transition-colors hover:bg-white/20 hover:text-white"
+              >
+                <Check className="h-4 w-4" />
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         {/* Profiles Grid */}
         <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10">

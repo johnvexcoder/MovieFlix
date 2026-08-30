@@ -12,7 +12,7 @@ export interface AdminMessage {
 }
 
 interface MessageToastProps {
-  variant: "sliding" | "fullscreen";
+  variant?: "sliding" | "fullscreen";
 }
 
 const SEEN_KEY_PREFIX = "movieflix:seen-messages:";
@@ -33,11 +33,16 @@ function loadSeen(key: string): string[] {
 }
 
 /**
- * Polls /api/messages and displays new admin messages as either a sliding
- * toast (navbar pages) or a fullscreen overlay (watch page). Messages already
- * dismissed are remembered per account in localStorage.
+ * Polls /api/messages and shows new admin messages as a compact slide-in card
+ * pinned to the top-right corner. It never blocks the interface, so it can be
+ * shown even while a movie is playing.
+ *
+ * Once a message is dismissed it is recorded server-side (see
+ * POST /api/messages/[id]/read) so it pops exactly once per account — it will
+ * not reappear on a new login/session of the same account. localStorage is only
+ * a fast-path mirror.
  */
-export function MessageToast({ variant }: MessageToastProps) {
+export function MessageToast(_props: MessageToastProps) {
   const [messages, setMessages] = useState<AdminMessage[]>([]);
   const [accountId, setAccountId] = useState<string | undefined>();
   const [openIndex, setOpenIndex] = useState(0);
@@ -74,7 +79,10 @@ export function MessageToast({ variant }: MessageToastProps) {
         const fresh = all.filter((m) => !seen.includes(m.id));
 
         if (fresh.length > 0) {
-          setMessages(fresh);
+          setMessages((prev) => {
+            const merged = [...fresh.filter((m) => !prev.some((p) => p.id === m.id)), ...prev];
+            return merged;
+          });
           setOpenIndex(0);
         }
       } catch {}
@@ -87,15 +95,26 @@ export function MessageToast({ variant }: MessageToastProps) {
     };
   }, [accountId]);
 
-  function dismiss(id: string) {
+  // Persist "seen" locally (fast path) and on the server (authoritative, so
+  // the message never reappears for this account on another device/session).
+  async function markViewed(id: string) {
     const key = getSeenKey(accountId);
-    const seen = loadSeen(key);
-    if (!seen.includes(id)) {
-      seen.push(id);
-      try {
+    try {
+      const seen = loadSeen(key);
+      if (!seen.includes(id)) {
+        seen.push(id);
         localStorage.setItem(key, JSON.stringify(seen.slice(-100)));
-      } catch {}
+      }
+    } catch {}
+    try {
+      await fetch(`/api/messages/${id}/read`, { method: "POST" });
+    } catch {
+      // Server unreachable — local mirror still suppresses repeat pops.
     }
+  }
+
+  function dismiss(id: string) {
+    markViewed(id);
     setMessages((prev) => {
       const next = prev.filter((m) => m.id !== id);
       if (openIndex >= next.length) setOpenIndex(Math.max(0, next.length - 1));
@@ -103,83 +122,10 @@ export function MessageToast({ variant }: MessageToastProps) {
     });
   }
 
-  function dismissAll() {
-    messages.forEach((m) => dismiss(m.id));
-  }
-
   const current = messages[openIndex];
 
-  if (variant === "fullscreen") {
-    return (
-      <AnimatePresence>
-        {current && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute inset-0 z-[70] flex items-center justify-center bg-black/80 backdrop-blur-md p-6"
-            onClick={dismissAll}
-          >
-            <motion.div
-              initial={{ scale: 0.92, y: 20, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              transition={{ type: "spring", stiffness: 300, damping: 26 }}
-              className="glass-panel relative w-full max-w-xl rounded-3xl border-white/20 p-8 text-center shadow-2xl"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <button
-                type="button"
-                onClick={() => dismiss(current.id)}
-                className="absolute top-3 right-3 rounded-full p-1.5 text-neutral-400 hover:bg-white/10 hover:text-white"
-                aria-label="Dismiss message"
-              >
-                <X className="h-4 w-4" />
-              </button>
-              <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#e50914]/15 ring-1 ring-[#e50914]/40">
-                <Megaphone className="h-7 w-7 text-[#e50914]" />
-              </div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-neutral-500">
-                Announcement from MovieFlix
-              </p>
-              <p className="mt-3 text-lg font-bold text-white leading-relaxed whitespace-pre-wrap">
-                {current.message}
-              </p>
-              {messages.length > 1 && (
-                <p className="mt-4 text-xs font-semibold text-neutral-500">
-                  Message {openIndex + 1} of {messages.length}
-                </p>
-              )}
-              <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                {messages.length > 1 && (
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setOpenIndex((i) => Math.min(i + 1, messages.length - 1));
-                    }}
-                    className="rounded-xl border border-white/15 bg-white/5 px-4 py-2 text-xs font-bold text-white hover:bg-white/10"
-                  >
-                    Next
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => dismiss(current.id)}
-                  className="btn-brand rounded-xl px-6 py-2 text-xs font-bold"
-                >
-                  {messages.length > 1 ? "Dismiss" : "Got it"}
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    );
-  }
-
-  // Sliding variant
   return (
-    <div className="pointer-events-none fixed top-20 right-4 sm:right-6 z-[80] flex w-[calc(100vw-2rem)] max-w-sm flex-col gap-3">
+    <div className="pointer-events-none fixed top-14 right-3 sm:top-20 sm:right-6 z-[80] flex w-[calc(100vw-1.5rem)] max-w-sm flex-col gap-3">
       <AnimatePresence>
         {current && (
           <motion.div
@@ -195,7 +141,7 @@ export function MessageToast({ variant }: MessageToastProps) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Message</p>
-                <p className="mt-0.5 text-xs font-bold text-white leading-relaxed whitespace-pre-wrap">
+                <p className="mt-0.5 text-xs font-bold text-white leading-relaxed whitespace-pre-wrap line-clamp-4">
                   {current.message}
                 </p>
                 {messages.length > 1 && (

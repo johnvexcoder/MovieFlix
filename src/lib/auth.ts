@@ -73,8 +73,13 @@ export function generateAccessToken(payload: Omit<JWTPayload, "tokenVersion">): 
   });
 }
 
-export function generateRefreshToken(profileId: string, tokenVersion: number): string {
-  return jwt.sign({ profileId, tokenVersion }, secrets().refresh, {
+export function generateRefreshToken(profileId: string, tokenVersion: number, sessionId?: string): string {
+  const payload: { profileId: string; tokenVersion: number; sessionId?: string } = {
+    profileId,
+    tokenVersion,
+  };
+  if (sessionId) payload.sessionId = sessionId;
+  return jwt.sign(payload, secrets().refresh, {
     expiresIn: JWT_REFRESH_EXPIRY_SECONDS,
   });
 }
@@ -90,11 +95,12 @@ export async function verifyToken(token: string): Promise<JWTPayload | null> {
 
 export async function verifyRefreshToken(
   token: string
-): Promise<{ profileId: string; tokenVersion: number } | null> {
+): Promise<{ profileId: string; tokenVersion: number; sessionId?: string } | null> {
   try {
     const payload = jwt.verify(token, secrets().refresh) as {
       profileId: string;
       tokenVersion: number;
+      sessionId?: string;
     };
     return payload;
   } catch {
