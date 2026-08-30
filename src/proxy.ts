@@ -36,6 +36,13 @@ const ADMIN_PATHS = ["/admin-panel"];
 // Admin API paths
 const ADMIN_API_PATHS = ["/api/admin", "/api/library"];
 
+// Endpoints shared by BOTH the admin panel and regular accounts. These accept
+// either an admin_token OR an access_token. Admin-panel actions like uploading
+// a payment-method icon/QR image hit /api/upload while the admin is only
+// authenticated via admin_token, so they must not fall through to the strict
+// user-only/access_token branch.
+const SHARED_AUTH_PATHS = ["/api/upload", "/api/files"];
+
 function isPublicPath(pathname: string): boolean {
   if (
     pathname.endsWith(".svg") ||
@@ -62,6 +69,10 @@ function isMustChangeAllowedPath(pathname: string): boolean {
 
 function isAdminApiPath(pathname: string): boolean {
   return ADMIN_API_PATHS.some((path) => pathname.startsWith(path));
+}
+
+function isSharedAuthPath(pathname: string): boolean {
+  return SHARED_AUTH_PATHS.some((path) => pathname.startsWith(path));
 }
 
 const ADMIN_AUTH_PATHS = [
@@ -96,6 +107,25 @@ export async function proxy(request: NextRequest) {
 
   // Allow public paths
   if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+
+  // Shared admin+user endpoints: accept EITHER an admin session or a user
+  // session. The route handlers themselves re-verify the token and decide the
+  // requirements (e.g. /api/upload accepts both token types).
+  if (isSharedAuthPath(pathname)) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    const accessToken = request.cookies.get("access_token")?.value;
+    const either = adminToken || accessToken;
+
+    if (!either) {
+      return NextResponse.json({ error: "Authentication required" }, { status: 401 });
+    }
+
+    const payload = await verifyToken(either);
+    if (!payload) {
+      return NextResponse.json({ error: "Invalid token" }, { status: 401 });
+    }
     return NextResponse.next();
   }
 
