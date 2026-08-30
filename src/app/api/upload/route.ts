@@ -20,10 +20,16 @@ function uploadsRoot(): string {
 export async function POST(request: NextRequest) {
   try {
     const accessToken = request.cookies.get("access_token")?.value;
-    if (!accessToken) {
+    const adminToken = request.cookies.get("admin_token")?.value;
+    // Accept either a regular user session (account receipt uploads) or an
+    // admin session (admin-panel uploads like payment-method icon/QR images).
+    // Non-admin tokens are fine for the generic upload; the third-party caller
+    // decides where to store the file.
+    const auth = accessToken || adminToken;
+    if (!auth) {
       return errorResponse("Not authenticated", 401);
     }
-    const payload = await verifyToken(accessToken);
+    const payload = await verifyToken(auth);
     if (!payload) {
       return errorResponse("Invalid token", 401);
     }
