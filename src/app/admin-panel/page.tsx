@@ -23,6 +23,7 @@ import {
   FolderOpen,
   Lock,
   Megaphone,
+  MapPin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -623,44 +624,61 @@ export default function AdminPage() {
                         {account.username.charAt(0).toUpperCase()}
                       </div>
 
-                      {/* Account Details */}
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-sm font-bold text-white truncate">
-                            {account.username}
-                          </span>
-                          <span className={`badge-quality ${colors.badge} whitespace-nowrap`}>
-                            {account.isActive ? "Active" : "Expired"}
-                          </span>
-                          <span className="badge-quality border-white/15 text-neutral-400 whitespace-nowrap">
-                            {account.isTemp ? "Time-Limited" : "Permanent"}
-                          </span>
-                          <span className="text-[10px] text-neutral-400 whitespace-nowrap">
-                            {account.profileCount} profile{account.profileCount !== 1 ? "s" : ""}
-                          </span>
-                        </div>
+{/* Account Details */}
+                       <div className="min-w-0 flex-1 space-y-1">
+                         <div className="flex flex-wrap items-center gap-1.5">
+                           <span className="text-sm font-bold text-white truncate">
+                             {account.username}
+                           </span>
+                           <span className={`badge-quality ${colors.badge} whitespace-nowrap`}>
+                             {account.isActive ? "Active" : "Expired"}
+                           </span>
+                           <span className="badge-quality border-white/15 text-neutral-400 whitespace-nowrap">
+                             {account.isTemp ? "Time-Limited" : "Permanent"}
+                           </span>
+                           <span className="text-[10px] text-neutral-400 whitespace-nowrap">
+                             {account.profileCount} profile{account.profileCount !== 1 ? "s" : ""}
+                           </span>
+                         </div>
 
-                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-neutral-400">
-                          <span className="flex items-center gap-1.5">
-                            <CalendarClock className="h-3.5 w-3.5 text-neutral-500" />
-                            {account.expiresAt
-                              ? new Date(account.expiresAt).toLocaleDateString(undefined, {
-                                  year: "numeric",
-                                  month: "short",
-                                  day: "numeric",
-                                  hour: "2-digit",
-                                  minute: "2-digit",
-                                })
-                              : "No expiration date"}
-                          </span>
+                         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-neutral-400">
+                           <span className="flex items-center gap-1.5">
+                             <CalendarClock className="h-3.5 w-3.5 text-neutral-500" />
+                             {account.expiresAt
+                               ? new Date(account.expiresAt).toLocaleDateString(undefined, {
+                                   year: "numeric",
+                                   month: "short",
+                                   day: "numeric",
+                                   hour: "2-digit",
+                                   minute: "2-digit",
+                                 })
+                               : "No expiration date"}
+                           </span>
 
-                          <span className={`flex items-center gap-1.5 font-semibold tabular-nums ${colors.text}`}>
-                            <Clock className="h-3.5 w-3.5" />
-                            {account.expiresAt
-                              ? `Remaining: ${formatRemaining(account.expiresAt, now)}`
-                              : "Unlimited Access"}
-                          </span>
-                        </div>
+                           <span className={`flex items-center gap-1.5 font-semibold tabular-nums ${colors.text}`}>
+                             <Clock className="h-3.5 w-3.5" />
+                             {account.expiresAt
+                               ? `Remaining: ${formatRemaining(account.expiresAt, now)}`
+                               : "Unlimited Access"}
+                           </span>
+                         </div>
+
+                         {/* IP & Location Info */}
+                         <div className="flex flex-wrap items-center gap-2 mt-1">
+                           <span className="flex items-center gap-1 text-[9px] font-medium text-neutral-400">
+                             <MapPin className="h-3 w-3" />
+                             {ipInfo.get(account.id)?.ip ?? "Unknown"}
+                           </span>
+                           {ipInfo.get(account.id)?.location && (
+                             <>
+                               <span className="mx-1 text-[9px] text-neutral-400">|</span>
+                               <span className="flex items-center gap-1 text-[9px] font-medium text-neutral-400">
+                                 <MapPin className="h-3 w-3" />
+                                 {ipInfo.get(account.id)?.location}
+                               </span>
+                             </>
+                           )}
+                         </div>
 
                         {/* Progress Meter Bar */}
                         <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-white/10">
