@@ -1,47 +1,32 @@
-services:
-  redis:
-    image: redis:alpine
-    container_name: movieflix-redis
-    restart: unless-stopped
-    # NOT published to the host. Redis is only reachable on the Docker internal
-    # network (service name "redis"), so it is not exposed on 0.0.0.0:6379.
-    expose:
-      - "6379"
-    volumes:
-      - ./data/redis:/data
-    command: redis-server --appendonly yes
+version: '3.8'
 
-  movieflix:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    container_name: movieflix-app
-    restart: unless-stopped
-    depends_on:
-      - redis
+services:
+  app:
+    build: .
     ports:
       - "9000:9000"
     environment:
-      - NODE_ENV=production
-      - PORT=9000
-      - HOSTNAME=0.0.0.0
-      - DATABASE_URL=/app/data/database.sqlite
       - REDIS_URL=redis://redis:6379
-      # Optional: set your TMDB API Key here or in .env.local
-      - TMDB_API_KEY=${TMDB_API_KEY:-}
-      # JWT secrets MUST be provided via a real .env file. There is deliberately
-      # no insecure fallback here — the app refuses to start without strong values.
-      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET to a random >=32 char string in .env}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET to a random >=32 char string in .env}
+      - DATABASE_PATH=./data/database.sqlite
+      - FFMPEG_PATH=ffmpeg
+      - MEDIA_MOVIES_PATH=/media/movies
+      - MEDIA_SERIES_PATH=/media/series
+      - TRANSCODE_TEMP_DIR=./data/transcode-temp
+      - MAX_CONCURRENT_SESSIONS=3
+      - SESSION_TIMEOUT_MINUTES=30
     volumes:
-      # Persistent SQLite DB, thumbnails, and cache
       - ./data:/app/data
-      # Mount your local movie/series storage folders below (read-only):
-      - /mnt/media/Media/MOVIES:/media/movies:ro
-      - ./media/series:/media/series:ro
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://127.0.0.1:9000/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
+      - /media/movies:/media/movies
+      - /media/series:/media/series
+    depends_on:
+      - redis
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+volumes:
+  redis_data:

@@ -460,7 +460,6 @@ export default function WatchPage() {
     video.addEventListener("canplay", onCanPlay);
     video.addEventListener("loadeddata", onLoadedData);
     video.addEventListener("error", onError);
-    video.addEventListener("timeupdate", onTimeUpdateForRecovery);
 
     return () => {
       video.removeEventListener("timeupdate", onTimeUpdate);
@@ -473,7 +472,6 @@ export default function WatchPage() {
       video.removeEventListener("canplay", onCanPlay);
       video.removeEventListener("loadeddata", onLoadedData);
       video.removeEventListener("error", onError);
-      video.removeEventListener("timeupdate", onTimeUpdateForRecovery);
     };
   }, [media, nextEpisode, profileId, mediaId, router, recoverAttempts]);
 

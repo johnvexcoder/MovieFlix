@@ -485,63 +485,63 @@ export default function AdminPage() {
         </div>
 
         {/* Telemetry Stat Cards */}
-        <div className="mb-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div className="glass-panel rounded-2xl p-5 border border-white/10 shadow-lg">
+        <div className="mb-8 grid gap-3 grid-cols-2 sm:gap-4 lg:grid-cols-4">
+          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Accounts
                 </p>
-                <p className="mt-1 text-3xl font-black text-white">{accounts.length}</p>
+                <p className="mt-1 text-2xl font-black text-white">{accounts.length}</p>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-neutral-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-neutral-400">
                 <Users className="h-5 w-5" />
               </div>
             </div>
           </div>
 
-          <div className="glass-panel rounded-2xl p-5 border border-white/10 shadow-lg">
+          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                   Active Subscriptions
                 </p>
-                <p className="mt-1 text-3xl font-black text-emerald-400">{activeCount}</p>
+                <p className="mt-1 text-2xl font-black text-emerald-400">{activeCount}</p>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
                 <Activity className="h-5 w-5" />
               </div>
             </div>
-            <p className="mt-2 text-xs text-neutral-400">
+            <p className="mt-1.5 text-[10px] text-neutral-400">
               {expiredCount} expired / inactive
             </p>
           </div>
 
-          <div className="glass-panel rounded-2xl p-5 border border-white/10 shadow-lg">
+          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                   Total Profiles
                 </p>
-                <p className="mt-1 text-3xl font-black text-white">{totalProfiles}</p>
+                <p className="mt-1 text-2xl font-black text-white">{totalProfiles}</p>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
                 <Film className="h-5 w-5" />
               </div>
             </div>
           </div>
 
-          <div className="glass-panel rounded-2xl p-5 border border-white/10 shadow-lg">
+          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs font-bold uppercase tracking-wider text-neutral-400">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
                   Profiles per Account
                 </p>
-                <p className="mt-1 text-3xl font-black text-white">
+                <p className="mt-1 text-2xl font-black text-white">
                   {accounts.length ? (totalProfiles / accounts.length).toFixed(1) : "0"}
                 </p>
               </div>
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/5 text-neutral-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-neutral-400">
                 <Timer className="h-5 w-5" />
               </div>
             </div>
@@ -551,23 +551,23 @@ export default function AdminPage() {
         {/* Account Manager Section */}
         <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
           {/* Header Controls */}
-          <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
+          <div className="mb-6 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex items-center gap-3 w-full sm:w-auto">
               <h2 className="text-xl font-bold text-white">User Accounts</h2>
               <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-neutral-300">
                 {filteredAccounts.length}
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full">
+              <div className="relative flex-1">
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                 <Input
                   type="search"
                   placeholder="Filter accounts…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="h-9 w-48 sm:w-64 rounded-xl border-white/10 bg-white/5 pl-9 text-xs text-white"
+                  className="h-9 w-full rounded-xl border-white/10 bg-white/5 pl-9 text-xs text-white"
                 />
               </div>
 
@@ -577,7 +577,7 @@ export default function AdminPage() {
                   setMessageText("");
                   setBroadcastOpen(true);
                 }}
-                className="h-9 rounded-xl border-white/15 bg-white/5 px-4 text-xs font-bold text-neutral-200 hover:bg-white/15"
+                className="h-9 rounded-xl border-white/15 bg-white/5 px-4 text-xs font-bold text-neutral-200 hover:bg-white/15 w-full sm:w-auto"
               >
                 <Megaphone className="mr-1.5 h-4 w-4 text-[#e50914]" />
                 Broadcast Message
@@ -585,7 +585,7 @@ export default function AdminPage() {
 
               <Button
                 onClick={() => setAddModalOpen(true)}
-                className="btn-brand h-9 rounded-xl px-4 text-xs font-bold"
+                className="btn-brand h-9 rounded-xl px-4 text-xs font-bold w-full sm:w-auto"
               >
                 <Plus className="mr-1.5 h-4 w-4" />
                 Create Account
@@ -615,32 +615,32 @@ export default function AdminPage() {
                     layout
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="overflow-hidden rounded-2xl border border-white/10 bg-[#121215]/80 p-4 sm:p-5 transition-all hover:border-white/20 hover:bg-[#16161b]"
+                    className="overflow-hidden rounded-2xl border border-white/10 bg-[#121215]/80 p-3 sm:p-4 transition-all hover:border-white/20 hover:bg-[#16161b]"
                   >
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                       {/* Avatar initial */}
-                      <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e50914] to-[#7a0006] text-lg font-black text-white shadow-md">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e50914] to-[#7a0006] text-base font-black text-white shadow-md">
                         {account.username.charAt(0).toUpperCase()}
                       </div>
 
                       {/* Account Details */}
-                      <div className="min-w-0 flex-1 space-y-1.5">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-base font-bold text-white">
+                      <div className="min-w-0 flex-1 space-y-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-sm font-bold text-white truncate">
                             {account.username}
                           </span>
-                          <span className={`badge-quality ${colors.badge}`}>
+                          <span className={`badge-quality ${colors.badge} whitespace-nowrap`}>
                             {account.isActive ? "Active" : "Expired"}
                           </span>
-                          <span className="badge-quality border-white/15 text-neutral-400">
+                          <span className="badge-quality border-white/15 text-neutral-400 whitespace-nowrap">
                             {account.isTemp ? "Time-Limited" : "Permanent"}
                           </span>
-                          <span className="text-xs text-neutral-400">
+                          <span className="text-[10px] text-neutral-400 whitespace-nowrap">
                             {account.profileCount} profile{account.profileCount !== 1 ? "s" : ""}
                           </span>
                         </div>
 
-                        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-neutral-400">
+                        <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-neutral-400">
                           <span className="flex items-center gap-1.5">
                             <CalendarClock className="h-3.5 w-3.5 text-neutral-500" />
                             {account.expiresAt
@@ -663,7 +663,7 @@ export default function AdminPage() {
                         </div>
 
                         {/* Progress Meter Bar */}
-                        <div className="mt-1 h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-white/10">
+                        <div className="mt-0.5 h-1 w-full overflow-hidden rounded-full bg-white/10">
                           {fraction === null ? (
                             <div className="h-full w-full rounded-full bg-emerald-500/70" />
                           ) : (
@@ -676,14 +676,14 @@ export default function AdminPage() {
                       </div>
 
                       {/* Action Controls */}
-                      <div className="flex flex-shrink-0 items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto sm:flex-shrink-0 justify-start sm:justify-end">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/15"
+                          className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
                           onClick={() => handleToggleLock(account)}
                         >
-                          <Lock className={`mr-1.5 h-3.5 w-3.5 ${account.isLocked ? 'text-red-400' : 'text-neutral-400'}`} />
+                          <Lock className={`mr-1 h-3 w-3 ${account.isLocked ? 'text-red-400' : 'text-neutral-400'}`} />
                           {account.isLocked ? "Unlock" : "Lock"}
                         </Button>
 
@@ -691,13 +691,13 @@ export default function AdminPage() {
                           <Button
                             variant="outline"
                             size="sm"
-                            className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/15"
+                            className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
                             onClick={() => {
                               setExtendAccount(account);
                               setAdditionalHours(24);
                             }}
                           >
-                            <Clock className="mr-1.5 h-3.5 w-3.5 text-[#e50914]" />
+                            <Clock className="mr-1 h-3 w-3 text-[#e50914]" />
                             Extend
                           </Button>
                         )}
@@ -705,26 +705,26 @@ export default function AdminPage() {
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/15"
+                          className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
                           onClick={() => {
                             setResetAccount(account);
                             setResetPassword("");
                           }}
                         >
-                          <KeyRound className="mr-1.5 h-3.5 w-3.5 text-amber-400" />
+                          <KeyRound className="mr-1 h-3 w-3 text-amber-400" />
                           Password
                         </Button>
 
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold hover:bg-white/15"
+                          className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
                           onClick={() => {
                             setMessageText("");
                             setMessageDialog({ account });
                           }}
                         >
-                          <Megaphone className="mr-1.5 h-3.5 w-3.5 text-[#e50914]" />
+                          <Megaphone className="mr-1 h-3 w-3 text-[#e50914]" />
                           Message
                         </Button>
 
@@ -732,13 +732,13 @@ export default function AdminPage() {
                           variant="destructive"
                           size="sm"
                           disabled={deletingId !== null}
-                          className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+                          className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 h-8 px-3"
                           onClick={() => handleDeleteAccount(account.id, account.username)}
                         >
                           {deletingId === account.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           )}
                         </Button>
                       </div>

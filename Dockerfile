@@ -1,90 +1,31 @@
-# ===========================================
-# Stage 1: Dependencies
-# ===========================================
-FROM node:22-bookworm-slim AS deps
+FROM node:20-alpine AS builder
+
 WORKDIR /app
 
-# Install build tools for native addons (better-sqlite3)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY package.json package-lock.json ./
+# Install dependencies
+COPY package*.json ./
 RUN npm ci
 
-# ===========================================
-# Stage 2: Builder
-# ===========================================
-FROM node:22-bookworm-slim AS builder
-WORKDIR /app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=deps /app/node_modules ./node_modules
+# Copy source code
 COPY . .
 
-# Ensure data directory exists during build time for SQLite initialization
-RUN mkdir -p /app/data
-
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV NODE_ENV=production
-ENV NODE_OPTIONS="--max-old-space-size=4096"
-
+# Build the application
 RUN npm run build
 
-# ===========================================
-# Stage 3: Production Runner
-# ===========================================
-FROM node:22-bookworm-slim AS runner
+# Production image
+FROM node:20-alpine
+
 WORKDIR /app
 
-# Install ffmpeg and curl for healthcheck & transcoding
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ffmpeg \
-    curl \
-    && rm -rf /var/lib/apt/lists/*
-
-ENV NODE_ENV=production
-ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=9000
-ENV HOSTNAME="0.0.0.0"
-
-# Create non-root user
-RUN groupadd --system --gid 1001 nodejs && \
-    useradd --system --uid 1001 nextjs
-
-# Copy static assets and standalone server output
+# Copy built application from builder
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
 COPY --from=builder /app/public ./public
-COPY --from=builder /app/.next/standalone ./
-COPY --from=builder /app/.next/static ./.next/static
+COPY --from=builder /app/data ./data
 
-# explicitly copy node_modules to ensure native binaries like better-sqlite3 are present
-# and delete the Next.js traced version which is often corrupted and causes segfaults
-COPY --from=deps /app/node_modules ./node_modules
-RUN rm -rf /app/.next/standalone/node_modules/better-sqlite3 \
-    && rm -rf /app/.next/standalone/node_modules/ffmpeg-static \
-    && rm -rf /app/.next/standalone/node_modules/fluent-ffmpeg \
-    && rm -rf /app/.next/standalone/node_modules/ioredis
-
-# Create data directory with write permissions for SQLite & thumbnails
-RUN mkdir -p /app/data/thumbnails /app/data/artwork && \
-    chmod -R 777 /app/data && \
-    chown -R nextjs:nodejs /app/data /app/.next && \
-    chown nextjs:nodejs /app
-
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
+# Expose port
 EXPOSE 9000
 
-HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 \
-  CMD curl -f http://127.0.0.1:9000/api/health || exit 1
-
-ENTRYPOINT ["/app/entrypoint.sh"]
-CMD ["node", "server.js"]
+# Start the application
+CMD ["npm", "start"]

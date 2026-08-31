@@ -43,6 +43,12 @@ const ADMIN_API_PATHS = ["/api/admin", "/api/library"];
 // user-only/access_token branch.
 const SHARED_AUTH_PATHS = ["/api/upload", "/api/files"];
 
+// Paths where users can SELECT a profile. These require authentication but
+// should NOT validate the session for a specific profile, since the user is
+// actively choosing which profile to use. This prevents "kicked out" when
+// another device is using the current profile but user wants to switch.
+const PROFILE_SELECTION_PATHS = ["/profiles"];
+
 function isPublicPath(pathname: string): boolean {
   if (
     pathname.endsWith(".svg") ||
@@ -73,6 +79,10 @@ function isAdminApiPath(pathname: string): boolean {
 
 function isSharedAuthPath(pathname: string): boolean {
   return SHARED_AUTH_PATHS.some((path) => pathname.startsWith(path));
+}
+
+function isProfileSelectionPath(pathname: string): boolean {
+  return PROFILE_SELECTION_PATHS.some((path) => pathname === path || pathname.startsWith(path + "/"));
 }
 
 const ADMIN_AUTH_PATHS = [
@@ -217,8 +227,9 @@ export async function proxy(request: NextRequest) {
     return response;
   }
 
-  // Validate session ID (single-session enforcement)
-  if (payload.sessionId) {
+  // Validate session ID (single-session enforcement) — skip on profile selection
+  // pages so users can switch profiles even if current profile is in use elsewhere.
+  if (payload.sessionId && !isProfileSelectionPath(pathname)) {
     const { getActiveSessions, touchActiveSession } = await import("@/lib/redis");
     const sessions = await getActiveSessions(payload.profileId);
     // `null` means Redis is unreachable -> fail open (don't kick everyone out).
