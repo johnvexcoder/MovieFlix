@@ -90,21 +90,26 @@ export async function GET(
 
     const range = request.headers.get("range");
 
-    // Range-tolerant streaming: some mobile browsers' first request (and any
-    // probing request) omits the Range header. Instead of rejecting with 400,
-    // answer with the first capped chunk as a 206 — the browser learns the
-    // resource supports ranges and continues with normal range requests. The
-    // 8MB chunk cap still prevents full-file download in a single request.
-    const start = 0;
+    // Range-tolerant streaming: a missing Range header (some mobile browsers'
+    // first probe) answers with the first capped chunk as a 206 so the browser
+    // learns ranges are supported. When a Range header IS present, we MUST
+    // honour the requested start offset — otherwise the player receives data
+    // it thinks is at another position, which corrupts seeking and causes the
+    // infinite loading / freeze-after-few-seconds the user reported.
+    let start = 0;
     let end = Math.min(start + MAX_CHUNK_BYTES - 1, fileSize - 1);
 
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
       const requestedStart = parts[0] ? parseInt(parts[0], 10) : 0;
-      const requestedEnd = parts[1] ? parseInt(parts[1], 10) : Math.min(requestedStart + 1024 * 1024 * 4 - 1, fileSize - 1);
-      end = Math.min(requestedEnd, requestedStart + MAX_CHUNK_BYTES - 1, fileSize - 1);
+      const requestedEnd = parts[1]
+        ? parseInt(parts[1], 10)
+        : Math.min(requestedStart + 1024 * 1024 * 4 - 1, fileSize - 1);
 
-      if (requestedStart > end || requestedStart >= fileSize) {
+      start = Math.min(requestedStart, fileSize - 1);
+      end = Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
+
+      if (start > end || start >= fileSize) {
         return new NextResponse("Range not satisfiable", {
           status: 416,
           headers: { "Content-Range": `bytes */${fileSize}` },

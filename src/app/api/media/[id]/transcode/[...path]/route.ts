@@ -105,17 +105,22 @@ export async function GET(
 
     // Range-tolerant: a missing Range header (some mobile browsers' first
     // probe) answers with the first capped chunk as a 206 so the browser
-    // learns ranges are supported. The 8MB cap preserves download protection.
-    const start = 0;
+    // learns ranges are supported. When a Range header IS present we must
+    // honour requestedStart — see stream route for the corruption note.
+    let start = 0;
     let end = Math.min(start + MAX_CHUNK_BYTES - 1, fileSize - 1);
 
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
       const requestedStart = parts[0] ? parseInt(parts[0], 10) : 0;
-      const requestedEnd = parts[1] ? parseInt(parts[1], 10) : Math.min(requestedStart + 1024 * 1024 * 4 - 1, fileSize - 1);
-      end = Math.min(requestedEnd, requestedStart + MAX_CHUNK_BYTES - 1, fileSize - 1);
+      const requestedEnd = parts[1]
+        ? parseInt(parts[1], 10)
+        : Math.min(requestedStart + 1024 * 1024 * 4 - 1, fileSize - 1);
 
-      if (requestedStart > end || requestedStart >= fileSize) {
+      start = Math.min(requestedStart, fileSize - 1);
+      end = Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
+
+      if (start > end || start >= fileSize) {
         return new NextResponse("Range not satisfiable", {
           status: 416,
           headers: { "Content-Range": `bytes */${fileSize}` },
