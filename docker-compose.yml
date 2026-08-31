@@ -1,28 +1,59 @@
-version: '3.8'
-
 services:
   app:
     build: .
+    image: movieflix-app
+    container_name: movieflix-app
+    restart: unless-stopped
     ports:
       - "9000:9000"
+    # Hard RAM + swap caps so the container can never take the host down
+    mem_limit: 1536m
+    memswap_limit: 3072m
     environment:
-      - REDIS_URL=redis://redis:6379
+      - NODE_ENV=production
+      - HOSTNAME=0.0.0.0
+      - PORT=9000
+      # Database (SQLite) mounted at ./data:/app/data
       - DATABASE_PATH=./data/database.sqlite
+      # Redis
+      - REDIS_URL=redis://redis:6379
+      # Transcoding
       - FFMPEG_PATH=ffmpeg
       - MEDIA_MOVIES_PATH=/media/movies
       - MEDIA_SERIES_PATH=/media/series
       - TRANSCODE_TEMP_DIR=./data/transcode-temp
+      - TRANSCODE_MAX_CONCURRENT=2
+      # Session management (admin-tunable at runtime; these are defaults)
       - MAX_CONCURRENT_SESSIONS=3
       - SESSION_TIMEOUT_MINUTES=30
+      # JWT secrets - MUST be provided, >= 32 chars, via a .env file on the host
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET to a random string >= 32 chars in .env}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET to a random string >= 32 chars in .env}
+      # TMDB API (optional - blank = poster/artwork placeholders)
+      - TMDB_API_KEY=${TMDB_API_KEY:-}
+      - TMDB_BASE_URL=${TMDB_BASE_URL:-https://api.themoviedb.org/3}
+      - TMDB_IMAGE_BASE_URL=${TMDB_IMAGE_BASE_URL:-https://image.tmdb.org/t/p/}
+      # Bound Node heap so the app stays within the mem limit
+      - NODE_OPTIONS=--max-old-space-size=384
+      - NEXT_TELEMETRY_DISABLED=1
     volumes:
       - ./data:/app/data
       - /media/movies:/media/movies
       - /media/series:/media/series
     depends_on:
       - redis
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:9000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
   redis:
     image: redis:7-alpine
+    container_name: movieflix-redis
+    restart: unless-stopped
+    mem_limit: 256m
     ports:
       - "6379:6379"
     volumes:
