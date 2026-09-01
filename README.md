@@ -349,7 +349,7 @@ MovieFlix auto-discovers content recursively. **Movies** are parsed as single ti
 ### Backups
 Stop-safe backup (or use `sqlite3 .backup` for a live snapshot):
 ```bash
-docker compose exec movieflix-app sh -c 'sqlite3 /app/data/database.sqlite ".backup /backup.sqlite"'
+docker compose exec app sh -c 'sqlite3 /app/data/database.sqlite ".backup /backup.sqlite"'
 # Then copy /backup.sqlite and your media library to another disk.
 ```
 
@@ -378,7 +378,7 @@ This wipes accounts, profiles, and watch history — keep a backup first.
 
 ### Logs
 ```bash
-docker compose logs -f movieflix-app
+docker compose logs -f app
 docker compose logs -f redis
 ```
 
