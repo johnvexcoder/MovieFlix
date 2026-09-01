@@ -149,7 +149,7 @@ do_update() {
   $DC build
 
   info "Starting / restarting the stack."
-  $DC up -d
+  $DC up -d --force-recreate
 
   ok "Update complete. Containers:"
   $DC ps
