@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      accounts: accountsWithIp,
+      data: { accounts: accountsWithIp },
     });
   } catch (error) {
     console.error("Admin IP info error:", error);

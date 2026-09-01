@@ -199,8 +199,9 @@ export default function AdminPage() {
         const res = await fetch("/api/admin/account-ip", { cache: "no-store" });
         const data = await res.json();
         if (data.success && mounted) {
+          const list = data.data?.accounts ?? data.accounts ?? [];
           const map = new Map<string, { ip: string | null; location: string | null }>();
-          data.data.accounts.forEach((a: { id: string; username: string; lastIp?: string | null; lastLoginAt?: string | null }) => {
+          list.forEach((a: { id: string; username: string; lastIp?: string | null; lastLoginAt?: string | null }) => {
             map.set(a.id, {
               ip: a.lastIp || "Not available",
               location: a.lastLoginAt ? `Last login ${new Date(a.lastLoginAt).toLocaleString()}` : null,
