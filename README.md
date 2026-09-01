@@ -16,6 +16,7 @@ An enterprise-grade media streaming server and client delivering an authentic Ne
 [![Redis](https://img.shields.io/badge/Redis-Cache-DC382D?style=for-the-badge&logo=redis)](https://redis.io)
 [![FFmpeg](https://img.shields.io/badge/FFmpeg-Transcode-007808?style=for-the-badge&logo=ffmpeg)](https://ffmpeg.org)
 [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?style=for-the-badge&logo=docker)](https://www.docker.com)
+[![Version](https://img.shields.io/badge/Release-v1.0.0-E50914?style=for-the-badge&logo=github)](https://github.com/johnvexcoder/MovieFlix/releases)
 [![License](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge&logo=gnu)](LICENSE)
 
 </div>
@@ -25,6 +26,7 @@ An enterprise-grade media streaming server and client delivering an authentic Ne
 ## Table of Contents
 
 - [Overview](#overview)
+- [What's New in v1.0.0](#whats-new-in-v100)
 - [Features](#features)
 - [System Architecture](#system-architecture)
 - [Tech Stack](#tech-stack)
@@ -49,10 +51,44 @@ The platform includes a cinematic Web Audio startup intro, multi-profile managem
 
 ---
 
+## What's New in v1.0.0
+
+This is the first tagged release. Highlights of everything that has landed since the project took shape:
+
+**Deployment & Docker**
+- **Two-mode Docker installer** (`./install.sh`) — pick **Update only** (keep data + settings, fastest) or **Complete wipeout** (fresh installation that erases and rebuilds everything). Both run on Docker Compose; the wipeout mode safely deletes root-owned `./data` (database, uploads) through a throwaway container.
+- **Auto-generated secrets** — running the installer creates a `.env` with brand-new 48-char JWT secrets and sensible defaults, no manual setup required.
+- **Low-RAM builds** — standalone Next.js output with bounded Node heaps, memory-capped containers, and a RAM+swap check that warns before the compiler freezes the host.
+- SMTP, public URL, and subnet settings are now forwarded through Compose so emails/links work out of the box.
+
+**Email & Notifications**
+- **Branded email suite** — every transactional email (welcome, password reset, forgot-password, contact replies, broadcasts) carries the MovieFlix **"M" logo** (embedded as an inline data-URI so it always renders) and the correct support address `movieflix.support@gmail.com`.
+- **Passwords are sent in the email** — the welcome email shows the set password and reset emails show the new one, so users can log in immediately instead of waiting for credentials.
+- **Contact form auto-reply** — submitting a report / suggestion / request instantly emails the user a "we received it" confirmation.
+- **Admin Broadcast Email** — one click to email *every* user or a single user, each greeted by name.
+
+**Player**
+- **Play Now autoplay** — tapping Play Now starts playback immediately (muted start that auto-unmutes when the browser allows), no second click.
+- **Zoom-to-Fit playback** — video fills the whole screen (`object-cover`), removing the letterbox bars on laptops/PCs and pillarbox bars on phones.
+- **Accurate byte-range seeking** — both the stream and transcode routes honor the requested byte offset, fixing stalls when seeking around in long files.
+
+**Admin Panel**
+- Active/Offline account badges plus last-connection **IP & location** in the account list.
+- **Payment submissions** with one-click **Approve / Reject** (approval can also extend the account duration).
+- Fully **responsive on mobile** — manage everything from a phone or tablet.
+
+**Accounts & Sessions**
+- Robust session model: multiple concurrent sessions per account (configurable), profile single-session **kick protection**, idle timeouts, and optional same-`/24` subnet enforcement.
+- **Auto-initialized database** — on first boot the app creates all tables and the default `admin` account itself; no manual seeding needed.
+
+---
+
 ## Features
 
 ### Player & Streaming
-- **HTTP 206 Range Streaming** — low-latency byte-range delivery with random seeking and download protection (chunk caps + integrity headers).
+- **HTTP 206 Range Streaming** — low-latency byte-range delivery with download protection (chunk caps + integrity headers). Both the stream and transcode routes honor the requested byte offset, so seeking is always accurate.
+- **Play Now Autoplay** — one-tap play starts the video instantly; on navigation-restricted browsers it starts muted and auto-unmutes when allowed.
+- **Zoom-to-Fit Playback** — video fills the screen with no letterbox/pillarbox bars on any device.
 - **Adaptive Quality** — user-selectable transcoded renditions (360p → 4K), produced on demand with FFmpeg and cached to disk.
 - **Subtitles** — automatic detection of local `.srt` / `.vtt` files adjacent to your media, served with SRT→VTT conversion and an in-player CC menu.
 - **Error Recovery** — automatic reload-and-resume on playback errors or stalls, with a manual retry overlay as a fallback.
@@ -69,12 +105,23 @@ The platform includes a cinematic Web Audio startup intro, multi-profile managem
 - **PIN Lock** — optional 4-digit PIN protection with animated input.
 - **Trial & Temporary Accounts** — configurable durations with automated cleanup daemon.
 - **Account Locking** — admins can lock/unlock accounts and enforce it on every auth path.
+- **Session Management** — multiple concurrent sessions per account (configurable), single-session kick protection for profiles, idle timeouts, and optional `SESSION_STRICT_SUBNET` enforcement. Browsing the profile selector never kicks an active session.
+- **Active / Offline Badges** — admins see which accounts are active, expired, or offline at a glance.
 
 ### Administration (`/admin-panel`)
 - Real-time system telemetry (accounts, profiles, server health).
-- One-click duration extensions, credential resets, and account deletion.
+- Account list with **Active/Offline/Expired** status and last-connection **IP & location**.
+- **Payment submissions** with one-click **Approve / Reject** (approval can extend the account duration).
+- **Broadcast Email** — send an email to every user or a single user instantly, each greeted by name.
+- One-click duration extensions, credential resets, and account deletion; fully responsive on mobile.
 - Library path mapping with Movies/TV category assignment and manual scan triggers.
 - Settings: TMDB key, scanner intervals, session limits, SMTP, and admin credentials.
+
+### Email & Notifications
+- **Branded emails** — the MovieFlix **"M" logo** (inline, reliably rendered) and the real support address `movieflix.support@gmail.com` in every message.
+- **Credentials included** — welcome emails show the set password; reset emails show the new one.
+- **Contact auto-reply** — reports/suggestions/requests get an immediate confirmation email.
+- Forgot-password reset links (valid 1 hour), password-change notifications, and expiry reminders.
 
 ---
 
@@ -147,22 +194,35 @@ The platform includes a cinematic Web Audio startup intro, multi-profile managem
 
 ### Option A — Docker Compose (recommended)
 
-Requirements: **Docker** + **Docker Compose**, and a valid **TMDB API key** (free at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)).
+Requirements: **Docker** + **Docker Compose v2**, and a valid **TMDB API key** (free at [themoviedb.org/settings/api](https://www.themoviedb.org/settings/api)). The host should have at least **3 GB of ram+swap** for the Docker build (see Troubleshooting).
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/johnvexcoder/MovieFlix.git
-   cd MovieFlix
-   ```
+**1. Using the installer (easiest):**
 
-2. **Configure environment variables** via the shell (used by `docker-compose.yml`):
-   ```bash
-   cp .env.example .env.local
-   # Then export TMDB_API_KEY, JWT_SECRET, JWT_REFRESH_SECRET in your shell or .env
-   export TMDB_API_KEY=your_tmdb_api_key
-   export JWT_SECRET=$(openssl rand -hex 32)
-   export JWT_REFRESH_SECRET=$(openssl rand -hex 32)
-   ```
+```bash
+git clone https://github.com/johnvexcoder/MovieFlix.git
+cd MovieFlix
+./install.sh
+```
+
+You get a menu with two modes:
+
+| Mode | What it does |
+|------|--------------|
+| **1) Update only** | Pulls latest code, rebuilds the image, restarts. Keeps `./data` and `.env`. |
+| **2) Complete wipeout** | **Fresh installation** — removes containers, volumes, `./data` (database, accounts, uploads), resets the repo to `origin/main`, and regenerates `.env` with brand-new secrets. |
+
+The installer auto-generates a `.env` with secure random JWT secrets, checks for Docker/Compose/git, warns about low RAM+swap, and handles root-owned data files safely. Edit `.env` afterwards to set `APP_PUBLIC_URL`, `TMDB_API_KEY`, and `SMTP_*`.
+
+**2. Manually (equivalent):**
+
+```bash
+git clone https://github.com/johnvexcoder/MovieFlix.git
+cd MovieFlix
+# Configure environment variables used by docker-compose.yml
+export TMDB_API_KEY=your_tmdb_api_key
+export JWT_SECRET=$(openssl rand -hex 32)
+export JWT_REFRESH_SECRET=$(openssl rand -hex 32)
+```
 
 3. **Point the mounts at your media** — edit the `volumes:` block in `docker-compose.yml`:
    ```yaml
@@ -186,13 +246,12 @@ Requirements: **Docker** + **Docker Compose**, and a valid **TMDB API key** (fre
 
 ### Option B — Local Development
 
-Requirements: **Node.js 20+**, npm, and a running **Redis** instance (or use Docker for just Redis).
+Requirements: **Node.js 22+**, npm, and a running **Redis** instance (or use Docker for just Redis).
 
 ```bash
 npm install
 cp .env.example .env.local     # then edit values
-npm run db:seed                # initialize the database
-npm run dev                    # starts server on :9000
+npm run dev                    # starts server on :9000; DB + default admin are created automatically
 ```
 
 Scripts:
@@ -221,6 +280,9 @@ Full reference (see [.env.example](.env.example)):
 | `REDIS_URL` | Redis connection string | `redis://localhost:6379` |
 | `JWT_SECRET` / `JWT_REFRESH_SECRET` | JWT signing secrets (use long random strings) | *(required)* |
 | `TMDB_API_KEY` | Movie Database API key | *(required for metadata)* |
+| `APP_PUBLIC_URL` | Public URL used for links inside emails | `http://localhost:9000` |
+| `SMTP_HOST/PORT/USER/PASS/FROM` | Outbound email settings (forwarded through Compose) | *(empty = emails skipped)* |
+| `SESSION_STRICT_SUBNET` | Restrict sessions to the same `/24` subnet (`0` off, `1` on) | `0` |
 | `MEDIA_MOVIES_PATH` / `MEDIA_SERIES_PATH` | Library mount paths | `/media/movies`, `/media/series` |
 | `FFMPEG_PATH` | Path to the ffmpeg binary | `ffmpeg` |
 | `TRANSCODE_TEMP_DIR` | Where transcoded renditions are cached | `./data/transcode-temp` |
@@ -282,12 +344,12 @@ MovieFlix auto-discovers content recursively. **Movies** are parsed as single ti
 - **Database:** SQLite file at `./data/database.sqlite` — back it up regularly (see below).
 - **Renditions:** transcoded qualities are cached under `./data/transcode-temp`; cleared automatically on re-transcode.
 - **Artwork/Thumbnails:** stored under `./data/thumbnails` and `./data/artwork`.
-- **Redis:** session/cache data in `./data/redis` (Docker volume) — safe to flush; sessions will simply re-issue tokens.
+- **Redis:** session/cache data in the `redis_data` Docker volume — safe to flush; sessions will simply re-issue tokens.
 
 ### Backups
 Stop-safe backup (or use `sqlite3 .backup` for a live snapshot):
 ```bash
-docker compose exec movieflix sh -c 'sqlite3 /app/data/database.sqlite ".backup /backup.sqlite"'
+docker compose exec movieflix-app sh -c 'sqlite3 /app/data/database.sqlite ".backup /backup.sqlite"'
 # Then copy /backup.sqlite and your media library to another disk.
 ```
 
@@ -296,17 +358,27 @@ docker compose exec movieflix sh -c 'sqlite3 /app/data/database.sqlite ".backup 
 - **Automatic:** the scanner runs on the interval set in env (`SCAN_INTERVAL_MINUTES`, default 10) and at startup (`SCAN_ON_STARTUP`).
 
 ### Resetting the Database (fresh start)
+
+Easiest way — the installer's **wipeout** mode does this for you (removes containers, volumes, `./data`, and Redis data, resets the repo, and regenerates `.env`):
+
+```bash
+./install.sh      # choose option 2) Complete wipeout
+```
+
+Manual equivalent:
+
 ```bash
 docker compose down
 rm -rf ./data/database.sqlite
 docker compose exec redis redis-cli FLUSHALL
 docker compose up -d --build
 ```
+
 This wipes accounts, profiles, and watch history — keep a backup first.
 
 ### Logs
 ```bash
-docker compose logs -f movieflix
+docker compose logs -f movieflix-app
 docker compose logs -f redis
 ```
 
@@ -320,17 +392,28 @@ A `200` response confirms the app, database, and migration are healthy.
 
 ## Updating
 
-1. **Pull & rebuild:**
-   ```bash
-   cd MovieFlix
-   git pull origin main
-   docker compose up -d --build
-   curl http://localhost:9000/api/health   # triggers any DB migrations
-   ```
-2. Database schema migrations run automatically on startup via the health check.
-3. If you maintain a fork or local changes, stash them before pulling (`git stash`), then re-apply.
+**Recommended — the installer (update mode):**
 
-> **Release notes** are recorded in the commit history — `git log --oneline` gives a quick changelog for each update.
+```bash
+cd MovieFlix
+git pull origin main        # updates install.sh and the app
+./install.sh                # choose option 1) Update only
+```
+
+**Manually:**
+
+```bash
+cd MovieFlix
+git pull origin main
+docker compose up -d --build
+curl http://localhost:9000/api/health   # confirms app is healthy
+```
+
+- The database schema initializes automatically on startup — no migrations to run by hand.
+- Update mode never touches `./data` or your `.env`, so accounts, watch history, and secrets are preserved.
+- If you maintain a fork or local changes, stash them before pulling (`git stash`), then re-apply.
+
+> **Release notes** are published on the [Releases page](https://github.com/johnvexcoder/MovieFlix/releases).
 
 ---
 
@@ -338,13 +421,16 @@ A `200` response confirms the app, database, and migration are healthy.
 
 | Symptom | Likely Cause | Fix |
 |---------|--------------|-----|
-| App won't start / health fails | Missing `JWT_SECRET` or bad env | Set strong secrets, check `.env`/compose env |
+| App won't start / health fails | Missing `JWT_SECRET` or bad env | Set strong secrets; run `./install.sh` to generate a correct `.env` |
+| Build hangs / freezes the server | Low RAM during `next build` | Add a swapfile: `sudo fallocate -l 6G /swapfile && sudo mkswap /swapfile && sudo swapon /swapfile` (needs ~3 GB ram+swap) |
+| `rm` can't delete `./data` files | App container runs as root | The installer wipes via a throwaway container automatically |
 | No posters / metadata | Missing TMDB key or no internet | Add `TMDB_API_KEY`, confirm outbound HTTPS |
 | Media not showing | Wrong mount path or disabled library | Verify mounts are read-only-visible and library enabled in Admin Panel |
 | Playback fails for some files | Codec not browser-compatible | Let on-demand transcode produce an H.264/AAC rendition |
+| Seeking stalls or restarts at 0:00 | Outdated stream-range handling | Update to the current release (accurate byte-range seeking) |
 | Downloading full file possible | Direct GET | Range-restriction is enforced; use a player that sends `Range` headers |
 | Redis connection errors | Redis down / wrong URL | `docker compose up -d redis`, confirm `REDIS_URL` |
-| Emails not sending | SMTP not configured | Configure SMTP in Admin Panel Settings (or env) |
+| Emails not sending | SMTP not configured | Set `SMTP_HOST/PORT/USER/PASS/FROM` in `.env` (or Admin Panel Settings) |
 
 ---
 
