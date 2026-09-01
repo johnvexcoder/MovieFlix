@@ -29,6 +29,16 @@ services:
       # JWT secrets - MUST be provided, >= 32 chars, via a .env file on the host
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET to a random string >= 32 chars in .env}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET to a random string >= 32 chars in .env}
+      # Public URL (used for links inside emails)
+      - APP_PUBLIC_URL=${APP_PUBLIC_URL:-http://localhost:9000}
+      # SMTP - if empty the app still runs but emails are skipped
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USER=${SMTP_USER:-}
+      - SMTP_PASS=${SMTP_PASS:-}
+      - SMTP_FROM=${SMTP_FROM:-MovieFlix <movieflix.support@gmail.com>}
+      # Optional: only allow sessions from the same /24 subnet (0=off, 1=on)
+      - SESSION_STRICT_SUBNET=${SESSION_STRICT_SUBNET:-0}
       # TMDB API (optional - blank = poster/artwork placeholders)
       - TMDB_API_KEY=${TMDB_API_KEY:-}
       - TMDB_BASE_URL=${TMDB_BASE_URL:-https://api.themoviedb.org/3}
