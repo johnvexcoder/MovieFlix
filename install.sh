@@ -293,6 +293,61 @@ do_wipeout() {
 
 # ---------------------------------- menu ------------------------------------
 
+remove_root_owned() {
+  # ./data (and some dirs) are root-owned because the app container runs as
+  # root. Delete them through a throwaway root container rather than a plain
+  # `rm`, which fails with "Permission denied". Returns 0 on success.
+  if docker run --rm -v "$PWD":/work redis:7-alpine rm -rf /work/"$1" 2>/dev/null; then
+    return 0
+  fi
+  if docker run --rm -v "$PWD":/work alpine rm -rf /work/"$1" 2>/dev/null; then
+    return 0
+  fi
+  return 1
+}
+
+do_uninstall() {
+  local answer
+  echo
+  warn "You are about to COMPLETELY UNINSTALL MovieFlix from this host."
+  warn "This will:"
+  warn "  - Remove the app + redis containers and the docker network"
+  warn "  - Remove the Redis volume"
+  warn "  - Delete ./data (database, all accounts, thumbnails, uploads)"
+  warn "  - Delete the .env file and every .env backup"
+  warn "  - Remove the Docker images and build cache"
+  echo
+  read -rp "Type YES (uppercase) to confirm UNINSTALL: " answer
+  [ "$answer" = "YES" ] || die "Uninstall cancelled."
+  [ "$(echo "$answer")" = "YES" ] || die "Uninstall cancelled."
+  echo
+
+  info "Stopping the stack and removing containers/volumes."
+  $DC down -v --remove-orphans 2>/dev/null || true
+
+  info "Removing the Docker images."
+  docker rmi -f movieflix-app 2>/dev/null || true
+  docker images -q --filter=reference='movieflix-app:*' | xargs -r docker rmi -f 2>/dev/null || true
+
+  info "Deleting ./data, .env and .env backups (root-owned files handled)."
+  if remove_root_owned "data"; then
+    ok "Removed ./data"
+  else
+    warn "Could not remove ./data through Docker. Trying sudo."
+    sudo rm -rf ./data || warn "Failed to remove ./data — delete it manually with: sudo rm -rf ./data"
+  fi
+  rm -f .env .env.bak.* 2>/dev/null || true
+  # Remove any stray empty bind-mount dirs Docker auto-created (media/series).
+  rm -rf media mnt 2>/dev/null || true
+
+  info "Pruning build cache and dangling images."
+  docker builder prune -f 2>/dev/null || true
+
+  ok "MovieFlix uninstalled. The project folder (this repo) still contains the"
+  ok "source code; delete it with:  rm -rf \"$PWD\""
+  echo "  (Optional) Free all unused Docker space:  docker system prune -a"
+}
+
 banner() {
   echo
   echo "================================"
@@ -307,9 +362,10 @@ main() {
 
   banner
   echo "  Choose an installation mode:"
-  echo "    1) Update only      — keep data + settings, fastest"
+  echo "    1) Update only    — keep data + settings, fastest"
   echo "    2) Complete wipeout — FRESH installation (erases everything)"
-  echo "    3) Quit"
+  echo "    3) Uninstall      — remove containers, data, images from this host"
+  echo "    4) Quit"
   echo
 
   if [ "$AUTOWIPE" = "1" ]; then
@@ -318,11 +374,12 @@ main() {
     exit 0
   fi
 
-  read -rp "Select [1/2/3]: " choice
-  case "${choice:-3}" in
+  read -rp "Select [1/2/3/4]: " choice
+  case "${choice:-4}" in
     1) do_update ;;
     2) do_wipeout ;;
-    3) echo "Bye."; exit 0 ;;
+    3) do_uninstall ;;
+    4) echo "Bye."; exit 0 ;;
     *) die "Invalid choice." ;;
   esac
 }

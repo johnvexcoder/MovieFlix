@@ -204,12 +204,13 @@ cd MovieFlix
 ./install.sh
 ```
 
-You get a menu with two modes:
+You get a menu with three modes:
 
 | Mode | What it does |
 |------|--------------|
 | **1) Update only** | Pulls latest code, rebuilds the image, restarts. Keeps `./data` and `.env`. |
 | **2) Complete wipeout** | **Fresh installation** — removes containers, volumes, `./data` (database, accounts, uploads), resets the repo to `origin/main`, and **rotates the JWT secrets** (your other `.env` settings — media paths, URL, TMDB, SMTP — are **kept** and backed up to `.env.bak.<timestamp>`). |
+| **3) Uninstall** | **Removes MovieFlix from the host** — stops/removes containers, deletes the Redis volume, removes `./data`, `.env`, and every `.env` backup, removes the Docker images and build cache. Requires typing `YES`. |
 
 The installer auto-generates a `.env` with secure random JWT secrets, checks for Docker/Compose/git, warns about low RAM+swap, and handles root-owned data files safely. Edit `.env` afterwards to set `APP_PUBLIC_URL`, `TMDB_API_KEY`, and `SMTP_*`.
 
