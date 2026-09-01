@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { accounts } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -20,12 +19,17 @@ export async function GET(request: NextRequest) {
     const allAccounts = await db.select({
       id: accounts.id,
       username: accounts.username,
+      lastIp: accounts.lastIp,
+      lastLoginAt: accounts.lastLoginAt,
+      createdAt: accounts.createdAt,
     }).from(accounts);
 
     const accountsWithIp = allAccounts.map((a) => ({
       id: a.id,
       username: a.username,
-      lastIp: "Not available",
+      lastIp: a.lastIp,
+      lastLoginAt: a.lastLoginAt,
+      createdAt: a.createdAt,
       location: null,
     }));
 

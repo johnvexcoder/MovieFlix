@@ -32,6 +32,8 @@ export const accounts = sqliteTable("accounts", {
   createdByAdminId: text("created_by_admin_id").references(() => admins.id),
   createdAt: text("created_at").notNull().default(""),
   updatedAt: text("updated_at").notNull().default(""),
+  lastIp: text("last_ip"),
+  lastLoginAt: text("last_login_at"),
 });
 
 // ===========================================

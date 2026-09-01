@@ -125,6 +125,14 @@ export async function POST(request: NextRequest) {
       sessionId,
     });
 
+    // Remember the last client IP + login time so admins can see where an
+    // account is connecting from (works through Tailscale/reverse proxies via
+    // X-Forwarded-For).
+    await db
+      .update(accounts)
+      .set({ lastIp: ip, lastLoginAt: new Date().toISOString() })
+      .where(eq(accounts.id, account.id));
+
     // Use the current token version so a subsequent logout/revocation correctly
     // invalidates this refresh token (the old hard-coded value of 1 broke this).
     const tokenVersion = await getTokenVersion(mainProfile.id);

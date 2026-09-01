@@ -200,10 +200,10 @@ export default function AdminPage() {
         const data = await res.json();
         if (data.success && mounted) {
           const map = new Map<string, { ip: string | null; location: string | null }>();
-          data.data.accounts.forEach((a: any) => {
+          data.data.accounts.forEach((a: { id: string; username: string; lastIp?: string | null; lastLoginAt?: string | null }) => {
             map.set(a.id, {
               ip: a.lastIp || "Not available",
-              location: a.lastIp ? "Last connected" : null,
+              location: a.lastLoginAt ? `Last login ${new Date(a.lastLoginAt).toLocaleString()}` : null,
             });
           });
           setIpInfo(map);

@@ -298,6 +298,8 @@ export function setupDatabase() {
   ensureColumn("accounts", "full_name", "TEXT");
   ensureColumn("accounts", "is_locked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("accounts", "last_ip", "TEXT");
+  ensureColumn("accounts", "last_login_at", "TEXT");
   try {
     _sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;");
   } catch (e) {
