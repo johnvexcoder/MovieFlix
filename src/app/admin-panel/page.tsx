@@ -40,6 +40,7 @@ import { checkAdminSession } from "@/lib/client-auth";
 import { PaymentSubmissionsAdmin } from "@/components/admin/payment-submissions";
 import { MessageHistory } from "@/components/admin/message-history";
 import { ContactSubmissionsAdmin } from "@/components/admin/contact-submissions";
+import { EmailBroadcastAdmin } from "@/components/admin/email-broadcast";
 
 interface AdminUser {
   id: string;
@@ -773,6 +774,9 @@ export default function AdminPage() {
 
         {/* Sent Messages */}
         <MessageHistory />
+
+        {/* Broadcast Email */}
+        <EmailBroadcastAdmin />
 
         {/* Contact Submissions */}
         <ContactSubmissionsAdmin />

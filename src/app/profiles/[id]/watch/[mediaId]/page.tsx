@@ -58,6 +58,12 @@ export default function WatchPage() {
   const mediaId = params.mediaId as string;
   const episodeParam = searchParams.get("episode");
 
+  // "Play Now" navigation arrives with ?autoplay=1. Browsers block unmuted
+  // autoplay after navigation, so we start muted and try to unmute best-effort
+  // once playback is running — the video always starts.
+  const autoplayIntent = searchParams.get("autoplay") === "1";
+  const autoplayRequestedRef = useRef(autoplayIntent);
+
   // Base URLs for the two stream modes (raw source vs transcoded rendition).
   // Defined early so autoplay/fallback logic can reference them cleanly.
   const streamSrc = `/api/media/${mediaId}/stream${episodeParam ? `?episode=${episodeParam}` : ""}`;
@@ -75,7 +81,7 @@ export default function WatchPage() {
 
   // Video State
   const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
+  const [muted, setMuted] = useState(autoplayIntent);
   const [volume, setVolume] = useState(1);
   const [fullscreen, setFullscreen] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
@@ -377,12 +383,34 @@ export default function WatchPage() {
     const onCanPlay = () => {
       setBuffering(false);
       setStreamError(null);
-      // Autoplay attempt: works when the user reached this page through a
-      // gesture (e.g. tapping Play Now). Browsers block it otherwise and
-      // reject the promise — the user then simply taps the center control.
+      // Autoplay attempt. When the user arrived via "Play Now" (?autoplay=1)
+      // the browser blocks unmuted autoplay on a fresh navigation, so we start
+      // muted (always permitted), then best-effort unmute once playing.
       if (!autoPlayAttemptedRef.current && !userPausedRef.current) {
         autoPlayAttemptedRef.current = true;
-        video.play().catch(() => {});
+        if (autoplayRequestedRef.current && !video.muted) {
+          video.muted = true;
+          setMuted(true);
+        }
+        video.play().then(() => {
+          // Playback started (muted). Try to lift mute — browsers that allow
+          // it (e.g. after the visitor has engaged with the site before) will
+          // resume audio; browsers that don't will reject and we keep it muted
+          // rather than letting the video pause.
+          if (!autoplayRequestedRef.current || !video.muted) return;
+          setTimeout(() => {
+            try {
+              video.muted = false;
+              setMuted(false);
+              video.play().catch(() => {
+                video.muted = true;
+                setMuted(true);
+              });
+            } catch {
+              // never exit a playing video because of an unmute attempt
+            }
+          }, 250);
+        }).catch(() => {});
       }
     };
     const onWaiting = () => {
@@ -909,7 +937,8 @@ export default function WatchPage() {
         ref={videoRef}
         src={streamUrl}
         poster={media.backdropUrl || media.posterUrl || `/api/media/${mediaId}/image?kind=backdrop`}
-        className="h-full w-full object-contain"
+        className="h-full w-full object-cover"
+        muted={muted}
         playsInline
         preload="auto"
       >

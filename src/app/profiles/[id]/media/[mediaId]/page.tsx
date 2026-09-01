@@ -242,7 +242,7 @@ export default function MediaDetailPage() {
               <div className="flex flex-wrap items-center gap-3 pt-3">
                 <Button
                   size="lg"
-                  onClick={() => router.push(`/profiles/${profileId}/watch/${media.id}`)}
+                  onClick={() => router.push(`/profiles/${profileId}/watch/${media.id}?autoplay=1`)}
                   className="btn-brand h-13 rounded-xl px-8 text-base font-bold shadow-2xl hover:scale-105 active:scale-95"
                 >
                   <Play className="mr-2 h-5 w-5 fill-white text-white" />

@@ -1,10 +1,12 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { profiles, contactSubmissions } from "@/db/schema";
+import { profiles, accounts, contactSubmissions } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { setRateLimit } from "@/lib/redis";
+import { sendEmail } from "@/lib/email";
+import { submissionConfirmationEmail } from "@/lib/email-templates";
 import { v4 as uuidv4 } from "uuid";
 
 export const dynamic = "force-dynamic";
@@ -56,6 +58,33 @@ export async function POST(request: NextRequest) {
       profileId: profile ? profile.id : null,
       createdAt: new Date().toISOString(),
     });
+
+    // Auto-reply: send the user a confirmation that we received their
+    // submission (report / suggestion / feedback). Best-effort — never fails
+    // the request if SMTP is not configured.
+    if (accountId) {
+      try {
+        const [account] = await db
+          .select({ username: accounts.username, email: accounts.email })
+          .from(accounts)
+          .where(eq(accounts.id, accountId))
+          .limit(1);
+
+        if (account?.email) {
+          await sendEmail({
+            to: account.email,
+            subject: "We received your submission - MovieFlix",
+            html: submissionConfirmationEmail({
+              username: account.username || "there",
+              type,
+              subject: subjectValue,
+            }),
+          });
+        }
+      } catch (e) {
+        console.error("Auto-reply email error:", e);
+      }
+    }
 
     return successResponse({ message: "Thank you! Your submission has been received." }, 201);
   } catch (error) {

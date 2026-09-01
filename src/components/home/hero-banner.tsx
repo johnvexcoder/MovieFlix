@@ -214,7 +214,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
           <div className="flex items-center gap-3 pt-2">
             <Button
               size="lg"
-              onClick={() => router.push(`/profiles/${profileId}/watch/${item.id}`)}
+              onClick={() => router.push(`/profiles/${profileId}/watch/${item.id}?autoplay=1`)}
               className="h-12 sm:h-14 rounded-xl bg-white px-8 text-base font-bold text-black shadow-2xl transition-all duration-200 hover:bg-neutral-200 hover:scale-105 active:scale-95"
             >
               <Play className="mr-2 h-5 w-5 fill-black text-black" />

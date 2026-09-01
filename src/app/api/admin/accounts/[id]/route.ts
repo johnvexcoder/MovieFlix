@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { sendEmail } from "@/lib/email";
+import { passwordResetEmail } from "@/lib/email-templates";
 import { revokeTokenVersion } from "@/lib/redis";
 
 const revokeAccountSessions = async (accountId: string) => {
@@ -99,22 +100,7 @@ export async function PATCH(
         await sendEmail({
           to: account.email,
           subject: "Your MovieFlix Password has been Reset",
-          html: `
-            <div style="max-width:600px; margin:0 auto; font-family:Arial,sans-serif;">
-              <div style="text-align:center; padding:20px 0;">
-                <img src="https://static.netflix.com/assets.netflix.com/sites/netflix/assets/branding/logo-red-4K-600x320.png"
-                  alt="MovieFlix" style="max-height:40px;" />
-              </div>
-              <h1 style="color:#e50914; margin:20px 0 10px;">Hi ${account.username}!</h1>
-              <p>Your MovieFlix account password was reset by an administrator for security reasons.</p>
-              <p>You will be required to set a new password the next time you log in.</p>
-              <p>If you did not request this, please contact support immediately.</p>
-              <hr style="margin:30px 0; border-color:#eee;" />
-              <p style="font-size:12px; color:#666;;">Need help? Email us at support@movieflix.stream</p>
-              <img src="https://static.netflix.com/assets.netflix.com/sites/netflix/assets/branding/logo-red-4K-600x320.png"
-                alt="MovieFlix" style="display:block; margin:20px auto 0; max-height:40px;" />
-            </div>
-          `,
+          html: passwordResetEmail({ username: account.username, password: newPassword }),
         });
       }
 
