@@ -143,6 +143,49 @@ reset_env() {
   warn "Edit .env now if you want: APP_PUBLIC_URL, TMDB_API_KEY, SMTP_*."
 }
 
+# Best-effort detection of the host's movie/series folders. Scans the usual
+# media mount points (e.g. Home Assistant/media boxes put it under /mnt/media).
+detect_media_dir() {
+  # $1 = label: "movies" | "series"
+  local base found pattern
+  if [ "$1" = "movies" ]; then
+    pattern='\( -iname movies -o -iname movie -o -iname films \)'
+  else
+    pattern='\( -iname series -o -iname tvshows -o -iname "tv shows" -o -iname shows \)'
+  fi
+  for base in /mnt/media/Media /mnt/media /mnt/Media /media /opt/media /srv/media /data/media /media/data /mnt/data/media; do
+    [ -d "$base" ] || continue
+    # shellcheck disable=SC2086
+    found=$(find "$base" -maxdepth 4 -type d $pattern -print -quit 2>/dev/null) || true
+    [ -n "$found" ] && { echo "$found"; return 0; }
+  done
+  return 1
+}
+
+tune_media_env() {
+  # Point MEDIA_MOVIES_HOST / MEDIA_SERIES_HOST in .env at a real library when
+  # they still hold the defaults (and a library is findable). Skips any value
+  # the user has deliberately set to something other than the default.
+  local kind cur value
+  for kind in movies series; do
+    cur=$(awk -F= -v k="MEDIA_${kind^^}_HOST" '$1==k{gsub(/[[:space:]]/,"",$2); print $2}' .env)
+    case "$kind" in
+      movies) [ "$cur" = "/media/movies" ] || [ -z "$cur" ] || continue ;;
+      series) [ "$cur" = "/media/series" ] || [ -z "$cur" ] || continue ;;
+    esac
+    if value=$(detect_media_dir "$kind") && [ -n "$value" ] && [ "$value" != "$cur" ]; then
+      if grep -q "MEDIA_${kind^^}_HOST" .env; then
+        sed -i "s|^MEDIA_${kind^^}_HOST=.*|MEDIA_${kind^^}_HOST=$value|" .env
+      else
+        printf 'MEDIA_%s_HOST=%s\n' "${kind^^}" "$value" >> .env
+      fi
+      ok "Detected $kind library at $value -> MEDIA_${kind^^}_HOST set in .env."
+      continue
+    fi
+    [ "$1" = "quiet" ] || warn "No $kind library auto-detected. MEDIA_${kind^^}_HOST stays '$cur' — edit .env if needed."
+  done
+}
+
 # ----------------------------- install modes --------------------------------
 
 do_update() {
@@ -152,6 +195,7 @@ do_update() {
 
   swap_check
   ensure_env
+  tune_media_env
 
   info "Rebuilding the Docker image (this takes a while on low-RAM hosts)."
   $DC build
@@ -204,6 +248,7 @@ do_wipeout() {
 
   swap_check
   reset_env
+  tune_media_env
 
   info "Building the fresh image (this takes a while on low-RAM hosts)."
   $DC build
