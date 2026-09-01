@@ -7,9 +7,10 @@
 #
 #  2) COMPLETE WIPEOUT — FRESH INSTALLATION. Stops and removes every container,
 #                    deletes the database + all user data, wipes Redis, resets
-#                    the repo to origin/main and regenerates .env with brand-new
-#                    secrets. ANY local source changes are discarded.
-#                    *** DESTRUCTIVE — you must type YES to confirm. ***
+#                    the repo to origin/main and rotates the JWT secrets.
+#                    Your OTHER .env settings (media paths, URL, TMDB, SMTP)
+#                    are PRESERVED and backed up. ANY local source changes are
+#                    discarded. *** DESTRUCTIVE — type YES to confirm. ***
 #
 #  Run from the project root (where docker-compose.yml lives):
 #      chmod +x install.sh && ./install.sh
@@ -137,9 +138,34 @@ ensure_env() {
   fi
 }
 
+rotate_secrets_in_env() {
+  # Rewrite ONLY the JWT secrets inside an existing .env, keeping every other
+  # setting the user configured (media paths, APP_PUBLIC_URL, TMDB, SMTP, ...).
+  # Falls back to a fresh template if the JWT lines are missing.
+  local jwt_s jwt_r
+  jwt_s=$(gen_secret)
+  jwt_r=$(gen_secret)
+  if grep -q '^JWT_SECRET=' .env && grep -q '^JWT_REFRESH_SECRET=' .env; then
+    sed -i "s|^JWT_SECRET=.*|JWT_SECRET=${jwt_s}|" .env
+    sed -i "s|^JWT_REFRESH_SECRET=.*|JWT_REFRESH_SECRET=${jwt_r}|" .env
+    ok "Rotated JWT secrets — all other .env settings were preserved."
+  else
+    warn "Existing .env was missing the JWT lines — regenerating a fresh template."
+    write_env_template wipeout
+  fi
+}
+
 reset_env() {
-  write_env_template wipeout
-  ok "Generated a fresh .env with brand-new JWT secrets."
+  if [ -f .env ]; then
+    local bak
+    bak=".env.bak.$(date +%Y%m%d-%H%M%S)"
+    cp .env "$bak" 2>/dev/null || true
+    info "Backed up your current configuration to $bak"
+    rotate_secrets_in_env
+  else
+    write_env_template wipeout
+    ok "Generated a fresh .env with brand-new JWT secrets."
+  fi
   warn "Edit .env now if you want: APP_PUBLIC_URL, TMDB_API_KEY, SMTP_*."
 }
 
@@ -215,7 +241,7 @@ do_wipeout() {
   warn "  - Stop & remove the running containers and the Redis volume"
   warn "  - DELETE ./data (database.sqlite, all accounts, thumbnails, uploads)"
   warn "  - Discard any local source changes and reset the repo to origin/main"
-  warn "  - Regenerate .env with brand-new JWT secrets"
+  warn "  - Rotate the JWT secrets in .env (all your OTHER .env settings are kept, and a backup is written first)"
   echo
   read -rp "Type YES (uppercase) to continue: " answer
   [ "$answer" = "YES" ] || die "Wipeout cancelled."

@@ -209,7 +209,7 @@ You get a menu with two modes:
 | Mode | What it does |
 |------|--------------|
 | **1) Update only** | Pulls latest code, rebuilds the image, restarts. Keeps `./data` and `.env`. |
-| **2) Complete wipeout** | **Fresh installation** — removes containers, volumes, `./data` (database, accounts, uploads), resets the repo to `origin/main`, and regenerates `.env` with brand-new secrets. |
+| **2) Complete wipeout** | **Fresh installation** — removes containers, volumes, `./data` (database, accounts, uploads), resets the repo to `origin/main`, and **rotates the JWT secrets** (your other `.env` settings — media paths, URL, TMDB, SMTP — are **kept** and backed up to `.env.bak.<timestamp>`). |
 
 The installer auto-generates a `.env` with secure random JWT secrets, checks for Docker/Compose/git, warns about low RAM+swap, and handles root-owned data files safely. Edit `.env` afterwards to set `APP_PUBLIC_URL`, `TMDB_API_KEY`, and `SMTP_*`.
 
@@ -360,7 +360,7 @@ docker compose exec app sh -c 'sqlite3 /app/data/database.sqlite ".backup /backu
 
 ### Resetting the Database (fresh start)
 
-Easiest way — the installer's **wipeout** mode does this for you (removes containers, volumes, `./data`, and Redis data, resets the repo, and regenerates `.env`):
+Easiest way — the installer's **wipeout** mode does this for you (removes containers, volumes, `./data`, and Redis data, resets the repo, and rotates the JWT secrets — your `.env` settings are preserved and backed up first):
 
 ```bash
 ./install.sh      # choose option 2) Complete wipeout

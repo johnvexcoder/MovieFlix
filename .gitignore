@@ -16,6 +16,7 @@ next-env.d.ts
 # Environment & Credentials
 .env*.local
 .env
+.env.bak.*
 *.pem
 
 # Runtime Application Data
