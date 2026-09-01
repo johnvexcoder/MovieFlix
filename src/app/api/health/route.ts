@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { setupDatabase } from "@/db/index";
 import { startAccountCleanupService } from "@/services/account-cleanup";
+import { ensureScanScheduler } from "@/services/scan-scheduler";
 
 let initialized = false;
 
@@ -9,6 +10,7 @@ export async function GET() {
     try {
       setupDatabase();
       startAccountCleanupService();
+      ensureScanScheduler();
       initialized = true;
     } catch (e) {
       console.error("Health check init error:", e);

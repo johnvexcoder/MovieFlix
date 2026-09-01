@@ -100,6 +100,7 @@ async function scanDirectory(
       // Recursively scan subdirectories
       await scanDirectory(scanId, fullPath, type);
     } else if (entry.isFile() && isVideoFile(entry.name)) {
+      updateScanCounter(scanId, "found");
       await processFile(scanId, fullPath, type);
     }
   }
@@ -306,6 +307,10 @@ async function updateScanStatus(
       status,
       completedAt: now,
       errors: errors ? JSON.stringify(errors) : null,
+      mediaFound: currentScan?.mediaFound ?? 0,
+      mediaAdded: currentScan?.mediaAdded ?? 0,
+      mediaUpdated: currentScan?.mediaUpdated ?? 0,
+      mediaSkipped: currentScan?.mediaSkipped ?? 0,
     })
     .where(eq(scanLog.id, scanId));
 
