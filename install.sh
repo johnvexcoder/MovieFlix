@@ -182,7 +182,7 @@ tune_media_env() {
       ok "Detected $kind library at $value -> MEDIA_${kind^^}_HOST set in .env."
       continue
     fi
-    [ "$1" = "quiet" ] || warn "No $kind library auto-detected. MEDIA_${kind^^}_HOST stays '$cur' — edit .env if needed."
+    [ "${1:-}" = "quiet" ] || warn "No $kind library auto-detected. MEDIA_${kind^^}_HOST stays '$cur' — edit .env if needed."
   done
 }
 
