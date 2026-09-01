@@ -114,6 +114,14 @@ SMTP_FROM=MovieFlix <movieflix.support@gmail.com>
 
 # Optional: restrict sessions to the same /24 subnet (0 = off, 1 = on)
 SESSION_STRICT_SUBNET=0
+
+# Host paths of your movie & series libraries (mapped into the container at
+# /media/movies and /media/series). Set these to your real folders, e.g.:
+#   MEDIA_MOVIES_HOST=/mnt/media/Media/MOVIES
+#   MEDIA_SERIES_HOST=/mnt/media/Media/TV
+# They live in .env on purpose: git pull / install.sh updates will NOT overwrite them.
+MEDIA_MOVIES_HOST=/media/movies
+MEDIA_SERIES_HOST=/media/series
 EOF
   chmod 600 .env
 }

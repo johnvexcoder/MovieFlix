@@ -283,7 +283,8 @@ Full reference (see [.env.example](.env.example)):
 | `APP_PUBLIC_URL` | Public URL used for links inside emails | `http://localhost:9000` |
 | `SMTP_HOST/PORT/USER/PASS/FROM` | Outbound email settings (forwarded through Compose) | *(empty = emails skipped)* |
 | `SESSION_STRICT_SUBNET` | Restrict sessions to the same `/24` subnet (`0` off, `1` on) | `0` |
-| `MEDIA_MOVIES_PATH` / `MEDIA_SERIES_PATH` | Library mount paths | `/media/movies`, `/media/series` |
+| `MEDIA_MOVIES_PATH` / `MEDIA_SERIES_PATH` | Library mount paths (container side) | `/media/movies`, `/media/series` |
+| `MEDIA_MOVIES_HOST` / `MEDIA_SERIES_HOST` | **Host folder** to bind into the container (set these to your real media folders; survives `install.sh` updates because they live in `.env`) | `/media/movies`, `/media/series` |
 | `FFMPEG_PATH` | Path to the ffmpeg binary | `ffmpeg` |
 | `TRANSCODE_TEMP_DIR` | Where transcoded renditions are cached | `./data/transcode-temp` |
 | `TRANSCODE_MAX_CONCURRENT` | Max simultaneous transcodes | `2` |

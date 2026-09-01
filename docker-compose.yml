@@ -48,8 +48,11 @@ services:
       - NEXT_TELEMETRY_DISABLED=1
     volumes:
       - ./data:/app/data
-      - /media/movies:/media/movies
-      - /media/series:/media/series
+      # Host media folders. Set MEDIA_MOVIES_HOST / MEDIA_SERIES_HOST in .env to
+      # point at YOUR media library (they are NOT reset by install.sh updates).
+      # The left side (host path) is read directly by FFmpeg/native file access.
+      - ${MEDIA_MOVIES_HOST:-/media/movies}:/media/movies
+      - ${MEDIA_SERIES_HOST:-/media/series}:/media/series
     depends_on:
       - redis
     healthcheck:
