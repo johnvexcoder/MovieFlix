@@ -176,7 +176,18 @@ do_wipeout() {
   docker rmi -f movieflix-app 2>/dev/null || true
 
   info "Deleting ./data (database + user data)."
-  rm -rf ./data
+  # The app container runs as root, so ./data contains root-owned files that a
+  # plain `rm` as your user cannot remove ("Permission denied"). Delete through
+  # a throwaway container instead — it runs as root and can wipe everything.
+  if docker run --rm -v "$PWD":/work redis:7-alpine rm -rf /work/data 2>/dev/null; then
+    ok "Data directory removed."
+  elif docker run --rm -v "$PWD":/work alpine rm -rf /work/data 2>/dev/null; then
+    ok "Data directory removed (using alpine)."
+  else
+    warn "Container-based removal failed. Falling back to sudo."
+    sudo rm -rf ./data || die "Could not remove ./data: Permission denied. Fix manually, then re-run:\n  sudo chown -R \$(id -u):\$(id -g) ./data && sudo rm -rf ./data"
+    ok "Data directory removed (via sudo)."
+  fi
 
   info "Resetting the repository to origin/main (fresh source)."
   git fetch origin main
