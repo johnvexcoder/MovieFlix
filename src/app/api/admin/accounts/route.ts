@@ -1,13 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { accounts, profiles, profileSettings, watchHistory, sessions, adminMessages, contactSubmissions, paymentSubmissions, messageViews, passwordResetTokens } from "@/db/schema";
+import { accounts, profiles, profileSettings } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { v4 as uuidv4 } from "uuid";
 import { sendEmail } from "@/lib/email";
 import { welcomeEmail } from "@/lib/email-templates";
+import { getAppPublicUrl } from "@/lib/app-settings";
 import { getActiveSessions, removeActiveSession } from "@/lib/redis";
+import { deleteAccountCompletely } from "@/services/delete-account";
 
 async function getActiveSessionsForProfiles(profileIds: string[]) {
   const results: { profileId: string; sessionId: string }[] = [];
@@ -180,10 +182,11 @@ export async function POST(request: NextRequest) {
     });
 
     if (email) {
+      const baseUrl = await getAppPublicUrl();
       await sendEmail({
         to: email,
         subject: "Welcome to MovieFlix!",
-        html: welcomeEmail({ username, fullName, password }),
+        html: welcomeEmail({ username, fullName, password, baseUrl }),
       });
     }
 
@@ -251,40 +254,12 @@ export async function DELETE(request: NextRequest) {
       // Redis may be down; the DB cleanup below is the critical part.
     }
 
-    // Delete dependent rows first (FK constraints) inside one transaction so
-    // the account is never left half-deleted.
-    await db.transaction(async (tx) => {
-      const accountProfiles = await tx
-        .select({ id: profiles.id })
-        .from(profiles)
-        .where(eq(profiles.accountId, accountId));
+    // Delete every dependent row (FK constraints) inside one transaction so the
+    // account is never left half-deleted. Shared with the expired-account
+    // cleanup service so both paths stay in sync.
+    const { deletedProfiles } = await deleteAccountCompletely(accountId);
 
-      for (const profile of accountProfiles) {
-        await tx.delete(watchHistory).where(eq(watchHistory.profileId, profile.id));
-        await tx.delete(sessions).where(eq(sessions.profileId, profile.id));
-        await tx.delete(profileSettings).where(eq(profileSettings.profileId, profile.id));
-        await tx.delete(profiles).where(eq(profiles.id, profile.id));
-      }
-
-      // Clear message views FIRST: they FK to both adminMessages.messageId and
-      // accounts.accountId with no ON DELETE CASCADE, so deleting either parent
-      // fails whenever a view row exists. Deleting by accountId removes this
-      // account's views of targeted AND broadcast messages, unblocking both
-      // parent deletions below.
-      await tx.delete(messageViews).where(eq(messageViews.accountId, accountId));
-
-      await tx.delete(adminMessages).where(eq(adminMessages.accountId, accountId));
-      await tx.delete(contactSubmissions).where(eq(contactSubmissions.accountId, accountId));
-      await tx.delete(paymentSubmissions).where(eq(paymentSubmissions.accountId, accountId));
-
-      // Password reset tokens FK to accounts.accountId (no cascade).
-      await tx.delete(passwordResetTokens).where(eq(passwordResetTokens.accountId, accountId));
-
-      // Delete account
-      await tx.delete(accounts).where(eq(accounts.id, accountId));
-    });
-
-    return successResponse({ message: "Account deleted successfully" });
+    return successResponse({ message: "Account deleted successfully", deletedProfiles });
   } catch (error) {
     console.error("Delete account error:", error);
     return errorResponse("Internal server error", 500);

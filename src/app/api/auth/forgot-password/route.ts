@@ -8,6 +8,7 @@ import { successResponse, errorResponse } from "@/lib/api-response";
 import { setRateLimit } from "@/lib/redis";
 import { sendEmail, getSmtpSettings } from "@/lib/email";
 import { forgotPasswordEmail } from "@/lib/email-templates";
+import { getAppPublicUrl } from "@/lib/app-settings";
 import { v4 as uuidv4 } from "uuid";
 
 export const dynamic = "force-dynamic";
@@ -52,7 +53,8 @@ export async function POST(request: NextRequest) {
       createdAt: new Date().toISOString(),
     });
 
-    const resetLink = `${process.env.APP_PUBLIC_URL || "http://localhost:9000"}/reset-password?token=${token}`;
+    const baseUrl = await getAppPublicUrl();
+    const resetLink = `${baseUrl}/reset-password?token=${token}`;
 
     const smtp = await getSmtpSettings();
     const delivered = await sendEmail({

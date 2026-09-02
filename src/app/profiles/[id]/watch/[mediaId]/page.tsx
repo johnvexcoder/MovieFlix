@@ -119,6 +119,14 @@ export default function WatchPage() {
     refreshSession: () => Promise<void>;
   } | null>(null);
 
+  // Android/mobile backgrounding: browsers auto-pause the video when the tab is
+  // hidden (app switch), leaving the element stopped even though the user never
+  // pressed pause. Track intent so we can restore playback on return.
+  const wasPlayingBeforeHiddenRef = useRef(false);
+  // Tracks an in-flight video.play() promise so rapid taps on Android that hit a
+  // still-pending play() don't get dropped or double-fired.
+  const playPromiseRef = useRef<Promise<void> | null>(null);
+
   // Subtitle state
   const [subtitles, setSubtitles] = useState<
     { file: string; lang: string; label: string }[]
@@ -273,13 +281,46 @@ export default function WatchPage() {
     const timer = setInterval(() => {
       refreshSession();
     }, 4 * 60 * 1000);
+
+    const recoverPlayback = () => {
+      const video = videoRef.current;
+      if (!video) return;
+      // The browser auto-paused the element while hidden (common on Android app
+      // switches) but the user wanted playback. Restore it by re-driving a
+      // fresh source+play so a stale/broken stream doesn't leave a frozen frame.
+      if (wasPlayingBeforeHiddenRef.current) {
+        wasPlayingBeforeHiddenRef.current = false;
+        if (video.paused || video.ended || video.readyState < 2) {
+          setBuffering(true);
+          const pos = video.currentTime || lastPositionRef.current || 0;
+          lastPositionRef.current = pos;
+          setStreamKey((k) => k + 1);
+        } else {
+          video.play().catch(() => {});
+        }
+      }
+    };
+
     const onVisibility = () => {
-      if (document.visibilityState === "visible") refreshSession();
+      if (document.visibilityState === "visible") {
+        refreshSession().then(() => recoverPlayback());
+      } else {
+        // Track whether the user wanted playback when we went into the background.
+        const video = videoRef.current;
+        wasPlayingBeforeHiddenRef.current = Boolean(video && !video.paused);
+        // A hidden tab can't legitimately play; clear any stale pending promise.
+        playPromiseRef.current = null;
+      }
+    };
+    const onFocus = () => {
+      if (document.visibilityState === "visible") onVisibility();
     };
     document.addEventListener("visibilitychange", onVisibility);
+    window.addEventListener("focus", onFocus);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", onVisibility);
+      window.removeEventListener("focus", onFocus);
     };
   }, [refreshSession]);
 
@@ -366,7 +407,10 @@ export default function WatchPage() {
       restoreProgress();
     };
 
-    const onPlay = () => setPlaying(true);
+    const onPlay = () => {
+      setPlaying(true);
+      userPausedRef.current = false;
+    };
     const onPause = () => {
       setPlaying(false);
       userPausedRef.current = true;
@@ -538,11 +582,22 @@ export default function WatchPage() {
     const video = videoRef.current;
     if (!video) return;
 
-    if (video.paused) {
-      video.play().catch(() => {});
+    // Android can leave a pending play() promise that hasn't resolved yet, which
+    // makes video.paused report stale until then. If a play is in flight, treat
+    // it as "playing intent" rather than firing a duplicate play() or a pause
+    // that immediately cancels it.
+    const hasPendingPlay = playPromiseRef.current != null;
+
+    if (video.paused && !hasPendingPlay) {
+      // Guard against overlapping play() calls being cancelled by a later one.
+      const isPlaying = video.play().catch(() => {});
+      playPromiseRef.current = isPlaying;
+      const clear = () => setTimeout(() => { playPromiseRef.current = null; }, 60);
+      isPlaying.then(clear, clear);
       triggerCenterIcon("play");
     } else {
       video.pause();
+      playPromiseRef.current = null;
       triggerCenterIcon("pause");
     }
     resetControlsTimer();

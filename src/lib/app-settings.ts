@@ -20,6 +20,22 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
   }
 }
 
+/**
+ * Resolves the public base URL used to build links inside emails.
+ *
+ * Precedence:
+ *   1. Admin-configured `app_public_url` setting (Admin Panel -> Settings)
+ *   2. `APP_PUBLIC_URL` environment variable
+ *   3. A safe localhost fallback
+ *
+ * The trailing slash is stripped so callers can safely append `/login` etc.
+ */
+export async function getAppPublicUrl(): Promise<string> {
+  const stored = await getSetting<string>("app_public_url", "");
+  const candidate = stored?.trim() || process.env.APP_PUBLIC_URL?.trim() || "http://localhost:9000";
+  return candidate.replace(/\/+$/, "");
+}
+
 export async function getMaxSessions(): Promise<number> {
   const raw = await getSetting<string>("max_sessions", "3");
   const parsed = parseInt(raw, 10);

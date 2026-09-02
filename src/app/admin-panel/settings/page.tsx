@@ -76,6 +76,9 @@ export default function AdminSettingsPage() {
   const [smtpPass, setSmtpPass] = useState("");
   const [smtpFrom, setSmtpFrom] = useState("");
 
+  // Public URL used to build links inside emails (the "Log In" / reset links).
+  const [appPublicUrl, setAppPublicUrl] = useState("https://localhost:9000");
+
   // Reminder Settings
   const [reminderDays, setReminderDays] = useState(3);
   const [reminderMessage, setReminderMessage] = useState("Your subscription is expiring soon. Please renew your account to continue watching.");
@@ -204,6 +207,7 @@ export default function AdminSettingsPage() {
         if (s.reminder_message) setReminderMessage(s.reminder_message);
         if (s.max_sessions) setMaxSessions(parseInt(s.max_sessions));
         if (s.session_timeout) setSessionTimeout(parseInt(s.session_timeout));
+        if (s.app_public_url) setAppPublicUrl(s.app_public_url);
       }
     } catch (e) {
       console.error("Failed to load DB settings", e);
@@ -231,6 +235,7 @@ export default function AdminSettingsPage() {
             reminder_message: reminderMessage,
             max_sessions: maxSessions.toString(),
             session_timeout: sessionTimeout.toString(),
+            app_public_url: appPublicUrl,
           }
         }),
       });
@@ -393,6 +398,21 @@ export default function AdminSettingsPage() {
                 <h2 className="text-lg font-bold text-white">SMTP Email Settings</h2>
               </div>
               <div className="space-y-4">
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Public URL (links inside emails)</Label>
+                  <Input
+                    type="text"
+                    value={appPublicUrl}
+                    onChange={(e) => setAppPublicUrl(e.target.value)}
+                    placeholder="https://movieflix.example.com"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white font-mono"
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    Base URL used for the &ldquo;Log In&rdquo; button and password-reset links in emails. Set this to your public
+                    domain (e.g. <code className="text-neutral-300">https://movieflix.example.com</code>) so recipients
+                    are redirected to the correct login page. Falls back to the APP_PUBLIC_URL env var if blank.
+                  </p>
+                </div>
                 <div>
                   <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Host</Label>
                   <Input

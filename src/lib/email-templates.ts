@@ -8,7 +8,6 @@
 export const SUPPORT_EMAIL = "movieflix.support@gmail.com";
 export const BRAND_NAME = "MovieFlix";
 export const BRAND_COLOR = "#e50914";
-export const APP_PUBLIC_URL = process.env.APP_PUBLIC_URL || "http://localhost:9000";
 
 // The MovieFlix "M" mark. This mirrors src/components/movieflix-logo.tsx and
 // public/logo.svg but is flattened (no feDropShadow filter) so it renders
@@ -76,7 +75,7 @@ export function greeting(firstName: string): string {
  * AND the set password the admin created, so the user can log in immediately
  * without waiting for credentials to be shared separately.
  */
-export function welcomeEmail({ username, fullName, password }: { username: string; fullName?: string | null; password: string }): string {
+export function welcomeEmail({ username, fullName, password, baseUrl }: { username: string; fullName?: string | null; password: string; baseUrl: string }): string {
   const name = fullName || username;
   return emailLayout({
     title: "Welcome to MovieFlix!",
@@ -96,7 +95,7 @@ export function welcomeEmail({ username, fullName, password }: { username: strin
       <p>For security, you will be asked to set a new password of your own the first time you log in.</p>
       <p>You can now log in and start watching at your convenience.</p>
       <p>
-        <a href="${APP_PUBLIC_URL}/login" style="display:inline-block; background:${BRAND_COLOR}; color:#ffffff; text-decoration:none; padding:12px 28px; border-radius:8px; font-weight:bold; margin-top:8px;">
+        <a href="${baseUrl}/login" style="display:inline-block; background:${BRAND_COLOR}; color:#ffffff; text-decoration:none; padding:12px 28px; border-radius:8px; font-weight:bold; margin-top:8px;">
           Log In Now
         </a>
       </p>
