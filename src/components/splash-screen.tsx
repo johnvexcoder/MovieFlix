@@ -11,62 +11,48 @@ interface SplashScreenProps {
   tagline?: string;
 }
 
-// Generate high-intensity light rays with varying angles, colors, and speeds
-const LIGHT_RAYS = Array.from({ length: 42 }).map((_, i) => {
-  const angle = (i / 42) * 360;
-  const colors = [
-    "#e50914", // Netflix Red
-    "#ff2a3a", // Hot Ruby
-    "#ff6b00", // Laser Orange
-    "#ff007f", // Electric Magenta
-    "#8a2be2", // Laser Violet
-    "#00d2ff", // Cyan Laser
-    "#ffffff", // Core White
-  ];
-  return {
-    id: i,
-    angle,
-    length: 300 + (i % 7) * 90,
-    width: 2 + (i % 5) * 1.8,
-    color: colors[i % colors.length],
-    delay: 1.8 + (i % 10) * 0.04,
-    speed: 0.9 + (i % 4) * 0.25,
-    blur: (i % 3) * 2,
-  };
-});
+type SplashPhase = "intro" | "pop" | "reveal" | "out" | "done";
 
-// Cinematic dust/star particles
-const COSMIC_PARTICLES = Array.from({ length: 50 }).map((_, i) => ({
-  id: i,
-  x: (Math.sin(i * 99) * 50 + 50) + "%",
-  y: (Math.cos(i * 77) * 50 + 50) + "%",
-  size: 1 + (i % 3),
-  opacity: 0.2 + (i % 5) * 0.15,
-  duration: 3 + (i % 4),
-}));
-
+// Netflix-N-style premium "M" logo pop.
+//
+// Timeline (all in ms):
+//   0     -> draw the M strokes (ribbon reveal), glow builds
+//   700   -> the logo "pops": scales up with an overshoot + settle (the
+//            satisfying N-style snap), a red bloom bursts, sheen sweeps peak
+//   1800  -> wordmark + tagline fade/slide in
+//   2800  -> the logo rushes TOWARD the viewer and blows PAST the camera
+//            (massive zoom to 14x + blur), like the N flying through you
+//   3400  -> done, then redirect
 export function SplashScreen({
   onComplete,
   brandName = "MOVIEFLIX",
   tagline = "CINEMATIC ENTERTAINMENT PLATFORM",
 }: SplashScreenProps) {
-  const [stage, setStage] = useState<"ignite" | "ribbons" | "prism" | "reveal" | "zoom" | "done">("ignite");
+  // Dev/demo helper: `?sph=<phase>` freezes the splash at a given phase so it
+  // can be screenshotted. No effect in normal usage (no query param present).
+  const HOLD_PHASES = ["intro", "pop", "reveal", "out", "done"] as const;
+  const readHold = (): SplashPhase | null => {
+    if (typeof window === "undefined") return null;
+    const raw = new URLSearchParams(window.location.search).get("sph");
+    return raw && (HOLD_PHASES as readonly string[]).includes(raw) ? (raw as SplashPhase) : null;
+  };
   const [muted, setMuted] = useState(false);
+  const [phase, setPhase] = useState<SplashPhase>(() => readHold() ?? "intro");
   const audioPlayedRef = useRef(false);
 
   const triggerAudio = useCallback(() => {
     if (!audioPlayedRef.current && !muted) {
       audioPlayedRef.current = true;
-      playCinematicSound(0.85);
+      playCinematicSound(0.8);
     }
   }, [muted]);
 
   const handleSkip = useCallback(() => {
-    setStage("done");
+    setPhase("done");
     onComplete();
   }, [onComplete]);
 
-  // Keyboard shortcut (Escape or Space to skip)
+  // Skip via Escape / Space / Enter
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" || e.key === " " || e.key === "Enter") {
@@ -79,369 +65,236 @@ export function SplashScreen({
   }, [handleSkip]);
 
   useEffect(() => {
-    // Attempt audio on initial mount (if browser allows autoplay)
+    // When holding a phase for a screenshot, don't run the auto-timeline.
+    if (typeof window !== "undefined" && new URLSearchParams(window.location.search).get("sph")) return;
+
+    // Attempt audio shortly after mount (best-effort autoplay).
     const audioTimer = setTimeout(() => {
       triggerAudio();
-    }, 150);
+    }, 300);
 
-    // Timeline of the cinematic orchestration
-    const t1 = setTimeout(() => setStage("ribbons"), 400);   // Ribbon weaving
-    const t2 = setTimeout(() => setStage("prism"), 1800);    // Hyperspace prism explosion
-    const t3 = setTimeout(() => setStage("reveal"), 2700);   // Brand typography reveal
-    const t4 = setTimeout(() => setStage("zoom"), 3700);     // Dimensional zoom transition
-    const t5 = setTimeout(() => {
-      setStage("done");
+    const tPop = setTimeout(() => setPhase("pop"), 700);
+    const tReveal = setTimeout(() => setPhase("reveal"), 1800);
+    const tOut = setTimeout(() => setPhase("out"), 2800);
+    const tDone = setTimeout(() => {
+      setPhase("done");
       onComplete();
-    }, 4300);
+    }, 3400);
 
     return () => {
       clearTimeout(audioTimer);
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-      clearTimeout(t4);
-      clearTimeout(t5);
+      clearTimeout(tPop);
+      clearTimeout(tReveal);
+      clearTimeout(tOut);
+      clearTimeout(tDone);
     };
   }, [onComplete, triggerAudio]);
 
-  if (stage === "done") return null;
+  if (phase === "done") return null;
+
+  const popActive = phase === "pop" || phase === "reveal" || phase === "out";
 
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden bg-[#050507] select-none cursor-pointer"
-        onClick={() => {
-          triggerAudio();
-        }}
+        className="fixed inset-0 z-[9999] flex cursor-pointer flex-col items-center justify-center overflow-hidden bg-black select-none"
+        onClick={triggerAudio}
         initial={{ opacity: 1 }}
         animate={{
-          opacity: stage === "zoom" ? 0 : 1,
-          scale: stage === "zoom" ? 2.5 : 1,
-          filter: stage === "zoom" ? "blur(12px) brightness(2.5)" : "none",
+          // Keep the overlay full-opacity during the "pass-through" zoom so the
+          // logo rushes past the camera instead of fading out prematurely.
+          opacity: 1,
         }}
+        transition={{ duration: 0.25, ease: "easeIn" }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.65, ease: [0.16, 1, 0.3, 1] }}
       >
-        {/* Deep Atmospheric Backdrop Gradients */}
-        <div className="pointer-events-none absolute inset-0">
-          {/* Ambient red nebula core */}
-          <motion.div
-            className="absolute top-1/2 left-1/2 h-[650px] w-[650px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[140px]"
-            animate={{
-              background:
-                stage === "prism" || stage === "zoom"
-                  ? "radial-gradient(circle, rgba(229,9,20,0.55) 0%, rgba(138,43,226,0.3) 45%, rgba(0,0,0,0) 70%)"
-                  : "radial-gradient(circle, rgba(229,9,20,0.35) 0%, rgba(229,9,20,0.1) 40%, rgba(0,0,0,0) 70%)",
-              scale: stage === "prism" ? [1, 1.4, 1.2] : [0.8, 1.1, 1],
-            }}
-            transition={{ duration: 2.2, ease: "easeInOut" }}
-          />
-
-          {/* Secondary anamorphic violet-magenta flares */}
-          <motion.div
-            className="absolute top-1/2 left-1/2 h-[350px] w-[900px] -translate-x-1/2 -translate-y-1/2 rounded-full blur-[100px] opacity-40"
-            style={{
-              background:
-                "radial-gradient(ellipse, rgba(255,0,128,0.35) 0%, rgba(94,23,235,0.2) 50%, rgba(0,0,0,0) 80%)",
-            }}
-            animate={{
-              scaleX: stage === "prism" ? [1, 2.2, 1.5] : [0.7, 1.2, 1],
-              opacity: stage === "prism" ? [0.4, 0.85, 0.5] : 0.4,
-            }}
-            transition={{ duration: 1.8 }}
-          />
-
-          {/* Anamorphic Horizontal Laser Streak */}
-          <motion.div
-            className="absolute top-1/2 left-0 right-0 h-[2px] -translate-y-1/2 bg-gradient-to-r from-transparent via-[#ff2a3a] to-transparent shadow-[0_0_24px_#e50914]"
-            initial={{ scaleX: 0, opacity: 0 }}
-            animate={{
-              scaleX: stage === "ignite" ? [0, 1] : stage === "prism" ? [1, 1.8, 1] : [1, 0.8],
-              opacity: stage === "ignite" ? [0, 0.9] : stage === "prism" ? [0.9, 1, 0.4] : 0.3,
-            }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
-          />
-        </div>
-
-        {/* Cosmic Floating Dust/Particles */}
-        <div className="pointer-events-none absolute inset-0 overflow-hidden">
-          {COSMIC_PARTICLES.map((p) => (
+        {/* Center-stage red bloom behind the logo on pop */}
+        <AnimatePresence>
+          {popActive && (
             <motion.div
-              key={p.id}
-              className="absolute rounded-full bg-white"
+              className="pointer-events-none absolute top-1/2 left-1/2 h-[70vmin] w-[70vmin] -translate-x-1/2 -translate-y-1/2 rounded-full"
+              initial={{ opacity: 0, scale: 0.2 }}
+              animate={{ opacity: [0, 1, 0.85], scale: [0.2, 1.5, 1.15] }}
+              exit={{ opacity: 0, scale: 1.6 }}
+              transition={{ duration: 1.1, ease: "easeOut" }}
               style={{
-                left: p.x,
-                top: p.y,
-                width: p.size,
-                height: p.size,
-                boxShadow: `0 0 ${p.size * 3}px rgba(255,255,255,0.8)`,
-              }}
-              animate={{
-                y: ["-10px", "10px", "-10px"],
-                opacity: [p.opacity * 0.4, p.opacity, p.opacity * 0.4],
-                scale: stage === "prism" ? [1, 2.5, 0] : 1,
-              }}
-              transition={{
-                duration: p.duration,
-                repeat: Infinity,
-                ease: "easeInOut",
+                background:
+                  "radial-gradient(circle, rgba(229,9,20,0.55) 0%, rgba(229,9,20,0.18) 45%, rgba(0,0,0,0) 70%)",
               }}
             />
-          ))}
-        </div>
+          )}
+        </AnimatePresence>
 
-        {/* HYPERSPACE PRISM BURST RAYS (Shooting outward on impact) */}
-        {(stage === "prism" || stage === "reveal" || stage === "zoom") && (
-          <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-            {LIGHT_RAYS.map((ray) => (
-              <motion.div
-                key={ray.id}
-                className="absolute origin-center"
-                style={{
-                  transform: `rotate(${ray.angle}deg)`,
-                }}
-                initial={{ scaleY: 0, opacity: 0 }}
-                animate={{
-                  scaleY: [0, 1.4, 2.8],
-                  opacity: [0, 0.95, 0],
-                  scaleX: [1, 1.6, 0.2],
-                }}
-                transition={{
-                  duration: ray.speed,
-                  delay: ray.delay - 1.8,
-                  ease: [0.22, 1, 0.36, 1],
-                }}
-              >
-                <div
-                  style={{
-                    height: `${ray.length}px`,
-                    width: `${ray.width}px`,
-                    background: `linear-gradient(to top, transparent 0%, ${ray.color} 50%, #ffffff 95%)`,
-                    filter: `blur(${ray.blur}px) drop-shadow(0 0 8px ${ray.color})`,
-                    transform: "translateY(-50%)",
-                  }}
-                />
-              </motion.div>
-            ))}
-
-            {/* Shockwave Rings */}
+        {/* Inner hot core flash at the exact pop moment */}
+        <AnimatePresence>
+          {phase === "pop" && (
             <motion.div
-              className="absolute rounded-full border border-red-500/70"
-              initial={{ width: 0, height: 0, opacity: 0.9 }}
-              animate={{
-                width: ["0px", "1200px"],
-                height: ["0px", "1200px"],
-                opacity: [0.9, 0],
+              className="pointer-events-none absolute top-1/2 left-1/2 h-[36vmin] w-[36vmin] -translate-x-1/2 -translate-y-1/2 rounded-full"
+              initial={{ opacity: 0, scale: 0.3 }}
+              animate={{ opacity: [0, 0.9, 0], scale: [0.3, 1.6, 2.2] }}
+              transition={{ duration: 0.7, ease: "easeOut" }}
+              style={{
+                background:
+                  "radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(255,90,103,0.7) 40%, rgba(229,9,20,0) 70%)",
               }}
-              transition={{ duration: 1.4, ease: "easeOut" }}
             />
-            <motion.div
-              className="absolute rounded-full border border-white/80"
-              initial={{ width: 0, height: 0, opacity: 1 }}
-              animate={{
-                width: ["0px", "800px"],
-                height: ["0px", "800px"],
-                opacity: [1, 0],
-              }}
-              transition={{ duration: 1.0, delay: 0.1, ease: "easeOut" }}
-            />
-          </div>
-        )}
+          )}
+        </AnimatePresence>
 
-        {/* MAIN CINEMATIC 3D RIBBON EMBLEM */}
-        <div className="relative z-20 flex flex-col items-center">
+        {/* The M logo */}
+        <motion.div
+          className="relative z-10 flex flex-col items-center"
+          initial="intro"
+          animate={phase}
+        >
           <motion.div
             className="relative flex items-center justify-center"
-            initial={{ scale: 0.75, opacity: 0, rotateY: -15, rotateX: 10 }}
+            style={{ perspective: 900 }}
             animate={{
+              // The N-style pop: ease up with a pronounced overshoot, then settle.
               scale:
-                stage === "prism"
-                  ? [1, 1.15, 1.05]
-                  : stage === "reveal"
-                  ? 1.0
-                  : [0.75, 1],
-              opacity: 1,
-              rotateY: stage === "prism" ? [ -15, 0 ] : 0,
-              rotateX: 0,
+                phase === "intro"
+                  ? [0.82, 1]
+                  : phase === "pop"
+                  ? [1, 1.2, 0.94, 1.08, 1]
+                  : phase === "reveal"
+                  ? 1
+                  : phase === "out"
+                  ? [1, 14]
+                  : 1,
+              filter:
+                phase === "pop"
+                  ? ["brightness(1)", "brightness(1.5)", "brightness(1)"]
+                  : phase === "out"
+                  ? ["brightness(1) blur(0px)", "brightness(2.4) blur(10px)"]
+                  : "brightness(1) blur(0px)",
             }}
-            transition={{
-              duration: 1.2,
-              ease: [0.25, 0.1, 0.25, 1],
-            }}
-            style={{ perspective: 1200 }}
+            transition={
+              phase === "pop"
+                ? { duration: 0.65, times: [0, 0.4, 0.6, 0.8, 1], ease: [0.16, 1, 0.3, 1] }
+                : phase === "out"
+                ? { duration: 0.5, ease: "easeIn" }
+                : { duration: 0.6, ease: [0.16, 1, 0.3, 1] }
+            }
           >
-            {/* SVG 3D Multi-Layered Laser Ribbons */}
+            {/* Sheen that sweeps the M's peak at the pop moment */}
+            <AnimatePresence>
+              {(phase === "pop" || phase === "reveal") && (
+                <motion.div
+                  className="pointer-events-none absolute inset-0"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: [0, 1, 0] }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.8, ease: "easeInOut" }}
+                  style={{
+                    background:
+                      "linear-gradient(115deg, transparent 35%, rgba(255,255,255,0.7) 50%, transparent 65%)",
+                    mixBlendMode: "screen",
+                  }}
+                />
+              )}
+            </AnimatePresence>
+
             <svg
-              viewBox="0 0 240 280"
-              className="h-44 w-36 md:h-64 md:w-56 drop-shadow-[0_0_40px_rgba(229,9,20,0.7)]"
+              viewBox="0 0 240 240"
+              className="h-44 w-44 md:h-64 md:w-64 drop-shadow-[0_0_60px_rgba(229,9,20,0.85)]"
               fill="none"
               xmlns="http://www.w3.org/2000/svg"
             >
               <defs>
-                {/* Ribbon 1 Gradient (Left Vertical Pillar) */}
-                <linearGradient id="ribbonLeft" x1="0%" y1="0%" x2="100%" y2="100%">
+                <linearGradient id="mSplashLeft" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#b20710" />
-                  <stop offset="40%" stopColor="#e50914" />
-                  <stop offset="85%" stopColor="#ff3849" />
-                  <stop offset="100%" stopColor="#800208" />
+                  <stop offset="45%" stopColor="#e50914" />
+                  <stop offset="100%" stopColor="#ff3b47" />
                 </linearGradient>
-
-                {/* Ribbon 2 Gradient (Right Vertical Pillar) */}
-                <linearGradient id="ribbonRight" x1="0%" y1="0%" x2="100%" y2="100%">
+                <linearGradient id="mSplashRight" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#800208" />
-                  <stop offset="30%" stopColor="#b20710" />
-                  <stop offset="70%" stopColor="#e50914" />
-                  <stop offset="100%" stopColor="#ff4d5a" />
+                  <stop offset="55%" stopColor="#e50914" />
+                  <stop offset="100%" stopColor="#ff5964" />
                 </linearGradient>
-
-                {/* Ribbon 3 Gradient (Hyper Diagonal Slash - High Specular Energy) */}
-                <linearGradient id="ribbonDiagonal" x1="0%" y1="0%" x2="100%" y2="100%">
+                <linearGradient id="mSplashDiag" x1="0%" y1="0%" x2="100%" y2="100%">
                   <stop offset="0%" stopColor="#ff5964" />
-                  <stop offset="25%" stopColor="#ffffff" />
-                  <stop offset="40%" stopColor="#ff2a3a" />
-                  <stop offset="75%" stopColor="#e50914" />
+                  <stop offset="50%" stopColor="#e50914" />
                   <stop offset="100%" stopColor="#7a0006" />
                 </linearGradient>
-
-                {/* Specular Core Flare */}
-                <radialGradient id="laserGlow" cx="50%" cy="50%" r="50%">
-                  <stop offset="0%" stopColor="#ffffff" stopOpacity="1" />
-                  <stop offset="35%" stopColor="#ff5a67" stopOpacity="0.8" />
-                  <stop offset="70%" stopColor="#e50914" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#e50914" stopOpacity="0" />
-                </radialGradient>
-
-                {/* Drop shadow for 3D ribbon overlap */}
-                <filter id="ribbonShadow" x="-30%" y="-30%" width="160%" height="160%">
-                  <feDropShadow dx="-4" dy="4" stdDeviation="6" floodColor="#000000" floodOpacity="0.8" />
+                <filter id="mSplashShadow" x="-30%" y="-30%" width="160%" height="160%">
+                  <feDropShadow dx="-4" dy="6" stdDeviation="8" floodColor="#000" floodOpacity="0.9" />
                 </filter>
               </defs>
 
-              {/* 1. Left Vertical Pillar */}
+              {/* Left pillar */}
               <motion.path
-                d="M 28 245 L 28 35 C 28 28, 32 24, 38 24 L 66 24 C 72 24, 76 28, 76 35 L 76 245 C 76 252, 72 256, 66 256 L 38 256 C 32 256, 28 252, 28 245 Z"
-                fill="url(#ribbonLeft)"
+                d="M 32 216 L 32 24 C 32 20, 36 16, 42 16 L 70 16 C 76 16, 80 20, 80 24 L 80 216 C 80 220, 76 224, 70 224 L 42 224 C 36 224, 32 220, 32 216 Z"
+                fill="url(#mSplashLeft)"
                 initial={{ scaleY: 0, opacity: 0 }}
-                animate={{
-                  scaleY: 1,
-                  opacity: 1,
-                }}
-                transition={{
-                  duration: 0.85,
-                  ease: [0.16, 1, 0.3, 1],
-                  delay: 0.1,
-                }}
+                animate={{ scaleY: 1, opacity: 1, pathLength: 1 }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.05 }}
                 style={{ originY: "100%" }}
               />
-
-              {/* 2. Right Vertical Pillar */}
+              {/* Right pillar */}
               <motion.path
-                d="M 164 245 L 164 35 C 164 28, 168 24, 174 24 L 202 24 C 208 24, 212 28, 212 35 L 212 245 C 212 252, 208 256, 202 256 L 174 256 C 168 256, 164 252, 164 245 Z"
-                fill="url(#ribbonRight)"
+                d="M 160 216 L 160 24 C 160 20, 164 16, 170 16 L 198 16 C 204 16, 208 20, 208 24 L 208 216 C 208 220, 204 224, 198 224 L 170 224 C 164 224, 160 220, 160 216 Z"
+                fill="url(#mSplashRight)"
                 initial={{ scaleY: 0, opacity: 0 }}
-                animate={{
-                  scaleY: 1,
-                  opacity: 1,
-                }}
-                transition={{
-                  duration: 0.85,
-                  ease: [0.16, 1, 0.3, 1],
-                  delay: 0.25,
-                }}
+                animate={{ scaleY: 1, opacity: 1 }}
+                transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1], delay: 0.18 }}
                 style={{ originY: "100%" }}
               />
-
-              {/* 3. Left-to-Center Diagonal Ribbon (M Valley Down) */}
+              {/* Left diagonal (valley down) */}
               <motion.path
-                d="M 38 26 L 76 26 L 132 186 L 94 186 Z"
-                fill="url(#ribbonDiagonal)"
-                filter="url(#ribbonShadow)"
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{
-                  pathLength: 1,
-                  opacity: 1,
-                }}
-                transition={{
-                  duration: 0.8,
-                  ease: [0.22, 1, 0.36, 1],
-                  delay: 0.45,
-                }}
+                d="M 40 18 L 78 18 L 132 168 L 94 168 Z"
+                fill="url(#mSplashDiag)"
+                filter="url(#mSplashShadow)"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.3 }}
               />
-
-              {/* 4. Center-to-Right Diagonal Ribbon (M Valley Up) */}
+              {/* Right diagonal (valley up) */}
               <motion.path
-                d="M 108 186 L 146 186 L 202 26 L 164 26 Z"
-                fill="url(#ribbonDiagonal)"
-                filter="url(#ribbonShadow)"
-                initial={{ pathLength: 0, opacity: 0 }}
-                animate={{
-                  pathLength: 1,
-                  opacity: 1,
-                }}
-                transition={{
-                  duration: 0.8,
-                  ease: [0.22, 1, 0.36, 1],
-                  delay: 0.65,
-                }}
-              />
-
-              {/* Specular Highlight Sheen Traveling across the M peak */}
-              <motion.ellipse
-                cx="120"
-                cy="140"
-                rx="42"
-                ry="18"
-                fill="url(#laserGlow)"
-                initial={{ opacity: 0, x: -80, y: -80 }}
-                animate={{
-                  opacity: stage === "prism" ? [0, 1, 0] : [0, 0.85, 0],
-                  x: [ -80, 0, 80 ],
-                  y: [ -80, 0, 80 ],
-                }}
-                transition={{
-                  duration: 1.1,
-                  delay: 0.85,
-                  ease: "easeInOut",
-                }}
+                d="M 108 168 L 146 168 L 200 18 L 162 18 Z"
+                fill="url(#mSplashDiag)"
+                filter="url(#mSplashShadow)"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1], delay: 0.44 }}
               />
             </svg>
           </motion.div>
 
-          {/* TYPOGRAPHY REVEAL ("STREAMVAULT / MOVIEFLIX") */}
+          {/* Wordmark + tagline */}
           <motion.div
-            className="mt-6 flex flex-col items-center justify-center text-center"
-            initial={{ opacity: 0, y: 16 }}
+            className="mt-8 flex flex-col items-center justify-center text-center"
+            initial={{ opacity: 0, y: 14 }}
             animate={{
-              opacity: stage === "reveal" || stage === "zoom" ? 1 : 0,
-              y: stage === "reveal" || stage === "zoom" ? 0 : 16,
+              opacity: phase === "reveal" || phase === "out" ? 1 : 0,
+              y: phase === "reveal" || phase === "out" ? 0 : 14,
+              scale: phase === "out" ? [1, 6] : 1,
             }}
-            transition={{ duration: 0.7, ease: "easeOut" }}
+            transition={
+              phase === "out"
+                ? { duration: 0.5, ease: "easeIn" }
+                : { duration: 0.6, ease: "easeOut" }
+            }
           >
-            {/* Main Wordmark */}
-            <h1 className="relative font-extrabold tracking-[0.25em] text-3xl md:text-5xl uppercase text-transparent bg-clip-text bg-gradient-to-r from-white via-neutral-100 to-red-500 drop-shadow-[0_4px_24px_rgba(229,9,20,0.6)]">
+            <h1 className="bg-gradient-to-r from-white via-neutral-100 to-red-500 bg-clip-text font-extrabold tracking-[0.28em] text-3xl text-transparent uppercase drop-shadow-[0_4px_24px_rgba(229,9,20,0.6)] md:text-5xl">
               {brandName}
             </h1>
-
-            {/* Ambient Laser Underline */}
             <motion.div
-              className="mt-3 h-[2px] bg-gradient-to-r from-transparent via-[#e50914] to-transparent shadow-[0_0_12px_#ff2a3a]"
+              className="mt-3 h-[2px] bg-gradient-to-r from-transparent via-[#e50914] to-transparent shadow-[0_0_14px_#ff2a3a]"
               initial={{ width: 0 }}
               animate={{
-                width: stage === "reveal" || stage === "zoom" ? "180px" : "0px",
+                width: phase === "reveal" || phase === "out" ? "180px" : "0px",
               }}
-              transition={{ duration: 0.8, delay: 0.2, ease: "easeOut" }}
+              transition={{ duration: 0.7, delay: 0.15, ease: "easeOut" }}
             />
-
-            {/* Sub-tagline */}
-            <p className="mt-3 text-[10px] md:text-xs font-semibold tracking-[0.35em] text-neutral-400/90 uppercase">
+            <p className="mt-3 text-[10px] font-semibold tracking-[0.35em] text-neutral-500 uppercase md:text-xs">
               {tagline}
             </p>
           </motion.div>
-        </div>
+        </motion.div>
 
-        {/* TOP / BOTTOM INTERACTIVE OVERLAYS */}
+        {/* Controls */}
         <div className="absolute top-6 right-6 z-30 flex items-center gap-3">
-          {/* Sound Toggle */}
           <button
             type="button"
             onClick={(e) => {
@@ -457,8 +310,6 @@ export function SplashScreen({
             {muted ? <VolumeX className="h-3.5 w-3.5 text-red-400" /> : <Volume2 className="h-3.5 w-3.5 text-emerald-400" />}
             <span>{muted ? "Muted" : "Cinematic Audio"}</span>
           </button>
-
-          {/* Skip Intro Button */}
           <button
             type="button"
             onClick={(e) => {
@@ -472,7 +323,6 @@ export function SplashScreen({
           </button>
         </div>
 
-        {/* Subtle Bottom Instruction */}
         <div className="pointer-events-none absolute bottom-6 text-center">
           <p className="text-[11px] tracking-wider text-white/30 uppercase">
             Click anywhere or press Space to skip
