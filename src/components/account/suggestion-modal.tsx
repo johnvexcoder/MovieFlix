@@ -81,7 +81,7 @@ export function SuggestionModal({ open, onClose }: SuggestionModalProps) {
                 onChange={(e) => setSubject(e.target.value)}
                 placeholder={'e.g. «4K» playback'}
                 maxLength={120}
-                className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#e50914]/40"
+                className="mt-1.5 h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40"
               />
             </div>
             <div>
@@ -93,7 +93,7 @@ export function SuggestionModal({ open, onClose }: SuggestionModalProps) {
                 rows={5}
                 maxLength={5000}
                 required
-                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#e50914]/40"
+                className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40"
               />
             </div>
 

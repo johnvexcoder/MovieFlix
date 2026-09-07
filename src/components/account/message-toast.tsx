@@ -136,8 +136,8 @@ export function MessageToast(_props: MessageToastProps) {
             className="pointer-events-auto glass-panel relative rounded-2xl border-white/15 p-4 shadow-2xl"
           >
             <div className="flex items-start gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-[#e50914]/15 ring-1 ring-[#e50914]/40">
-                <Megaphone className="h-4 w-4 text-[#e50914]" />
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-primary text-primary-foreground/15 ring-1 ring-[var(--brand)]/40">
+                <Megaphone className="h-4 w-4 text-[var(--brand)]" />
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Message</p>

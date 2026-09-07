@@ -251,7 +251,7 @@ export default function AdminSettingsPage() {
   if (loading) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
@@ -302,14 +302,14 @@ export default function AdminSettingsPage() {
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <Key className="h-5 w-5 text-[#e50914]" />
+                <Key className="h-5 w-5 text-[var(--brand)]" />
                 <h2 className="text-lg font-bold text-white">TMDB Metadata Integration</h2>
               </div>
               <a
                 href="https://www.themoviedb.org/settings/api"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-xs font-semibold text-[#e50914] hover:underline"
+                className="flex items-center gap-1 text-xs font-semibold text-[var(--brand)] hover:underline"
               >
                 <span>Get API Key</span>
                 <ExternalLink className="h-3 w-3" />
@@ -495,7 +495,7 @@ export default function AdminSettingsPage() {
                     value={reminderMessage}
                     onChange={(e) => setReminderMessage(e.target.value)}
                     rows={4}
-                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[#e50914]"
+                    className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-[var(--brand)]"
                     placeholder="Your subscription is expiring soon..."
                   />
                 </div>
@@ -529,7 +529,7 @@ export default function AdminSettingsPage() {
                     className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#e50914] to-[#7a0006] text-sm font-bold text-white">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[#7a0006] text-sm font-bold text-white">
                         {adm.username.charAt(0).toUpperCase()}
                       </div>
                       <div>

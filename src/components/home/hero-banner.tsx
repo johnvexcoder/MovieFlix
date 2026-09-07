@@ -106,9 +106,9 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
           )}
 
           {/* Multi-Layer Cinematic Gradient Masking */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#08080a] via-[#08080a]/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#08080a] via-[#08080a]/75 to-transparent max-w-4xl" />
-          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[#08080a]/80 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-[var(--background)]/60 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[var(--background)] via-[var(--background)]/75 to-transparent max-w-4xl" />
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-[var(--background)]/80 to-transparent" />
         </motion.div>
       </AnimatePresence>
 
@@ -119,7 +119,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
             type="button"
             aria-label="Previous slide"
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-[#e50914] hover:border-transparent transition-all duration-200"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all duration-200"
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -127,7 +127,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
             type="button"
             aria-label="Next slide"
             onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-[#e50914] hover:border-transparent transition-all duration-200"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all duration-200"
           >
             <ChevronRight className="h-6 w-6" />
           </button>
@@ -153,7 +153,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
               </div>
             )}
 
-            <div className="flex items-center gap-1.5 rounded-full bg-[#e50914] px-3 py-1 text-[11px] font-black uppercase tracking-wider text-white shadow-lg shadow-red-950/60">
+            <div className="flex items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 py-1 text-[11px] font-black uppercase tracking-wider text-primary-foreground shadow-lg shadow-red-950/60">
               <Sparkles className="h-3 w-3" />
               <span>Spotlight</span>
             </div>
@@ -252,7 +252,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
                   initial={{ width: 0 }}
                   animate={{ width: "100%" }}
                   transition={{ duration: 3, ease: "linear" }}
-                  className="h-full bg-[#e50914] shadow-md shadow-red-950/60"
+                  className="h-full bg-primary text-primary-foreground shadow-md shadow-red-950/60"
                 />
               )}
             </button>

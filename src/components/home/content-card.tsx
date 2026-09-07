@@ -54,13 +54,17 @@ export function ContentCard({
 
   return (
     <div
-      className="relative w-[150px] sm:w-[170px] md:w-[210px] lg:w-[230px] flex-shrink-0 cursor-pointer select-none"
+      role="link"
+      tabIndex={0}
+      aria-label={`View ${item.title}`}
+      onKeyDown={(event) => { if (event.key === "Enter" && event.target === event.currentTarget) router.push(`/profiles/${profileId}/media/${item.id}`); }}
+      className="group relative w-[150px] sm:w-[170px] md:w-[210px] lg:w-[230px] flex-shrink-0 cursor-pointer select-none"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onClick={() => router.push(`/profiles/${profileId}/media/${item.id}`)}
     >
       {/* Base Poster Card */}
-      <div className="group relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-neutral-900 shadow-lg transition-all duration-300 group-hover:shadow-2xl">
+      <div className="group relative aspect-[2/3] w-full overflow-hidden rounded-xl bg-card ring-1 ring-white/10 group-hover:ring-cyan-400/50 group-focus-visible:ring-cyan-400/50 shadow-lg transition-all duration-300 group-hover:shadow-2xl">
         {posterUrl ? (
           <img
             src={posterUrl}
@@ -91,7 +95,7 @@ export function ContentCard({
               SERIES
             </span>
           ) : (
-            <span className="rounded bg-red-600/90 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-white uppercase shadow-sm">
+            <span className="rounded bg-blue-600/90 px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-white uppercase shadow-sm">
               MOVIE
             </span>
           )}
@@ -114,11 +118,11 @@ export function ContentCard({
           <div className="absolute bottom-0 inset-x-0 bg-black/60 p-1.5 backdrop-blur-sm">
             <div className="flex items-center justify-between text-[10px] font-semibold text-neutral-300 mb-1">
               <span>Resume</span>
-              <span className="text-[#e50914]">{Math.round(progress)}%</span>
+              <span className="text-[var(--brand)]">{Math.round(progress)}%</span>
             </div>
             <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/20">
               <div
-                className="h-full rounded-full bg-[#e50914] shadow-[0_0_8px_#e50914]"
+                className="h-full rounded-full bg-primary text-primary-foreground shadow-[0_0_8px_var(--brand)]"
                 style={{ width: `${Math.min(100, Math.max(0, progress))}%` }}
               />
             </div>

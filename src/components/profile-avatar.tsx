@@ -18,7 +18,7 @@ export function ProfileAvatar({
   const option = avatarUrl ? AVATAR_BY_ID[avatarUrl] : null;
 
   const glowStyle = showGlow
-    ? "ring-2 ring-red-500/80 shadow-[0_0_25px_rgba(229,9,20,0.5)]"
+    ? "ring-2 ring-red-500/80 shadow-[0_0_25px_rgba(0,210,245,0.5)]"
     : "";
 
   if (option) {
@@ -56,7 +56,7 @@ export function ProfileAvatar({
   // Fallback initial monogram with vibrant gradient
   return (
     <div
-      className={`relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[#e50914] via-[#b20710] to-[#590207] ${glowStyle} ${className}`}
+      className={`relative flex items-center justify-center overflow-hidden bg-gradient-to-br from-[var(--brand)] via-[#b20710] to-[#590207] ${glowStyle} ${className}`}
       role="img"
       aria-label={name}
     >

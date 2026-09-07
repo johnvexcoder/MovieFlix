@@ -169,7 +169,7 @@ export default function AdminLibrariesPage() {
   if (loading) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
@@ -206,9 +206,9 @@ export default function AdminLibrariesPage() {
               className="rounded-xl border-white/15 bg-white/5 text-xs font-bold hover:bg-white/15"
             >
               {scanning ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin text-[#e50914]" />
+                <Loader2 className="mr-2 h-4 w-4 animate-spin text-[var(--brand)]" />
               ) : (
-                <RefreshCw className="mr-2 h-4 w-4 text-[#e50914]" />
+                <RefreshCw className="mr-2 h-4 w-4 text-[var(--brand)]" />
               )}
               {scanning ? "Scanning…" : "Scan Now"}
             </Button>
@@ -227,7 +227,7 @@ export default function AdminLibrariesPage() {
             animate={{ opacity: 1, y: 0 }}
             className="mb-6 flex items-center gap-3 rounded-2xl border border-red-500/30 bg-red-950/40 p-4 text-xs font-semibold text-neutral-200"
           >
-            <Activity className="h-4 w-4 text-[#e50914] animate-pulse" />
+            <Activity className="h-4 w-4 text-[var(--brand)] animate-pulse" />
             <span>{scanMessage}</span>
           </motion.div>
         )}
@@ -254,7 +254,7 @@ export default function AdminLibrariesPage() {
                 className="glass-panel flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5 border border-white/10 shadow-lg transition-all hover:border-white/20"
               >
                 <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e50914]/20 to-red-950/40 text-[#e50914] ring-1 ring-red-500/30">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)]/20 to-red-950/40 text-[var(--brand)] ring-1 ring-red-500/30">
                     {lib.type === "movies" ? (
                       <Film className="h-6 w-6" />
                     ) : (
@@ -377,7 +377,7 @@ export default function AdminLibrariesPage() {
                   onClick={() => setNewType("movies")}
                   className={`rounded-xl py-3 ${
                     newType === "movies"
-                      ? "bg-[#e50914] text-white border-transparent shadow-lg shadow-red-950/60"
+                      ? "bg-primary text-primary-foreground text-white border-transparent shadow-lg shadow-red-950/60"
                       : "border-white/15 bg-white/5 text-neutral-300"
                   }`}
                 >
@@ -389,7 +389,7 @@ export default function AdminLibrariesPage() {
                   onClick={() => setNewType("series")}
                   className={`rounded-xl py-3 ${
                     newType === "series"
-                      ? "bg-[#e50914] text-white border-transparent shadow-lg shadow-red-950/60"
+                      ? "bg-primary text-primary-foreground text-white border-transparent shadow-lg shadow-red-950/60"
                       : "border-white/15 bg-white/5 text-neutral-300"
                   }`}
                 >

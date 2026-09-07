@@ -81,8 +81,8 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-400 ${
         isScrolled
-          ? "bg-[#08080a]/92 backdrop-blur-xl border-b border-white/[0.08] shadow-2xl shadow-black/80"
-          : "bg-gradient-to-b from-[#08080a]/90 via-[#08080a]/40 to-transparent"
+          ? "bg-[var(--background)]/92 backdrop-blur-xl border-b border-white/[0.08] shadow-2xl shadow-black/80"
+          : "bg-gradient-to-b from-[var(--background)]/90 via-[var(--background)]/40 to-transparent"
       }`}
     >
       <div className="mx-auto flex h-16 md:h-20 items-center justify-between px-4 sm:px-8 md:px-12">
@@ -96,7 +96,7 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
           >
             <MovieFlixLogo className="h-8 w-8 transition-transform duration-300 group-hover:scale-105" size={32} />
             <span className="text-xl md:text-2xl font-black tracking-tight text-white transition-opacity group-hover:opacity-90">
-              Movie<span className="text-[#e50914]">Flix</span>
+              Movie<span className="text-[var(--brand)]">Flix</span>
             </span>
           </button>
 

@@ -68,7 +68,7 @@ export function ContentRow({
           <h2 className="text-lg sm:text-xl md:text-2xl font-bold tracking-tight text-white flex items-center gap-2">
             <span>{title}</span>
             {title.includes("Trending") && (
-              <Sparkles className="h-4 w-4 text-[#e50914]" />
+              <Sparkles className="h-4 w-4 text-[var(--brand)]" />
             )}
           </h2>
           <span className="hidden sm:inline-block rounded-full bg-white/10 px-2.5 py-0.5 text-[11px] font-semibold text-neutral-400">
@@ -97,7 +97,7 @@ export function ContentRow({
             type="button"
             aria-label="Scroll left"
             onClick={() => handleScroll("left")}
-            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 flex h-20 w-11 items-center justify-center rounded-xl bg-black/70 text-white backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 hover:scale-110 hover:bg-[#e50914] hover:border-transparent opacity-0 group-hover/row:opacity-100"
+            className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 z-30 flex h-20 w-11 items-center justify-center rounded-xl bg-black/70 text-white backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 hover:scale-110 hover:bg-primary hover:text-primary-foreground hover:border-transparent opacity-0 group-hover/row:opacity-100"
           >
             <ChevronLeft className="h-7 w-7" />
           </button>
@@ -126,7 +126,7 @@ export function ContentRow({
             type="button"
             aria-label="Scroll right"
             onClick={() => handleScroll("right")}
-            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 flex h-20 w-11 items-center justify-center rounded-xl bg-black/70 text-white backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 hover:scale-110 hover:bg-[#e50914] hover:border-transparent opacity-0 group-hover/row:opacity-100"
+            className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 z-30 flex h-20 w-11 items-center justify-center rounded-xl bg-black/70 text-white backdrop-blur-md border border-white/10 shadow-2xl transition-all duration-200 hover:scale-110 hover:bg-primary hover:text-primary-foreground hover:border-transparent opacity-0 group-hover/row:opacity-100"
           >
             <ChevronRight className="h-7 w-7" />
           </button>

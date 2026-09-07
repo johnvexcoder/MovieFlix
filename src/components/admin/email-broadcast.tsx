@@ -86,12 +86,12 @@ export function EmailBroadcastAdmin() {
   }
 
   const inputCls =
-    "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none focus:border-[#e50914]/60 focus:bg-white/10 transition-colors";
+    "w-full rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm text-white placeholder:text-neutral-500 outline-none focus:border-[var(--brand)]/60 focus:bg-white/10 transition-colors";
 
   return (
     <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-2xl mt-6">
       <div className="mb-4 flex items-center gap-2.5">
-        <Mail className="h-5 w-5 text-[#e50914]" />
+        <Mail className="h-5 w-5 text-[var(--brand)]" />
         <h2 className="text-xl font-bold text-white">Broadcast Email</h2>
       </div>
 
@@ -112,7 +112,7 @@ export function EmailBroadcastAdmin() {
             }}
             className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
               recipientMode === "all"
-                ? "bg-[#e50914] text-white"
+                ? "bg-primary text-primary-foreground text-white"
                 : "bg-white/10 text-neutral-300 hover:bg-white/20"
             }`}
           >
@@ -128,7 +128,7 @@ export function EmailBroadcastAdmin() {
             }}
             className={`rounded-xl px-4 py-2 text-xs font-bold transition-colors ${
               recipientMode === "single"
-                ? "bg-[#e50914] text-white"
+                ? "bg-primary text-primary-foreground text-white"
                 : "bg-white/10 text-neutral-300 hover:bg-white/20"
             }`}
           >
@@ -194,7 +194,7 @@ export function EmailBroadcastAdmin() {
         <p className="mb-1 text-[10px] font-bold uppercase tracking-wide text-neutral-500">
           Preview
         </p>
-        <p className="text-sm font-bold text-[#e50914]">Hi (username)!</p>
+        <p className="text-sm font-bold text-[var(--brand)]">Hi (username)!</p>
         <p className="text-xs leading-relaxed text-neutral-300">
           {message.trim() || "Your message will appear here…"}
         </p>
@@ -222,7 +222,7 @@ export function EmailBroadcastAdmin() {
         type="button"
         onClick={handleSend}
         disabled={sending}
-        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-[#e50914] text-sm font-bold text-white transition-colors hover:bg-[#f6121d] disabled:opacity-60"
+        className="flex h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold text-primary-foreground transition-colors hover:bg-[#f6121d] disabled:opacity-60"
       >
         {sending ? (
           <>

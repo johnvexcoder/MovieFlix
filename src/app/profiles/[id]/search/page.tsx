@@ -100,13 +100,13 @@ function SearchContent() {
   if (!profile) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#08080a] text-white select-none">
+    <div className="min-h-screen bg-[var(--background)] text-white select-none">
       <NetflixNavbar profile={profile} />
 
       <main className="mx-auto max-w-7xl px-4 sm:px-8 md:px-12 pt-28 pb-24">
@@ -119,7 +119,7 @@ function SearchContent() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search movies, TV shows, actors, directors, genres…"
-              className="h-14 rounded-2xl border-white/20 bg-white/5 pl-12 pr-12 text-base text-white placeholder:text-neutral-500 shadow-2xl focus:border-[#e50914] focus:ring-2 focus:ring-[#e50914]/40 backdrop-blur-xl"
+              className="h-14 rounded-2xl border-white/20 bg-white/5 pl-12 pr-12 text-base text-white placeholder:text-neutral-500 shadow-2xl focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/40 backdrop-blur-xl"
               autoFocus
             />
             {query && (
@@ -136,7 +136,7 @@ function SearchContent() {
           {/* Quick Search Tag Suggestions */}
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span className="flex items-center gap-1 text-xs font-semibold text-neutral-400 mr-1">
-              <TrendingUp className="h-3.5 w-3.5 text-[#e50914]" />
+              <TrendingUp className="h-3.5 w-3.5 text-[var(--brand)]" />
               Popular:
             </span>
             {SUGGESTED_TAGS.map((tag) => (
@@ -155,7 +155,7 @@ function SearchContent() {
         {/* Results Area */}
         {loading ? (
           <div className="flex min-h-[300px] items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+            <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
           </div>
         ) : !searched ? (
           <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-xl">
@@ -177,7 +177,7 @@ function SearchContent() {
           <div className="space-y-6">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <p className="text-sm font-semibold text-neutral-300">
-                Found <span className="text-[#e50914] font-bold">{results.length}</span> results for &ldquo;{query}&rdquo;
+                Found <span className="text-[var(--brand)] font-bold">{results.length}</span> results for &ldquo;{query}&rdquo;
               </p>
             </div>
 
@@ -202,7 +202,7 @@ export default function SearchPage() {
     <Suspense
       fallback={
         <div className="cinematic-bg flex min-h-screen items-center justify-center">
-          <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+          <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
         </div>
       }
     >

@@ -74,7 +74,7 @@ export default function LoginPage() {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070709] px-4 py-12 select-none">
       {/* Dynamic Cinematic Ambient Backdrops */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/4 left-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-600/15 blur-[160px]" />
+        <div className="absolute top-1/4 left-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/15 blur-[160px]" />
         <div className="absolute -bottom-10 right-1/4 h-[400px] w-[500px] rounded-full bg-purple-900/15 blur-[140px]" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
@@ -87,9 +87,9 @@ export default function LoginPage() {
       >
         {restoring ? (
           <div className="glass-panel flex min-h-[360px] flex-col items-center justify-center gap-4 rounded-3xl p-8">
-            <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 ring-1 ring-red-500/30">
-              <Loader2 className="h-7 w-7 animate-spin text-[#e50914]" />
-              <div className="absolute inset-0 rounded-2xl animate-ping bg-red-500/10" />
+            <div className="relative flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-500/30">
+              <Loader2 className="h-7 w-7 animate-spin text-[var(--brand)]" />
+              <div className="absolute inset-0 rounded-2xl animate-ping bg-cyan-500/10" />
             </div>
             <p className="text-sm font-medium tracking-wide text-neutral-400 animate-pulse">
               Connecting to secure session…
@@ -104,7 +104,7 @@ export default function LoginPage() {
               </div>
 
               <h1 className="text-3xl font-black tracking-tight text-white">
-                Movie<span className="text-[#e50914]">Flix</span>
+                Movie<span className="text-[var(--brand)]">Flix</span>
               </h1>
               <p className="mt-1 text-xs font-semibold tracking-wider text-neutral-400 uppercase">
                 Sign In to Watch
@@ -125,7 +125,7 @@ export default function LoginPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Enter username"
-                    className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500 focus:border-[#e50914] focus:ring-[#e50914]/30"
+                    className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500 focus:border-[var(--brand)] focus:ring-[var(--brand)]/30"
                     autoFocus
                     required
                   />
@@ -138,7 +138,7 @@ export default function LoginPage() {
                     </Label>
                     <Link
                       href="/forgot-password"
-                      className="text-xs font-semibold text-neutral-400 transition-colors hover:text-[#e50914]"
+                      className="text-xs font-semibold text-neutral-400 transition-colors hover:text-[var(--brand)]"
                     >
                       Forgot password?
                     </Link>
@@ -151,7 +151,7 @@ export default function LoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter password"
-                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 text-white placeholder:text-neutral-500 focus:border-[#e50914] focus:ring-[#e50914]/30"
+                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 text-white placeholder:text-neutral-500 focus:border-[var(--brand)] focus:ring-[var(--brand)]/30"
                       required
                     />
                     <button

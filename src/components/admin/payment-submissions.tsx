@@ -106,7 +106,7 @@ export function PaymentSubmissionsAdmin() {
               min={1}
               value={extendHours}
               onChange={(e) => setExtendHours(parseInt(e.target.value) || 720)}
-              className="h-8 w-24 rounded-xl border border-white/10 bg-white/5 px-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[#e50914]/40"
+              className="h-8 w-24 rounded-xl border border-white/10 bg-white/5 px-2 text-xs text-white focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40"
             />
           </label>
         </div>

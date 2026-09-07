@@ -1,69 +1,43 @@
+"use client";
+
+import { useId } from "react";
+
 interface MovieFlixLogoProps {
   className?: string;
   size?: number;
 }
 
+/** Scalable ribbon mark; each instance owns its gradient IDs. */
 export function MovieFlixLogo({ className = "h-8 w-8", size = 48 }: MovieFlixLogoProps) {
+  const id = useId();
   return (
-    <svg
-      viewBox="0 0 240 240"
-      width={size}
-      height={size}
-      fill="none"
-      xmlns="http://www.w3.org/2000/svg"
-      className={`select-none drop-shadow-[0_2px_12px_rgba(229,9,20,0.6)] ${className}`}
-    >
+    <svg viewBox="0 0 240 240" width={size} height={size} fill="none"
+      xmlns="http://www.w3.org/2000/svg" aria-hidden="true"
+      className={`movieflix-mark select-none ${className}`}>
       <defs>
-        <linearGradient id="mPillarLeft" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#b20710" />
-          <stop offset="40%" stopColor="#e50914" />
-          <stop offset="100%" stopColor="#800208" />
+        <linearGradient id={`${id}-ribbon`} x1="25" y1="70" x2="205" y2="220" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#00eaff"/><stop offset=".28" stopColor="#0785ff"/>
+          <stop offset=".51" stopColor="#9a22e8"/><stop offset=".7" stopColor="#ff249c"/>
+          <stop offset=".86" stopColor="#ff8616"/><stop offset="1" stopColor="#fff36b"/>
         </linearGradient>
-        <linearGradient id="mPillarRight" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#800208" />
-          <stop offset="60%" stopColor="#e50914" />
-          <stop offset="100%" stopColor="#ff3b47" />
+        <linearGradient id={`${id}-warm`} x1="90" y1="65" x2="165" y2="170" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#fff477"/><stop offset=".4" stopColor="#ff8a00"/><stop offset="1" stopColor="#ff199d"/>
         </linearGradient>
-        <linearGradient id="mSlashDown" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ff4d5a" />
-          <stop offset="35%" stopColor="#e50914" />
-          <stop offset="100%" stopColor="#7a0006" />
+        <linearGradient id={`${id}-disc`} x1="100" y1="15" x2="155" y2="120" gradientUnits="userSpaceOnUse">
+          <stop stopColor="#02efff"/><stop offset=".5" stopColor="#096bd9"/><stop offset="1" stopColor="#5314a8"/>
         </linearGradient>
-        <linearGradient id="mSlashUp" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor="#ff5964" />
-          <stop offset="50%" stopColor="#e50914" />
-          <stop offset="100%" stopColor="#6e0005" />
-        </linearGradient>
-        <filter id="mDropShadow" x="-20%" y="-20%" width="140%" height="140%">
-          <feDropShadow dx="-3" dy="4" stdDeviation="5" floodColor="#000000" floodOpacity="0.85" />
-        </filter>
       </defs>
-
-      {/* Left Vertical Pillar */}
-      <path
-        d="M 32 216 L 32 24 C 32 20, 36 16, 42 16 L 70 16 C 76 16, 80 20, 80 24 L 80 216 C 80 220, 76 224, 70 224 L 42 224 C 36 224, 32 220, 32 216 Z"
-        fill="url(#mPillarLeft)"
-      />
-
-      {/* Right Vertical Pillar */}
-      <path
-        d="M 160 216 L 160 24 C 160 20, 164 16, 170 16 L 198 16 C 204 16, 208 20, 208 24 L 208 216 C 208 220, 204 224, 198 224 L 170 224 C 164 224, 160 220, 160 216 Z"
-        fill="url(#mPillarRight)"
-      />
-
-      {/* Left Diagonal (Valley Down) */}
-      <path
-        d="M 40 18 L 78 18 L 132 168 L 94 168 Z"
-        fill="url(#mSlashDown)"
-        filter="url(#mDropShadow)"
-      />
-
-      {/* Right Diagonal (Valley Up) */}
-      <path
-        d="M 108 168 L 146 168 L 200 18 L 162 18 Z"
-        fill="url(#mSlashUp)"
-        filter="url(#mDropShadow)"
-      />
+      <path d="M12 99 C51 109 68 39 121 30 L151 51 C81 42 61 132 12 99Z" fill={`url(#${id}-warm)`}/>
+      <path d="M10 127 Q47 132 74 96 L85 119 Q38 157 10 143Z" fill={`url(#${id}-ribbon)`}/>
+      <g className="movieflix-disc">
+        <circle cx="139" cy="72" r="57" fill={`url(#${id}-disc)`} stroke="#daffff" strokeWidth="3"/>
+        <path d="M104 49 l-6 11 M131 29 q8-2 15 0 M174 45 l6 12" stroke="#073071" strokeWidth="10" strokeLinecap="round"/>
+        <path d="M104 46 l-6 11 M131 26 q8-2 15 0 M174 42 l6 12" stroke="#b8ffff" strokeWidth="5" strokeLinecap="round"/>
+        <path d="M128 53 Q125 51 125 57 V91 Q125 97 131 93 L157 77 Q162 73 156 69Z" fill={`url(#${id}-warm)`} stroke="#352574" strokeWidth="3"/>
+      </g>
+      <path d="M23 222 L52 105 C59 76 81 62 96 91 L125 140 Q130 149 139 138 L180 83 C205 54 229 67 225 100 L209 184 Q204 221 174 222 L185 145 Q189 119 174 138 L140 175 Q122 194 108 171 L83 118 Q78 109 74 129 L59 191 Q52 222 23 222Z" fill={`url(#${id}-ribbon)`} stroke="#e3faff" strokeWidth="3"/>
+      <path d="M83 104 Q90 91 100 112 L122 149 Q130 161 144 145 L183 100 Q207 74 219 87" stroke={`url(#${id}-warm)`} strokeWidth="15" strokeLinecap="round"/>
+      <path d="M32 211 L62 108 Q69 86 81 86" stroke="#43eeff" strokeOpacity=".65" strokeWidth="5" strokeLinecap="round"/>
     </svg>
   );
 }

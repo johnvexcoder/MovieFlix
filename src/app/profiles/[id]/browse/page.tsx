@@ -125,13 +125,13 @@ export default function BrowsePage() {
   if (!profile) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-[#08080a] text-white select-none">
+    <div className="min-h-screen bg-[var(--background)] text-white select-none">
       <NetflixNavbar profile={profile} />
 
       <main className="mx-auto max-w-7xl px-4 sm:px-8 md:px-12 pt-28 pb-24">
@@ -157,7 +157,7 @@ export default function BrowsePage() {
               onClick={() => handleFilterChange("")}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                 mediaType === ""
-                  ? "bg-[#e50914] text-white shadow-md shadow-red-950/60"
+                  ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/60"
                   : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -168,7 +168,7 @@ export default function BrowsePage() {
               onClick={() => handleFilterChange("movie")}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                 mediaType === "movie"
-                  ? "bg-[#e50914] text-white shadow-md shadow-red-950/60"
+                  ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/60"
                   : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -180,7 +180,7 @@ export default function BrowsePage() {
               onClick={() => handleFilterChange("series")}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                 mediaType === "series"
-                  ? "bg-[#e50914] text-white shadow-md shadow-red-950/60"
+                  ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/60"
                   : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -210,7 +210,7 @@ export default function BrowsePage() {
               onClick={() => handleFilterChange(undefined, g)}
               className={`flex-shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
                 genre === g
-                  ? "border border-red-500/60 bg-[#e50914] text-white shadow-md shadow-red-950/50"
+                  ? "border border-red-500/60 bg-primary text-primary-foreground text-white shadow-md shadow-red-950/50"
                   : "border border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
               }`}
             >
@@ -222,7 +222,7 @@ export default function BrowsePage() {
         {/* Media Grid */}
         {loading ? (
           <div className="flex min-h-[400px] items-center justify-center py-20">
-            <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+            <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
           </div>
         ) : media.length === 0 ? (
           <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-xl">

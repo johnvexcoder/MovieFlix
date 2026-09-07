@@ -52,9 +52,7 @@ export default function HomePage() {
       <AnimatePresence>
         {showSplash && (
           <SplashScreen
-            onComplete={() => {
-              setRedirecting(true);
-            }}
+            onComplete={handleSplashComplete}
           />
         )}
       </AnimatePresence>

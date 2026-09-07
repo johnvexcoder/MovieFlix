@@ -53,8 +53,8 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
-      className="relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[#e50914]"
-      style={{ backgroundColor: checked ? "#e50914" : "rgba(255,255,255,0.15)" }}
+      className="relative h-6 w-11 shrink-0 rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+      style={{ backgroundColor: checked ? "var(--brand)" : "rgba(255,255,255,0.15)" }}
     >
       <span
         className="absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white transition-transform duration-200"
@@ -100,7 +100,7 @@ function AvatarBrowser({
           onClick={() => setCategory(null)}
           className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
             category === null
-              ? "bg-[#e50914] text-white shadow-md shadow-red-950/50"
+              ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/50"
               : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
           }`}
         >
@@ -113,7 +113,7 @@ function AvatarBrowser({
             onClick={() => setCategory(cat)}
             className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
               category === cat
-                ? "bg-[#e50914] text-white shadow-md shadow-red-950/50"
+                ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/50"
                 : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
             }`}
           >
@@ -152,7 +152,7 @@ function AvatarBrowser({
                     onClick={() => onSelect(option.id)}
                     className={`aspect-square overflow-hidden rounded-xl transition-all duration-200 hover:scale-110 ${
                       value === option.id
-                        ? "scale-105 ring-2 ring-[#e50914] ring-offset-2 ring-offset-[#121215] shadow-lg shadow-red-950/50"
+                        ? "scale-105 ring-2 ring-[var(--brand)] ring-offset-2 ring-offset-[#121215] shadow-lg shadow-red-950/50"
                         : "opacity-75 hover:opacity-100"
                     }`}
                   >
@@ -463,7 +463,7 @@ export default function ProfilesPage() {
   if (loading) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
@@ -527,7 +527,7 @@ export default function ProfilesPage() {
               className="group relative flex flex-col items-center"
             >
               <div
-                className="relative h-32 w-32 sm:h-36 sm:w-36 md:h-44 md:w-44 cursor-pointer overflow-hidden rounded-2xl border-2 border-transparent transition-all duration-300 group-hover:scale-105 group-hover:border-white/80 group-hover:shadow-[0_0_30px_rgba(229,9,20,0.5)] active:scale-95"
+                className="relative h-32 w-32 sm:h-36 sm:w-36 md:h-44 md:w-44 cursor-pointer overflow-hidden rounded-2xl border-2 border-transparent transition-all duration-300 group-hover:scale-105 group-hover:border-white/80 group-hover:shadow-[0_0_30px_rgba(0,210,245,0.5)] active:scale-95"
                 onClick={() => handleSelectProfile(profile)}
               >
                 <ProfileAvatar
@@ -560,7 +560,7 @@ export default function ProfilesPage() {
                   e.stopPropagation();
                   openEdit(profile);
                 }}
-                className="absolute -top-2 -right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-neutral-900/90 text-white shadow-xl backdrop-blur-md transition-all duration-200 hover:scale-115 hover:bg-[#e50914] hover:border-transparent opacity-80 md:opacity-0 group-hover:opacity-100"
+                className="absolute -top-2 -right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-neutral-900/90 text-white shadow-xl backdrop-blur-md transition-all duration-200 hover:scale-115 hover:bg-primary hover:text-primary-foreground hover:border-transparent opacity-80 md:opacity-0 group-hover:opacity-100"
               >
                 <Pen className="h-4 w-4" />
               </button>
@@ -656,7 +656,7 @@ export default function ProfilesPage() {
                   onChange={(e) => handlePinDigitChange(idx, e.target.value)}
                   onKeyDown={(e) => handlePinKeyDown(idx, e)}
                   autoFocus={idx === 0}
-                  className="h-14 w-12 rounded-xl border border-white/20 bg-white/5 text-center text-2xl font-bold text-white focus:border-[#e50914] focus:ring-2 focus:ring-[#e50914]/40 focus:outline-none transition-all"
+                  className="h-14 w-12 rounded-xl border border-white/20 bg-white/5 text-center text-2xl font-bold text-white focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/40 focus:outline-none transition-all"
                 />
               ))}
             </div>

@@ -928,7 +928,7 @@ export default function WatchPage() {
   if (loading || !profile) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-black">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
@@ -1162,7 +1162,7 @@ export default function WatchPage() {
                         onClick={switchToSource}
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
                           activeQuality === "source"
-                            ? "text-[#e50914]"
+                            ? "text-[var(--brand)]"
                             : "text-white hover:bg-white/10"
                         }`}
                       >
@@ -1178,7 +1178,7 @@ export default function WatchPage() {
                             onClick={() => switchQuality(h)}
                             className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
                               activeQuality === h
-                                ? "text-[#e50914]"
+                                ? "text-[var(--brand)]"
                                 : "text-white hover:bg-white/10"
                             }`}
                           >
@@ -1197,7 +1197,7 @@ export default function WatchPage() {
                     onClick={() => setShowEpisodesDrawer(!showEpisodesDrawer)}
                     className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-black/50 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-white/15"
                   >
-                    <Tv className="h-4 w-4 text-[#e50914]" />
+                    <Tv className="h-4 w-4 text-[var(--brand)]" />
                     <span>Episodes</span>
                   </Button>
                 )}
@@ -1233,7 +1233,7 @@ export default function WatchPage() {
                   />
                   {/* Current Time Progress */}
                   <div
-                    className="absolute inset-y-0 left-0 bg-[#e50914] shadow-[0_0_12px_#ff2a3a]"
+                    className="absolute inset-y-0 left-0 bg-primary text-primary-foreground shadow-[0_0_12px_#ff2a3a]"
                     style={{
                       width: duration > 0 ? `${(currentTime / duration) * 100}%` : "0%",
                     }}
@@ -1242,7 +1242,7 @@ export default function WatchPage() {
 
                 {/* Scrubber Knob */}
                 <div
-                  className="absolute h-4 w-4 -translate-x-1/2 rounded-full bg-white shadow-lg ring-2 ring-[#e50914] transition-transform duration-150 scale-0 group-hover/seeker:scale-100"
+                  className="absolute h-4 w-4 -translate-x-1/2 rounded-full bg-white shadow-lg ring-2 ring-[var(--brand)] transition-transform duration-150 scale-0 group-hover/seeker:scale-100"
                   style={{
                     left: duration > 0 ? `${(currentTime / duration) * 100}%` : "0%",
                   }}
@@ -1268,7 +1268,7 @@ export default function WatchPage() {
                     variant="ghost"
                     size="icon"
                     onClick={togglePlay}
-                    className="h-10 w-10 text-white hover:text-[#e50914] hover:bg-white/10"
+                    className="h-10 w-10 text-white hover:text-[var(--brand)] hover:bg-white/10"
                   >
                     {playing ? (
                       <Pause className="h-6 w-6" />
@@ -1282,7 +1282,7 @@ export default function WatchPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => seek(-10)}
-                    className="h-10 w-10 text-white hover:text-[#e50914] hover:bg-white/10"
+                    className="h-10 w-10 text-white hover:text-[var(--brand)] hover:bg-white/10"
                     title="Rewind 10s (Left Arrow)"
                   >
                     <RotateCcw className="h-5 w-5" />
@@ -1293,7 +1293,7 @@ export default function WatchPage() {
                     variant="ghost"
                     size="icon"
                     onClick={() => seek(10)}
-                    className="h-10 w-10 text-white hover:text-[#e50914] hover:bg-white/10"
+                    className="h-10 w-10 text-white hover:text-[var(--brand)] hover:bg-white/10"
                     title="Forward 10s (Right Arrow)"
                   >
                     <RotateCw className="h-5 w-5" />
@@ -1305,7 +1305,7 @@ export default function WatchPage() {
                       variant="ghost"
                       size="icon"
                       onClick={toggleMute}
-                      className="h-10 w-10 text-white hover:text-[#e50914] hover:bg-white/10"
+                      className="h-10 w-10 text-white hover:text-[var(--brand)] hover:bg-white/10"
                     >
                       {muted || volume === 0 ? (
                         <VolumeX className="h-5 w-5 text-red-400" />
@@ -1323,7 +1323,7 @@ export default function WatchPage() {
                       step={0.05}
                       value={muted ? 0 : volume}
                       onChange={(e) => handleVolumeChange(parseFloat(e.target.value))}
-                      className="h-1.5 w-0 opacity-0 group-hover/volume:w-20 group-hover/volume:opacity-100 transition-all duration-200 accent-[#e50914] cursor-pointer pointer-coarse:w-20 pointer-coarse:opacity-100"
+                      className="h-1.5 w-0 opacity-0 group-hover/volume:w-20 group-hover/volume:opacity-100 transition-all duration-200 accent-[var(--brand)] cursor-pointer pointer-coarse:w-20 pointer-coarse:opacity-100"
                     />
                   </div>
 
@@ -1361,7 +1361,7 @@ export default function WatchPage() {
                           setShowSettings(false);
                           resetControlsTimer();
                         }}
-                        className={`h-10 w-10 text-white hover:bg-white/10 ${activeSubtitle ? "text-[#e50914]" : ""}`}
+                        className={`h-10 w-10 text-white hover:bg-white/10 ${activeSubtitle ? "text-[var(--brand)]" : ""}`}
                         title="Subtitles"
                       >
                         <Captions className="h-5 w-5" />
@@ -1382,7 +1382,7 @@ export default function WatchPage() {
                               setShowSubtitleMenu(false);
                             }}
                             className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
-                              !activeSubtitle ? "text-[#e50914]" : "text-white hover:bg-white/10"
+                              !activeSubtitle ? "text-[var(--brand)]" : "text-white hover:bg-white/10"
                             }`}
                           >
                             Off
@@ -1397,7 +1397,7 @@ export default function WatchPage() {
                               }}
                               className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
                                 activeSubtitle === s.file
-                                  ? "text-[#e50914]"
+                                  ? "text-[var(--brand)]"
                                   : "text-white hover:bg-white/10"
                               }`}
                             >
@@ -1419,7 +1419,7 @@ export default function WatchPage() {
                       }
                       className="gap-1.5 text-xs font-bold text-white hover:bg-white/15"
                     >
-                      <FastForward className="h-4 w-4 text-[#e50914]" />
+                      <FastForward className="h-4 w-4 text-[var(--brand)]" />
                       <span className="hidden sm:inline">Next Episode</span>
                     </Button>
                   )}
@@ -1466,7 +1466,7 @@ export default function WatchPage() {
             className="glass-panel absolute bottom-24 right-8 z-50 flex items-center gap-4 rounded-2xl border border-white/20 p-4 shadow-2xl"
           >
             <div>
-              <p className="text-xs font-bold text-[#e50914] uppercase tracking-wider">
+              <p className="text-xs font-bold text-[var(--brand)] uppercase tracking-wider">
                 Next Episode Playing in {nextCountdownSeconds}s
               </p>
               <p className="text-sm font-semibold text-white">

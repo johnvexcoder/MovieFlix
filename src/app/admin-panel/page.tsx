@@ -418,7 +418,7 @@ export default function AdminPage() {
   if (loading) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
@@ -436,7 +436,7 @@ export default function AdminPage() {
         {/* Top Navigation Bar */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e50914] to-[#800208] shadow-lg shadow-red-950/60 ring-1 ring-white/20">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[#800208] shadow-lg shadow-red-950/60 ring-1 ring-white/20">
               <Shield className="h-6 w-6 text-white" />
             </div>
             <div>
@@ -463,7 +463,7 @@ export default function AdminPage() {
               className="rounded-xl border-white/10 bg-white/5 text-xs font-semibold"
               onClick={() => router.push("/admin-panel/libraries")}
             >
-              <FolderOpen className="mr-1.5 h-4 w-4 text-[#e50914]" />
+              <FolderOpen className="mr-1.5 h-4 w-4 text-[var(--brand)]" />
               Libraries
             </Button>
             <Button
@@ -582,7 +582,7 @@ export default function AdminPage() {
                 }}
                 className="h-9 rounded-xl border-white/15 bg-white/5 px-4 text-xs font-bold text-neutral-200 hover:bg-white/15 w-full sm:w-auto"
               >
-                <Megaphone className="mr-1.5 h-4 w-4 text-[#e50914]" />
+                <Megaphone className="mr-1.5 h-4 w-4 text-[var(--brand)]" />
                 Broadcast Message
               </Button>
 
@@ -622,7 +622,7 @@ export default function AdminPage() {
                   >
                     <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                       {/* Avatar initial */}
-                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e50914] to-[#7a0006] text-base font-black text-white shadow-md">
+                      <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[#7a0006] text-base font-black text-white shadow-md">
                         {account.username.charAt(0).toUpperCase()}
                       </div>
 
@@ -717,7 +717,7 @@ export default function AdminPage() {
                               setAdditionalHours(24);
                             }}
                           >
-                            <Clock className="mr-1 h-3 w-3 text-[#e50914]" />
+                            <Clock className="mr-1 h-3 w-3 text-[var(--brand)]" />
                             Extend
                           </Button>
                         )}
@@ -744,7 +744,7 @@ export default function AdminPage() {
                             setMessageDialog({ account });
                           }}
                         >
-                          <Megaphone className="mr-1 h-3 w-3 text-[#e50914]" />
+                          <Megaphone className="mr-1 h-3 w-3 text-[var(--brand)]" />
                           Message
                         </Button>
 
@@ -958,7 +958,7 @@ export default function AdminPage() {
                     onClick={() => setAdditionalHours(p.hours)}
                     className={`rounded-xl text-xs font-bold ${
                       additionalHours === p.hours
-                        ? "bg-[#e50914] text-white border-transparent"
+                        ? "bg-primary text-primary-foreground text-white border-transparent"
                         : "border-white/15 bg-white/5 text-neutral-300"
                     }`}
                   >
@@ -1065,7 +1065,7 @@ export default function AdminPage() {
               rows={5}
               maxLength={2000}
               placeholder="Enter your message…"
-              className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[#e50914]/40"
+              className="mt-1.5 w-full rounded-xl border border-white/10 bg-white/5 p-3.5 text-sm text-white placeholder:text-neutral-500 focus:outline-none focus:ring-2 focus:ring-[var(--brand)]/40"
               autoFocus
             />
             <p className="mt-1 text-right text-[11px] text-neutral-500">{messageText.length}/2000</p>

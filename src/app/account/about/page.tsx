@@ -15,7 +15,7 @@ export default function AboutPage() {
             </div>
             <div>
               <p className="text-xl font-black tracking-tight text-white">
-                Movie<span className="text-[#e50914]">Flix</span>
+                Movie<span className="text-[var(--brand)]">Flix</span>
               </p>
               <p className="text-xs font-semibold tracking-wider text-neutral-400 uppercase">Private Streaming Platform</p>
             </div>
@@ -28,7 +28,7 @@ export default function AboutPage() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="glass-panel rounded-3xl border border-white/10 p-5">
-            <Film className="h-5 w-5 text-[#e50914]" />
+            <Film className="h-5 w-5 text-[var(--brand)]" />
             <h3 className="mt-2.5 text-sm font-bold text-white">Your Library, Instantly</h3>
             <p className="mt-1 text-xs leading-relaxed text-neutral-400">
               Movies and series are scanned from your storage and served with adaptive quality, local subtitles, and

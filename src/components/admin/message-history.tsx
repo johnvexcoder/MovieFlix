@@ -53,7 +53,7 @@ export function MessageHistory() {
   return (
     <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-2xl mt-6">
       <div className="mb-4 flex items-center gap-2.5">
-        <Megaphone className="h-5 w-5 text-[#e50914]" />
+        <Megaphone className="h-5 w-5 text-[var(--brand)]" />
         <h2 className="text-xl font-bold text-white">Sent Messages</h2>
         <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-semibold text-neutral-300">
           {messages.length}

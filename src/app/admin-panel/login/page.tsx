@@ -85,7 +85,7 @@ export default function AdminLoginPage() {
         {restoring ? (
           <div className="glass-panel flex min-h-[340px] flex-col items-center justify-center gap-4 rounded-3xl p-8">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 ring-1 ring-red-500/30">
-              <Loader2 className="h-7 w-7 animate-spin text-[#e50914]" />
+              <Loader2 className="h-7 w-7 animate-spin text-[var(--brand)]" />
             </div>
             <p className="text-sm font-medium text-neutral-400 animate-pulse">
               Verifying admin session…
@@ -95,7 +95,7 @@ export default function AdminLoginPage() {
           <div className="glass-panel rounded-3xl p-8 sm:p-10 shadow-2xl border border-white/10">
             {/* Header */}
             <div className="mb-8 flex flex-col items-center text-center">
-              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#e50914] to-[#800208] shadow-lg shadow-red-950/60 ring-1 ring-white/20">
+              <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[#800208] shadow-lg shadow-red-950/60 ring-1 ring-white/20">
                 <ShieldCheck className="h-7 w-7 text-white" />
               </div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
@@ -120,7 +120,7 @@ export default function AdminLoginPage() {
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder="Enter admin username"
-                    className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500 focus:border-[#e50914] focus:ring-[#e50914]/30"
+                    className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500 focus:border-[var(--brand)] focus:ring-[var(--brand)]/30"
                     autoFocus
                     required
                   />
@@ -135,7 +135,7 @@ export default function AdminLoginPage() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Enter admin password"
-                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 text-white placeholder:text-neutral-500 focus:border-[#e50914] focus:ring-[#e50914]/30"
+                      className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 pr-10 text-white placeholder:text-neutral-500 focus:border-[var(--brand)] focus:ring-[var(--brand)]/30"
                       required
                     />
                     <button

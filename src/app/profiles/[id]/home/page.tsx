@@ -73,7 +73,7 @@ export default function ProfileHomePage() {
   if (loading) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
@@ -99,7 +99,7 @@ export default function ProfileHomePage() {
   const carouselItems = newReleases.length > 0 ? newReleases : (featured ? [featured] : []);
 
   return (
-    <div className="min-h-screen bg-[#08080a] text-white">
+    <div className="min-h-screen bg-[var(--background)] text-white">
       {/* Floating Netflix Navbar */}
       <NetflixNavbar profile={profile} accountExpiresAt={accountExpiresAt} />
 
@@ -160,7 +160,7 @@ export default function ProfileHomePage() {
           {/* Empty State when no media scanned yet */}
           {carouselItems.length === 0 && continueWatching.length === 0 && recentlyAdded.length === 0 && (
             <div className="my-16 mx-auto max-w-xl rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-2xl">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-[#e50914] ring-1 ring-red-500/30">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-[var(--brand)] ring-1 ring-red-500/30">
                 <Film className="h-8 w-8" />
               </div>
               <h3 className="text-2xl font-bold text-white">Media Vault is Empty</h3>

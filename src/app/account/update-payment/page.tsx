@@ -133,7 +133,7 @@ export default function UpdatePaymentPage() {
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#070709]">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }

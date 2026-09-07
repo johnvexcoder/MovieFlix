@@ -93,7 +93,7 @@ export default function MediaDetailPage() {
   if (loading || !profile) {
     return (
       <div className="cinematic-bg flex min-h-screen items-center justify-center">
-        <Loader2 className="h-10 w-10 animate-spin text-[#e50914]" />
+        <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
       </div>
     );
   }
@@ -132,7 +132,7 @@ export default function MediaDetailPage() {
   const matchPercent = media.rating ? Math.min(99, Math.round(media.rating * 10 + 6)) : 95;
 
   return (
-    <div className="min-h-screen bg-[#08080a] text-white select-none">
+    <div className="min-h-screen bg-[var(--background)] text-white select-none">
       <NetflixNavbar profile={profile} />
 
       {/* Hero Backdrop Spotlight */}
@@ -148,8 +148,8 @@ export default function MediaDetailPage() {
         )}
 
         {/* Gradients */}
-        <div className="absolute inset-0 bg-gradient-to-t from-[#08080a] via-[#08080a]/70 to-transparent" />
-        <div className="absolute inset-0 bg-gradient-to-r from-[#08080a] via-[#08080a]/75 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[var(--background)] via-[var(--background)]/70 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[var(--background)] via-[var(--background)]/75 to-transparent" />
 
         {/* Back Button (Mobile/Tablet) */}
         <div className="absolute top-20 left-4 sm:left-8 z-30">
@@ -280,7 +280,7 @@ export default function MediaDetailPage() {
                     onClick={() => setSelectedSeason(season.seasonNumber)}
                     className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                       selectedSeason === season.seasonNumber
-                        ? "bg-[#e50914] text-white shadow-lg shadow-red-950/60"
+                        ? "bg-primary text-primary-foreground text-white shadow-lg shadow-red-950/60"
                         : "bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
                     }`}
                   >
@@ -319,7 +319,7 @@ export default function MediaDetailPage() {
                     )}
                     {/* Hover Play Circle */}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-[#e50914] shadow-lg text-white">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg text-primary-foreground">
                         <Play className="h-5 w-5 fill-white text-white ml-0.5" />
                       </div>
                     </div>
