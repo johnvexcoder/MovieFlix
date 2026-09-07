@@ -1,9 +1,7 @@
 // Shared branded HTML email templates for MovieFlix.
 //
-// These templates are self-contained: the "M" logo is embedded inline as an
-// <img> data-URI pointing at the MovieFlix "M" mark, so it reliably renders in
-// email clients without depending on the client being able to reach the app's
-// public URL. The footer uses the real support address.
+// The logo is attached by sendEmail with a stable CID. Email clients commonly
+// block data URIs, which was why the previous logo disappeared.
 
 export const SUPPORT_EMAIL = "movieflix.support@gmail.com";
 export const BRAND_NAME = "MovieFlix";
@@ -12,20 +10,14 @@ export const BRAND_COLOR = "#00d2f5";
 // The MovieFlix "M" mark. This mirrors src/components/movieflix-logo.tsx and
 // public/logo.svg but is flattened (no feDropShadow filter) so it renders
 // reliably as a data-URI image inside email clients.
-const M_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
-  <path d="M 32 216 L 32 24 C 32 20, 36 16, 42 16 L 70 16 C 76 16, 80 20, 80 24 L 80 216 C 80 220, 76 224, 70 224 L 42 224 C 36 224, 32 220, 32 216 Z" fill="#00d2f5"/>
-  <path d="M 160 216 L 160 24 C 160 20, 164 16, 170 16 L 198 16 C 204 16, 208 20, 208 24 L 208 216 C 208 220, 204 224, 198 224 L 170 224 C 164 224, 160 220, 160 216 Z" fill="#7c3aed"/>
-  <path d="M 40 18 L 78 18 L 132 168 L 94 168 Z" fill="#b20710"/>
-  <path d="M 108 168 L 146 168 L 200 18 L 162 18 Z" fill="#800208"/>
-</svg>`;
-
-export const M_LOGO_DATA_URI = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(M_LOGO_SVG)}`;
+export const M_LOGO_DATA_URI = "cid:movieflix-logo";
 
 // Header block with the M logo (rendered large at the top of the email).
 function headerBlock(logoHeight = 64): string {
   return `
-    <div style="text-align:center; padding:24px 0 8px;">
+    <div style="text-align:center; padding:30px 0 12px; background:#071224; border-radius:18px 18px 0 0;">
       <img src="${M_LOGO_DATA_URI}" alt="${BRAND_NAME}" style="height:${logoHeight}px; width:${logoHeight}px;" />
+      <div style="font-size:22px;font-weight:800;color:#ffffff;margin-top:8px;">MOVIE<span style="color:#00d2f5">FLIX</span></div>
     </div>`;
 }
 
@@ -54,11 +46,12 @@ interface EmailLayoutOptions {
  */
 export function emailLayout({ title, bodyHtml, logoHeight = 64 }: EmailLayoutOptions): string {
   return `
-    <div style="max-width:600px; margin:0 auto; font-family:Arial,Helvetica,sans-serif; color:#1a1a1a; background:#ffffff;">
+    <div style="max-width:600px; margin:0 auto; padding:0 0 24px; font-family:Arial,Helvetica,sans-serif; color:#dbeafe; background:#07101f; border:1px solid #17304d; border-radius:18px; overflow:hidden;">
       ${headerBlock(logoHeight)}
-      <h1 style="color:${BRAND_COLOR}; margin:20px 0 12px; font-size:22px;">${title}</h1>
-      <div style="line-height:1.6;">${bodyHtml}</div>
+      <div style="padding:8px 32px 0;"><h1 style="color:${BRAND_COLOR}; margin:20px 0 12px; font-size:22px;">${title}</h1>
+      <div style="line-height:1.65;color:#cbd5e1;">${bodyHtml}</div>
       ${footerBlock()}
+      </div>
     </div>`;
 }
 

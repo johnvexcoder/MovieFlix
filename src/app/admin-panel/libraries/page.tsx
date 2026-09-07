@@ -178,18 +178,10 @@ export default function AdminLibrariesPage() {
   return (
     <div className="admin-shell movieflix-page-bg min-h-screen text-white select-none">
       <AdminNavigation />
-      <div className="mx-auto max-w-5xl px-4 sm:px-8 py-8">
+      <div className="px-3 py-5 sm:px-6 sm:py-8 lg:ml-72 lg:px-8">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/admin-panel")}
-              className="h-10 w-10 rounded-full bg-white/5 text-neutral-300 hover:bg-white/15 hover:text-white"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
                 Media Libraries
@@ -235,7 +227,7 @@ export default function AdminLibrariesPage() {
         )}
 
         {/* Libraries List */}
-        <div className="space-y-3">
+        <div className="grid gap-4 xl:grid-cols-2">
           {libraries.length === 0 ? (
             <div className="glass-panel rounded-3xl p-16 text-center border border-dashed border-white/15">
               <HardDrive className="mx-auto mb-4 h-14 w-14 text-neutral-600" />

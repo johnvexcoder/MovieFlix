@@ -2,6 +2,8 @@ import nodemailer from "nodemailer";
 import { db } from "@/db";
 import { appSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import fs from "fs";
+import path from "path";
 
 interface SmtpSettings {
   host?: string;
@@ -49,11 +51,13 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
   });
 
   try {
+    const logoPath = path.join(process.cwd(), "public", "icon.png");
     await transporter.sendMail({
       from: config.from,
       to,
       subject,
       html,
+      attachments: fs.existsSync(logoPath) ? [{ filename: "movieflix.png", path: logoPath, cid: "movieflix-logo" }] : [],
     });
     return true;
   } catch (error) {

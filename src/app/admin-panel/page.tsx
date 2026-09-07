@@ -434,7 +434,7 @@ export default function AdminPage() {
       {/* Top Ambient Glow */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-cyan-500/10 via-fuchsia-600/5 to-transparent" />
 
-      <div className="relative mx-auto max-w-7xl px-4 sm:px-8 py-8">
+      <div className="relative px-3 py-5 sm:px-6 sm:py-8 lg:ml-72 lg:px-8">
         {/* Top Navigation Bar */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div className="flex items-center gap-3">
@@ -457,26 +457,7 @@ export default function AdminPage() {
             </div>
           </div>
 
-          {/* Quick Navigation Links */}
           <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-white/10 bg-white/5 text-xs font-semibold"
-              onClick={() => router.push("/admin-panel/libraries")}
-            >
-              <FolderOpen className="mr-1.5 h-4 w-4 text-[var(--brand)]" />
-              Libraries
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-xl border-white/10 bg-white/5 text-xs font-semibold"
-              onClick={() => router.push("/admin-panel/settings")}
-            >
-              <Settings className="mr-1.5 h-4 w-4" />
-              Settings
-            </Button>
             <Button
               variant="ghost"
               size="sm"
@@ -599,7 +580,7 @@ export default function AdminPage() {
           </div>
 
           {/* Accounts List */}
-          <div className="space-y-3">
+          <div className="max-h-[58vh] space-y-3 overflow-y-auto overscroll-contain pr-1 [scrollbar-color:#24506b_transparent]">
             {filteredAccounts.length === 0 ? (
               <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-12 text-center">
                 <Users className="mx-auto mb-3 h-10 w-10 text-neutral-600" />

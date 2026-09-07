@@ -261,18 +261,10 @@ export default function AdminSettingsPage() {
   return (
     <div className="admin-shell cinematic-bg min-h-screen text-white select-none">
       <AdminNavigation />
-      <div className="mx-auto max-w-4xl px-4 sm:px-8 py-8">
+      <div className="px-3 py-5 sm:px-6 sm:py-8 lg:ml-72 lg:px-8">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/admin-panel")}
-              className="h-10 w-10 rounded-full bg-white/5 text-neutral-300 hover:bg-white/15 hover:text-white"
-            >
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
             <div>
               <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">
                 Platform Settings
@@ -300,7 +292,7 @@ export default function AdminSettingsPage() {
           </motion.div>
         )}
 
-        <div className="space-y-6">
+        <div className="grid items-start gap-5 xl:grid-cols-2 [&>.grid]:contents">
           {/* TMDB API Integration */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex items-center justify-between">

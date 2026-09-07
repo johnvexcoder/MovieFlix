@@ -1,25 +1,7 @@
 "use client";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Library, Settings } from "lucide-react";
+import { LayoutDashboard, Library, Settings, ShieldCheck } from "lucide-react";
 import { MovieFlixLogo } from "@/components/movieflix-logo";
-
-const links = [
-  { href: "/admin-panel", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin-panel/libraries", label: "Libraries", icon: Library },
-  { href: "/admin-panel/settings", label: "Settings", icon: Settings },
-];
-
-export function AdminNavigation() {
-  const pathname = usePathname();
-  return <header className="sticky top-0 z-50 border-b border-cyan-300/10 bg-[#050b16]/90 backdrop-blur-xl">
-    <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-3 py-3 sm:px-6 lg:px-8">
-      <Link href="/admin-panel" className="flex items-center gap-2.5 rounded-xl px-1 text-white">
-        <MovieFlixLogo className="h-9 w-9" size={36}/><span><b className="block leading-none">MovieFlix</b><small className="text-[10px] uppercase tracking-[.18em] text-cyan-300">Control center</small></span>
-      </Link>
-      <nav className="flex w-full gap-1 rounded-2xl border border-white/10 bg-white/5 p-1 sm:w-auto">
-        {links.map(({href,label,icon:Icon}) => { const active = href === "/admin-panel" ? pathname === href : pathname.startsWith(href); return <Link key={href} href={href} className={`flex min-w-0 flex-1 items-center justify-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition sm:flex-none ${active?"bg-cyan-300 text-slate-950 shadow-[0_0_18px_rgba(0,210,245,.22)]":"text-slate-300 hover:bg-white/10 hover:text-white"}`}><Icon className="h-4 w-4"/><span>{label}</span></Link>})}
-      </nav>
-    </div>
-  </header>;
-}
+const links=[{href:"/admin-panel",label:"Overview",description:"Accounts and activity",icon:LayoutDashboard},{href:"/admin-panel/libraries",label:"Media library",description:"Sources and indexing",icon:Library},{href:"/admin-panel/settings",label:"System settings",description:"Plans, email and security",icon:Settings}];
+export function AdminNavigation(){const pathname=usePathname();const navigation=links.map(({href,label,description,icon:Icon})=>{const active=href==="/admin-panel"?pathname===href:pathname.startsWith(href);return <Link key={href} href={href} className={`group flex min-w-0 items-center gap-3 rounded-2xl border px-3 py-3 transition ${active?"border-cyan-300/35 bg-cyan-300/12 text-white shadow-[0_12px_32px_rgba(0,210,245,.1)]":"border-transparent text-slate-400 hover:border-white/10 hover:bg-white/5 hover:text-white"}`}><span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${active?"bg-cyan-300 text-slate-950":"bg-white/5 text-slate-400 group-hover:text-cyan-300"}`}><Icon className="h-5 w-5"/></span><span className="min-w-0"><b className="block truncate text-sm">{label}</b><small className="hidden truncate text-[11px] font-normal text-slate-500 lg:block">{description}</small></span></Link>});return <><aside className="fixed inset-y-0 left-0 z-40 hidden w-72 flex-col border-r border-white/8 bg-[#050b16]/96 p-5 backdrop-blur-xl lg:flex"><Link href="/admin-panel" className="flex items-center gap-3 rounded-2xl p-2 text-white"><MovieFlixLogo className="h-11 w-11" size={44}/><span><b className="block text-lg leading-none">MovieFlix</b><small className="mt-1 block text-[10px] uppercase tracking-[.2em] text-cyan-300">Administration</small></span></Link><div className="mt-8 space-y-2">{navigation}</div><div className="mt-auto rounded-2xl border border-emerald-400/15 bg-emerald-400/5 p-4"><div className="flex items-center gap-2 text-sm font-bold text-emerald-300"><ShieldCheck className="h-4 w-4"/>Secure control plane</div><p className="mt-1 text-[11px] leading-relaxed text-slate-500">Administrative sessions and changes are verified server-side.</p></div></aside><header className="sticky top-0 z-40 border-b border-white/10 bg-[#050b16]/95 px-3 py-3 backdrop-blur-xl lg:hidden"><div className="mb-3 flex items-center gap-2"><MovieFlixLogo className="h-8 w-8" size={32}/><b>MovieFlix Admin</b></div><nav className="grid grid-cols-3 gap-1 rounded-2xl border border-white/10 bg-white/5 p-1">{navigation}</nav></header></>}
