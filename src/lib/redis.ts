@@ -8,7 +8,10 @@ export function getRedisClient(): Redis {
   if (!redis) {
     redis = new Redis(REDIS_URL, {
       maxRetriesPerRequest: 3,
+      connectTimeout: 1500,
+      commandTimeout: 2000,
       retryStrategy(times) {
+        if (times >= 3) return null;
         const delay = Math.min(times * 50, 2000);
         return delay;
       },

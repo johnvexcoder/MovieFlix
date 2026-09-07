@@ -29,6 +29,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import { AdminNavigation } from "@/components/admin/admin-navigation";
 
 interface LibraryItem {
   id: string;
@@ -175,7 +176,8 @@ export default function AdminLibrariesPage() {
   }
 
   return (
-    <div className="movieflix-page-bg min-h-screen text-white select-none">
+    <div className="admin-shell movieflix-page-bg min-h-screen text-white select-none">
+      <AdminNavigation />
       <div className="mx-auto max-w-5xl px-4 sm:px-8 py-8">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">

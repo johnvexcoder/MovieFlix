@@ -38,6 +38,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { checkAdminSession } from "@/lib/client-auth";
 import { PaymentSubmissionsAdmin } from "@/components/admin/payment-submissions";
+import { AdminNavigation } from "@/components/admin/admin-navigation";
 import { MessageHistory } from "@/components/admin/message-history";
 import { ContactSubmissionsAdmin } from "@/components/admin/contact-submissions";
 import { EmailBroadcastAdmin } from "@/components/admin/email-broadcast";
@@ -428,7 +429,8 @@ export default function AdminPage() {
   const totalProfiles = accounts.reduce((sum, a) => sum + a.profileCount, 0);
 
   return (
-    <div className="cinematic-bg min-h-screen text-white select-none">
+    <div className="admin-shell cinematic-bg min-h-screen text-white select-none">
+      <AdminNavigation />
       {/* Top Ambient Glow */}
       <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-cyan-500/10 via-fuchsia-600/5 to-transparent" />
 

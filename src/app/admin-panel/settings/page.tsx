@@ -32,6 +32,7 @@ import {
 import { checkAdminSession } from "@/lib/client-auth";
 import { PaymentMethodsManager } from "@/components/admin/payment-methods-manager";
 import { PlanPromoManager } from "@/components/admin/plan-promo-manager";
+import { AdminNavigation } from "@/components/admin/admin-navigation";
 
 interface AdminUser {
   id: string;
@@ -258,7 +259,8 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="cinematic-bg min-h-screen text-white select-none">
+    <div className="admin-shell cinematic-bg min-h-screen text-white select-none">
+      <AdminNavigation />
       <div className="mx-auto max-w-4xl px-4 sm:px-8 py-8">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">

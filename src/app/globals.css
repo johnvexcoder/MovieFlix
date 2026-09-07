@@ -324,3 +324,12 @@ select {
 @media (pointer: coarse) {
   .movieflix-player button { min-width: 44px; min-height: 44px; }
 }
+
+.admin-shell { min-height: 100vh; overflow-x: hidden; }
+.admin-shell button, .admin-shell a, .admin-shell input, .admin-shell select { min-height: 44px; }
+.admin-shell .glass-panel { min-width: 0; overflow: hidden; border-color: rgba(125,211,252,.13); background: rgba(9,18,35,.82); box-shadow: 0 18px 55px rgba(0,0,0,.28); }
+@media (max-width: 640px) {
+  .admin-shell { font-size: 15px; }
+  .admin-shell .glass-panel { border-radius: 18px; padding: 18px; }
+  .admin-shell input, .admin-shell select, .admin-shell textarea { font-size: 16px; }
+}

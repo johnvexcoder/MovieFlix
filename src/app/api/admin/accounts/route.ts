@@ -12,19 +12,15 @@ import { getActiveSessions, removeActiveSession } from "@/lib/redis";
 import { deleteAccountCompletely } from "@/services/delete-account";
 
 async function getActiveSessionsForProfiles(profileIds: string[]) {
-  const results: { profileId: string; sessionId: string }[] = [];
-  for (const pid of profileIds) {
+  const grouped = await Promise.all(profileIds.map(async (pid) => {
     try {
       const sessions = await getActiveSessions(pid);
-      if (!sessions) continue; // redis unavailable -> fail open
-      for (const s of sessions) {
-        results.push({ profileId: pid, sessionId: s.sessionId });
-      }
+      return (sessions || []).map((s) => ({ profileId: pid, sessionId: s.sessionId }));
     } catch {
-      // ignore per-profile redis errors
+      return [];
     }
-  }
-  return results;
+  }));
+  return grouped.flat();
 }
 
 export async function GET(request: NextRequest) {
@@ -54,21 +50,14 @@ export async function GET(request: NextRequest) {
       .from(accounts)
       .orderBy(desc(accounts.createdAt));
 
-    // Get profile counts for each account
-    const accountsWithProfiles = await Promise.all(
-      allAccounts.map(async (account) => {
-        const accountProfiles = await db
-          .select({ id: profiles.id })
-          .from(profiles)
-          .where(eq(profiles.accountId, account.id));
-
-        return {
-          ...account,
-          profileCount: accountProfiles.length,
-          isActive: !account.expiresAt || new Date(account.expiresAt) > new Date(),
-        };
-      })
-    );
+    const allProfiles = await db.select({ accountId: profiles.accountId }).from(profiles);
+    const counts = new Map<string, number>();
+    for (const profile of allProfiles) counts.set(profile.accountId, (counts.get(profile.accountId) || 0) + 1);
+    const accountsWithProfiles = allAccounts.map((account) => ({
+      ...account,
+      profileCount: counts.get(account.id) || 0,
+      isActive: !account.expiresAt || new Date(account.expiresAt) > new Date(),
+    }));
 
     return successResponse({
       accounts: accountsWithProfiles,
