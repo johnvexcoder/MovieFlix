@@ -4,6 +4,10 @@ import path from "path";
 import crypto from "crypto";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { getSignupAccount } from "@/lib/registration";
+import { db } from "@/db";
+import { signupSessions } from "@/db/schema";
+import { eq } from "drizzle-orm";
 
 export const dynamic = "force-dynamic";
 
@@ -25,16 +29,12 @@ export async function POST(request: NextRequest) {
     // admin session (admin-panel uploads like payment-method icon/QR images).
     // Non-admin tokens are fine for the generic upload; the third-party caller
     // decides where to store the file.
-    const auth = accessToken || adminToken;
-    if (!auth) {
-      return errorResponse("Not authenticated", 401);
-    }
-    const payload = await verifyToken(auth);
-    if (!payload) {
-      return errorResponse("Invalid token", 401);
-    }
-
     const formData = await request.formData();
+    const auth = accessToken || adminToken;
+    const signupToken = String(formData.get("signupToken") || "");
+    const payload = auth ? await verifyToken(auth) : null;
+    const signup = !payload && signupToken ? await getSignupAccount(signupToken) : null;
+    if (!payload && !signup) return errorResponse("Not authenticated", 401);
     const file = formData.get("file");
     if (!(file instanceof File)) {
       return errorResponse("No file uploaded", 400);
@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
 
     const buffer = Buffer.from(await (file as File).arrayBuffer());
     await fs.writeFile(absPath, buffer);
+    if (signup) {
+      await db.update(signupSessions).set({ receiptPath: relPath }).where(eq(signupSessions.id, signup.session.id));
+    }
 
     // Store only the relative path; the /api/files route resolves it against the
     // uploads root with realpath containment.

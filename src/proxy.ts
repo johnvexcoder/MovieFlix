@@ -11,12 +11,18 @@ const PUBLIC_PATHS = [
   "/login",
   "/forgot-password",
   "/reset-password",
+  "/register",
   "/api/auth/account-login",
   "/api/auth/profile-login",
   "/api/auth/refresh",
   "/api/auth/forgot-password",
   "/api/auth/reset-password",
   "/api/health",
+  "/api/register",
+  "/api/plans",
+  "/api/payment-methods",
+  "/api/upload",
+  "/api/files",
 ];
 
 // Paths a user may still visit while required to change their password. These

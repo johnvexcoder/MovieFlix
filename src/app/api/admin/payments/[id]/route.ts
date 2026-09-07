@@ -1,9 +1,12 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { paymentSubmissions, accounts } from "@/db/schema";
+import { paymentSubmissions, accounts, subscriptionPlans, promoCodes, profiles, profileSettings } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { v4 as uuidv4 } from "uuid";
+import { sendEmail } from "@/lib/email";
+import { emailLayout, escapeHtml, greeting } from "@/lib/email-templates";
 
 export const dynamic = "force-dynamic";
 
@@ -57,6 +60,8 @@ export async function PATCH(
     if (!account) {
       return errorResponse("Associated account not found", 404);
     }
+    const [purchasedPlan] = existing.planId ? await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, existing.planId)).limit(1) : [];
+    const [appliedPromo] = existing.promoCodeId ? await db.select().from(promoCodes).where(eq(promoCodes.id, existing.promoCodeId)).limit(1) : [];
 
     // Update the payment submission
     const now = new Date().toISOString();
@@ -69,26 +74,47 @@ export async function PATCH(
       }).where(eq(paymentSubmissions.id, id)).run();
 
     // If approved and extendHours provided, extend the account expiration
-    if (status === "approved" && parsedExtendHours > 0) {
+    const effectiveHours = purchasedPlan ? (purchasedPlan.durationHours || 0) + (appliedPromo?.bonusHours || 0) : parsedExtendHours;
+    if (status === "approved" && (effectiveHours > 0 || purchasedPlan?.isLifetime)) {
       const currentExpiry = account.expiresAt ? new Date(account.expiresAt).getTime() : null;
       const nowMs = Date.now();
       let newExpiry: Date;
 
       if (currentExpiry && currentExpiry > nowMs) {
         // Extend from current expiration
-        newExpiry = new Date(currentExpiry + parsedExtendHours * 60 * 60 * 1000);
+        newExpiry = new Date(currentExpiry + effectiveHours * 60 * 60 * 1000);
       } else {
         // Extend from now (expired or no expiration)
-        newExpiry = new Date(nowMs + parsedExtendHours * 60 * 60 * 1000);
+        newExpiry = new Date(nowMs + effectiveHours * 60 * 60 * 1000);
       }
 
       tx.update(accounts).set({
-          expiresAt: newExpiry.toISOString(),
+          expiresAt: purchasedPlan?.isLifetime ? null : newExpiry.toISOString(),
           isLocked: false,
+          registrationStatus: "active",
           updatedAt: now,
         }).where(eq(accounts.id, account.id)).run();
       }
+      if (account.registrationStatus === "awaiting_payment_approval") {
+        const existingProfiles = tx.select().from(profiles).where(eq(profiles.accountId, account.id)).all();
+        if (existingProfiles.length === 0) {
+          const profileId = uuidv4();
+          tx.insert(profiles).values({ id: profileId, accountId: account.id, name: account.fullName || account.username, isMainProfile: true, createdAt: now, updatedAt: now }).run();
+          tx.insert(profileSettings).values({ id: uuidv4(), profileId, createdAt: now, updatedAt: now }).run();
+        }
+      }
     });
+
+    if (account.email) {
+      void sendEmail({
+        to: account.email,
+        subject: status === "approved" ? "Your MovieFlix account is active" : "MovieFlix payment review update",
+        html: emailLayout({
+          title: status === "approved" ? "Payment approved" : "Payment requires attention",
+          bodyHtml: `${greeting(escapeHtml(account.fullName || account.username))}<p>${status === "approved" ? "Your payment was approved and your MovieFlix access is now active." : "Your payment submission was not approved. Please review your payment details or contact support."}</p>`,
+        }),
+      });
+    }
 
     return successResponse({
       message: `Payment submission ${status}`,

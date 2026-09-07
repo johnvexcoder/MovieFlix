@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { accounts } from "@/db/schema";
-import { lt } from "drizzle-orm";
+import { accounts, signupSessions } from "@/db/schema";
+import { eq, lt, or } from "drizzle-orm";
 import { deleteAccountCompletely } from "./delete-account";
 
 export async function cleanupExpiredAccounts(): Promise<{
@@ -14,7 +14,8 @@ export async function cleanupExpiredAccounts(): Promise<{
     const expiredAccounts = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(lt(accounts.expiresAt, now));
+      .leftJoin(signupSessions, eq(signupSessions.accountId, accounts.id))
+      .where(or(lt(accounts.expiresAt, now), lt(signupSessions.expiresAt, now)));
 
     if (expiredAccounts.length === 0) {
       return { deletedAccounts: 0, deletedProfiles: 0 };

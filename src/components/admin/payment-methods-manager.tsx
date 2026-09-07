@@ -16,6 +16,7 @@ import {
 interface PaymentMethod {
   id: string;
   name: string;
+  accountName: string | null;
   accountNumber: string;
   iconPath: string | null;
   qrPath: string | null;
@@ -55,6 +56,7 @@ export function PaymentMethodsManager() {
   const [editOpen, setEditOpen] = useState(false);
   const [editing, setEditing] = useState<PaymentMethod | null>(null);
   const [formName, setFormName] = useState("");
+  const [formAccountName, setFormAccountName] = useState("");
   const [formAccountNumber, setFormAccountNumber] = useState("");
   const [formIconUrl, setFormIconUrl] = useState("");
   const [formQrUrl, setFormQrUrl] = useState("");
@@ -117,6 +119,7 @@ export function PaymentMethodsManager() {
   function openCreate() {
     setEditing(null);
     setFormName("");
+    setFormAccountName("");
     setFormAccountNumber("");
     setFormIconUrl("");
     setFormQrUrl("");
@@ -128,6 +131,7 @@ export function PaymentMethodsManager() {
   function openEdit(m: PaymentMethod) {
     setEditing(m);
     setFormName(m.name);
+    setFormAccountName(m.accountName || "");
     setFormAccountNumber(m.accountNumber);
     setFormIconUrl(m.iconPath ? FILE_PICKER_BASE + encodeURIComponent(m.iconPath) : "");
     setFormQrUrl(m.qrPath ? FILE_PICKER_BASE + encodeURIComponent(m.qrPath) : "");
@@ -153,6 +157,7 @@ export function PaymentMethodsManager() {
     const payload = {
       id: editing?.id,
       name: formName,
+      accountName: formAccountName,
       accountNumber: formAccountNumber,
       iconPath: iconPathFromUrl(formIconUrl),
       qrPath: iconPathFromUrl(formQrUrl),
@@ -277,6 +282,10 @@ export function PaymentMethodsManager() {
                   className="mt-1.5 h-10 rounded-xl border-white/10 bg-white/5 text-white font-mono"
                 />
               </div>
+            </div>
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Account Holder Name</Label>
+              <Input value={formAccountName} onChange={(e) => setFormAccountName(e.target.value)} placeholder="Name shown by the payment provider" className="mt-1.5 h-10 rounded-xl border-white/10 bg-white/5 text-white" />
             </div>
 
             <div className="grid gap-4 sm:grid-cols-2">

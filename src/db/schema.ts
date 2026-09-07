@@ -23,6 +23,9 @@ export const accounts = sqliteTable("accounts", {
   username: text("username").notNull().unique(),
   email: text("email").unique(),
   fullName: text("full_name"),
+  dateOfBirth: text("date_of_birth"),
+  contactNumber: text("contact_number"),
+  registrationStatus: text("registration_status").notNull().default("active"),
   passwordHash: text("password_hash").notNull(),
   isTemp: integer("is_temp", { mode: "boolean" }).notNull().default(false),
   isLocked: integer("is_locked", { mode: "boolean" }).notNull().default(false),
@@ -87,6 +90,7 @@ export const contactSubmissions = sqliteTable("contact_submissions", {
 export const paymentMethods = sqliteTable("payment_methods", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),
+  accountName: text("account_name"),
   accountNumber: text("account_number").notNull(),
   iconPath: text("icon_path"),
   qrPath: text("qr_path"),
@@ -108,11 +112,39 @@ export const paymentSubmissions = sqliteTable("payment_submissions", {
   amount: real("amount").notNull(),
   referenceNumber: text("reference_number").notNull(),
   receiptPath: text("receipt_path"),
+  planId: text("plan_id"),
+  promoCodeId: text("promo_code_id"),
   status: text("status").notNull().default("pending"),
   adminNote: text("admin_note"),
   reviewedByAdminId: text("reviewed_by_admin_id").references(() => admins.id),
   createdAt: text("created_at").notNull().default(""),
   updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const subscriptionPlans = sqliteTable("subscription_plans", {
+  id: text("id").primaryKey(), name: text("name").notNull(), durationHours: integer("duration_hours"),
+  isLifetime: integer("is_lifetime", { mode: "boolean" }).notNull().default(false), price: real("price").notNull(),
+  discountAmount: real("discount_amount").notNull().default(0), discountUntil: text("discount_until"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true), sortOrder: integer("sort_order").notNull().default(0),
+  createdAt: text("created_at").notNull().default(""), updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const promoCodes = sqliteTable("promo_codes", {
+  id: text("id").primaryKey(), code: text("code").notNull().unique(), description: text("description"),
+  discountAmount: real("discount_amount").notNull().default(0), bonusHours: integer("bonus_hours").notNull().default(0),
+  forcedPlanId: text("forced_plan_id").references(() => subscriptionPlans.id),
+  newUsersOnly: integer("new_users_only", { mode: "boolean" }).notNull().default(false),
+  birthdayMonthOnly: integer("birthday_month_only", { mode: "boolean" }).notNull().default(false),
+  maxUses: integer("max_uses"), uses: integer("uses").notNull().default(0), startsAt: text("starts_at"), expiresAt: text("expires_at"),
+  isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  createdAt: text("created_at").notNull().default(""), updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const signupSessions = sqliteTable("signup_sessions", {
+  id: text("id").primaryKey(), accountId: text("account_id").notNull().references(() => accounts.id),
+  tokenHash: text("token_hash").notNull().unique(), expiresAt: text("expires_at").notNull(), completedAt: text("completed_at"),
+  receiptPath: text("receipt_path"),
+  createdAt: text("created_at").notNull().default(""),
 });
 
 // ===========================================

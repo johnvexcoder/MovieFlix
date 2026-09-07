@@ -1,0 +1,17 @@
+/* Conservative fallback layer for older Chromium/WebKit Smart TV browsers. */
+html,body{margin:0;min-height:100%;background:#020611;color:#fff;font-family:Arial,Helvetica,sans-serif}
+*{box-sizing:border-box}
+.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.cinematic-bg,.movieflix-page-bg{min-height:100vh;background:#020611;background-image:radial-gradient(circle at 25% 20%,#06334a 0,#020611 42%),radial-gradient(circle at 80% 80%,#251035 0,#020611 45%)}
+.movieflix-splash{position:fixed;z-index:9999;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#020611;color:#fff}
+.movieflix-lockup{position:relative;width:90%;max-width:1050px;height:330px}
+.movieflix-intro-mark{position:absolute;left:0;top:18%;width:31%;height:64%}
+.movieflix-wordmark-window{position:absolute;left:28%;right:0;top:20%;overflow:hidden;padding-top:5%;margin-top:-5%}
+.movieflix-brand-name{position:relative;display:block;width:auto;font-family:Arial Black,Arial,sans-serif;font-size:100px;font-weight:900;line-height:1.12;letter-spacing:-5px;color:#04dcff}
+.movieflix-tagline{text-align:center;margin-top:14px;font-size:24px;font-weight:700;letter-spacing:5px}
+.movieflix-skip{position:absolute;right:24px;bottom:24px;min-height:44px;padding:10px 20px;border:1px solid #58728f;border-radius:22px;background:#101b31;color:#fff}
+.glass-panel{background:#0b1629;border:1px solid #243955}
+button,input,select,textarea{font:inherit}
+img,svg,video{max-width:100%}
+@media(max-width:700px){.movieflix-lockup{height:220px}.movieflix-brand-name{font-size:48px;letter-spacing:-3px}.movieflix-tagline{font-size:13px;letter-spacing:3px}}
+@media(min-width:701px) and (max-width:1100px){.movieflix-brand-name{font-size:72px}.movieflix-tagline{font-size:18px}}

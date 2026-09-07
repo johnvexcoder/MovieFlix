@@ -30,14 +30,6 @@ export async function GET(request: NextRequest) {
     const accessToken = request.cookies.get("access_token")?.value;
     const adminToken = request.cookies.get("admin_token")?.value;
     const token = adminToken || accessToken;
-    if (!token) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-    const payload = await verifyToken(token);
-    if (!payload) {
-      return new NextResponse("Unauthorized", { status: 401 });
-    }
-
     const fileParam = request.nextUrl.searchParams.get("file");
     if (!fileParam) {
       return new NextResponse("Missing file", { status: 400 });
@@ -47,7 +39,11 @@ export async function GET(request: NextRequest) {
     // manage receipts, payment-method icons and QR codes), while a regular
     // account may only read files that belong to it: its own payment
     // submissions' receipt images, or currently-active payment method icons.
-    if (!payload.isAdmin) {
+    const payload = token ? await verifyToken(token) : null;
+    if (!payload) {
+      const [publicMethodAsset] = await db.select({id:paymentMethods.id}).from(paymentMethods).where(and(eq(paymentMethods.isActive,true),or(eq(paymentMethods.iconPath,fileParam),eq(paymentMethods.qrPath,fileParam)))).limit(1);
+      if (!publicMethodAsset) return new NextResponse("Unauthorized", { status: 401 });
+    } else if (!payload.isAdmin) {
       const [ownReceipt] = await db
         .select({ id: paymentSubmissions.id })
         .from(paymentSubmissions)

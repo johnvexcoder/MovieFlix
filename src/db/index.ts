@@ -303,6 +303,23 @@ export function setupDatabase() {
       created_at TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS subscription_plans (
+      id TEXT PRIMARY KEY, name TEXT NOT NULL, duration_hours INTEGER, is_lifetime INTEGER NOT NULL DEFAULT 0,
+      price REAL NOT NULL, discount_amount REAL NOT NULL DEFAULT 0, discount_until TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1, sort_order INTEGER NOT NULL DEFAULT 0, created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS promo_codes (
+      id TEXT PRIMARY KEY, code TEXT NOT NULL UNIQUE, description TEXT, discount_amount REAL NOT NULL DEFAULT 0,
+      bonus_hours INTEGER NOT NULL DEFAULT 0, forced_plan_id TEXT REFERENCES subscription_plans(id),
+      new_users_only INTEGER NOT NULL DEFAULT 0, birthday_month_only INTEGER NOT NULL DEFAULT 0, max_uses INTEGER,
+      uses INTEGER NOT NULL DEFAULT 0, starts_at TEXT, expires_at TEXT, is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS signup_sessions (
+      id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id), token_hash TEXT NOT NULL UNIQUE,
+      expires_at TEXT NOT NULL, completed_at TEXT, receipt_path TEXT, created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_signup_token ON signup_sessions(token_hash);
   `);
 
   // Ensure accounts table has email, full_name, is_locked, and must_change_password columns.
@@ -310,10 +327,18 @@ export function setupDatabase() {
   // TEXT column and enforce uniqueness with a partial index (NULLs stay unique-free).
   ensureColumn("accounts", "email", "TEXT");
   ensureColumn("accounts", "full_name", "TEXT");
+  ensureColumn("accounts", "date_of_birth", "TEXT");
+  ensureColumn("accounts", "contact_number", "TEXT");
+  ensureColumn("accounts", "registration_status", "TEXT NOT NULL DEFAULT 'active'");
   ensureColumn("accounts", "is_locked", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "last_ip", "TEXT");
   ensureColumn("accounts", "last_login_at", "TEXT");
+  ensureColumn("payment_submissions", "plan_id", "TEXT");
+  ensureColumn("payment_submissions", "promo_code_id", "TEXT");
+  ensureColumn("promo_codes", "birthday_month_only", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("payment_methods", "account_name", "TEXT");
+  ensureColumn("signup_sessions", "receipt_path", "TEXT");
   try {
     _sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;");
   } catch (e) {
@@ -344,6 +369,18 @@ export function setupDatabase() {
     console.error("Initial administrator setup failed:", error);
     throw error;
   }
+
+  try {
+    const planCount = _sqlite.prepare("SELECT count(*) as count FROM subscription_plans").get() as { count: number };
+    if (planCount.count === 0) {
+      const now = new Date().toISOString();
+      const insert = _sqlite.prepare("INSERT INTO subscription_plans (id,name,duration_hours,is_lifetime,price,discount_amount,is_active,sort_order,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?)");
+      insert.run(uuidv4(), "7 Days", 168, 0, 50, 0, 1, 1, now, now);
+      insert.run(uuidv4(), "2 Weeks", 336, 0, 80, 0, 1, 2, now, now);
+      insert.run(uuidv4(), "1 Month", 720, 0, 100, 0, 1, 3, now, now);
+      insert.run(uuidv4(), "2 Months", 1440, 0, 200, 0, 1, 4, now, now);
+    }
+  } catch (error) { console.error("Default plan setup failed:", error); }
 
   try {
     const libCount = _sqlite.prepare("SELECT count(*) as count FROM library_config").get() as { count: number };

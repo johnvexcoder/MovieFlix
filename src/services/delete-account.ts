@@ -11,6 +11,7 @@ import {
   messageViews,
   passwordResetTokens,
   myList,
+  signupSessions,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -64,6 +65,7 @@ export async function deleteAccountCompletely(accountId: string): Promise<{
 
         // Password reset tokens FK to accounts.account_id (no cascade).
         tx.delete(passwordResetTokens).where(eq(passwordResetTokens.accountId, accountId)).run();
+        tx.delete(signupSessions).where(eq(signupSessions.accountId, accountId)).run();
 
         tx.delete(accounts).where(eq(accounts.id, accountId)).run();
 

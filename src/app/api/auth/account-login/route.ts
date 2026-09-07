@@ -52,6 +52,12 @@ export async function POST(request: NextRequest) {
 
     // Check if account is locked
     if (account.isLocked) {
+      if (account.registrationStatus === "awaiting_payment_approval") {
+        return errorResponse("Your registration is awaiting payment approval. We will email you when access is active.", 403);
+      }
+      if (account.registrationStatus === "pending") {
+        return errorResponse("Complete plan selection and payment before signing in.", 403);
+      }
       return errorResponse("This account has been locked. Please contact support.", 403);
     }
 

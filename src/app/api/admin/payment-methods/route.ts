@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       methods: methods.map((m) => ({
         id: m.id,
         name: m.name,
+        accountName: m.accountName,
         accountNumber: m.accountNumber,
         iconPath: m.iconPath,
         qrPath: m.qrPath,
@@ -50,7 +51,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { name, accountNumber, iconPath, qrPath, isActive } = body;
+    const { name, accountName, accountNumber, iconPath, qrPath, isActive } = body;
 
     if (!name || typeof name !== "string" || !name.trim()) {
       return errorResponse("Method name is required", 400);
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
     await db.insert(paymentMethods).values({
       id,
       name: name.trim(),
+      accountName: typeof accountName === "string" ? accountName.trim() : null,
       accountNumber: accountNumber.trim(),
       iconPath: typeof iconPath === "string" ? iconPath : null,
       qrPath: typeof qrPath === "string" ? qrPath : null,
@@ -92,7 +94,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { id, name, accountNumber, iconPath, qrPath, isActive, sortOrder } = body;
+    const { id, name, accountName, accountNumber, iconPath, qrPath, isActive, sortOrder } = body;
 
     if (!id || typeof id !== "string") {
       return errorResponse("Method ID is required", 400);
@@ -107,6 +109,7 @@ export async function PATCH(request: NextRequest) {
       .update(paymentMethods)
       .set({
         name: typeof name === "string" && name.trim() ? name.trim() : existing.name,
+        accountName: typeof accountName === "string" ? accountName.trim() : existing.accountName,
         accountNumber:
           typeof accountNumber === "string" && accountNumber.trim()
             ? accountNumber.trim()

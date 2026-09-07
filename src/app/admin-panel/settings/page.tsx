@@ -31,6 +31,7 @@ import {
 } from "@/components/ui/dialog";
 import { checkAdminSession } from "@/lib/client-auth";
 import { PaymentMethodsManager } from "@/components/admin/payment-methods-manager";
+import { PlanPromoManager } from "@/components/admin/plan-promo-manager";
 
 interface AdminUser {
   id: string;
@@ -504,6 +505,8 @@ export default function AdminSettingsPage() {
           </div>
 
           {/* Payment Methods */}
+          <PlanPromoManager />
+
           <PaymentMethodsManager />
 
           {/* Administrators Roster */}

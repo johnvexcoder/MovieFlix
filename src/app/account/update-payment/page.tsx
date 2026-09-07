@@ -60,11 +60,16 @@ export default function UpdatePaymentPage() {
     })();
   }, []);
 
-  function copyAccountNumber() {
+  async function copyAccountNumber() {
     if (!selectedMethod) return;
-    navigator.clipboard?.writeText(selectedMethod.accountNumber).catch(() => {});
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1500);
+    let ok = false;
+    try { await navigator.clipboard?.writeText(selectedMethod.accountNumber); ok = Boolean(navigator.clipboard); } catch {}
+    if (!ok) {
+      const input = document.createElement("textarea"); input.value = selectedMethod.accountNumber;
+      input.style.position = "fixed"; input.style.opacity = "0"; document.body.appendChild(input); input.focus(); input.select();
+      try { ok = document.execCommand("copy"); } finally { input.remove(); }
+    }
+    if (ok) { setCopied(true); setTimeout(() => setCopied(false), 1500); }
   }
 
   async function handleReceiptUpload(e: React.ChangeEvent<HTMLInputElement>) {

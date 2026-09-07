@@ -189,6 +189,11 @@ export default function LoginPage() {
                 )}
               </Button>
             </form>
+            <div className="mt-4 text-center">
+              <Link href="/register" className="text-sm font-semibold text-cyan-300 underline-offset-4 hover:text-cyan-200 hover:underline">
+                New to MovieFlix? Register here
+              </Link>
+            </div>
 
             {/* Bottom Footer Info */}
             <div className="mt-8 flex items-center justify-center gap-2 border-t border-white/10 pt-5 text-center text-xs text-neutral-500">

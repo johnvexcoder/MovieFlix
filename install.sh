@@ -222,9 +222,25 @@ tune_media_env() {
   done
 }
 
+backup_live_database() {
+  # Use SQLite's online backup API through the running app. This produces a
+  # transactionally consistent copy even while WAL mode is active.
+  [ -f ./data/database.sqlite ] || return 0
+  mkdir -p ./data/backups
+  local stamp backup
+  stamp=$(date +%Y%m%d-%H%M%S)
+  backup="./data/backups/database-before-update-${stamp}.sqlite"
+  if $DC exec -T app node -e 'const D=require("better-sqlite3");const s=new D("./data/database.sqlite");s.backup(process.argv[1]).then(()=>{const b=new D(process.argv[1],{readonly:true});if(b.pragma("integrity_check",{simple:true})!=="ok")process.exit(2);b.close();s.close()})' "./data/backups/database-before-update-${stamp}.sqlite"; then
+    ok "Created and verified database backup: $backup"
+  else
+    die "Database backup failed. The update was stopped before rebuilding or restarting anything."
+  fi
+}
+
 # ----------------------------- install modes --------------------------------
 
 do_update() {
+  backup_live_database
   info "Pulling the latest code from origin/main (ff-only, safe)."
   git fetch origin
   git pull --ff-only origin main
