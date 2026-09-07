@@ -10,6 +10,7 @@ import {
   paymentSubmissions,
   messageViews,
   passwordResetTokens,
+  myList,
 } from "@/db/schema";
 import { eq } from "drizzle-orm";
 
@@ -40,6 +41,7 @@ export async function deleteAccountCompletely(accountId: string): Promise<{
           .all();
 
         for (const profile of accountProfiles) {
+          tx.delete(myList).where(eq(myList.profileId, profile.id)).run();
           tx.delete(watchHistory).where(eq(watchHistory.profileId, profile.id)).run();
           tx.delete(sessions).where(eq(sessions.profileId, profile.id)).run();
           tx.delete(profileSettings).where(eq(profileSettings.profileId, profile.id)).run();

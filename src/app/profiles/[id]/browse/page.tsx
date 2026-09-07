@@ -151,13 +151,13 @@ export default function BrowsePage() {
           </div>
 
           {/* Quick Category Tabs (All / Movies / Series) */}
-          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-[#121215] p-1 shadow-md">
+          <div className="flex items-center gap-2 rounded-2xl border border-white/10 bg-card p-1 shadow-md">
             <button
               type="button"
               onClick={() => handleFilterChange("")}
               className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                 mediaType === ""
-                  ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/60"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-cyan-950/60"
                   : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -168,7 +168,7 @@ export default function BrowsePage() {
               onClick={() => handleFilterChange("movie")}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                 mediaType === "movie"
-                  ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/60"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-cyan-950/60"
                   : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -180,7 +180,7 @@ export default function BrowsePage() {
               onClick={() => handleFilterChange("series")}
               className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                 mediaType === "series"
-                  ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/60"
+                  ? "bg-primary text-primary-foreground shadow-md shadow-cyan-950/60"
                   : "text-neutral-400 hover:text-white"
               }`}
             >
@@ -210,7 +210,7 @@ export default function BrowsePage() {
               onClick={() => handleFilterChange(undefined, g)}
               className={`flex-shrink-0 rounded-full px-4 py-1.5 text-xs font-semibold transition-all ${
                 genre === g
-                  ? "border border-red-500/60 bg-primary text-primary-foreground text-white shadow-md shadow-red-950/50"
+                  ? "border border-cyan-300/60 bg-primary text-primary-foreground shadow-md shadow-cyan-950/50"
                   : "border border-white/10 bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
               }`}
             >
@@ -225,7 +225,7 @@ export default function BrowsePage() {
             <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
           </div>
         ) : media.length === 0 ? (
-          <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-xl">
+          <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-card p-12 text-center shadow-xl">
             <Film className="mx-auto mb-4 h-12 w-12 text-neutral-600" />
             <h3 className="text-xl font-bold text-white">No Matching Titles</h3>
             <p className="mt-2 text-xs text-neutral-400">

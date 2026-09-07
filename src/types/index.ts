@@ -203,6 +203,7 @@ export interface HomeData {
   featured: Media | null;
   newReleases?: Media[];
   continueWatching: MediaWithProgress[];
+  myList: Media[];
   recentlyAdded: Media[];
   trending: Media[];
   genres: Record<string, Media[]>;

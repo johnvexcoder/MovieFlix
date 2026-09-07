@@ -71,11 +71,11 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070709] px-4 py-12 select-none">
+    <div className="cinematic-bg relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-12 select-none">
       {/* Dynamic Cinematic Ambient Backdrops */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/4 left-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/15 blur-[160px]" />
-        <div className="absolute -bottom-10 right-1/4 h-[400px] w-[500px] rounded-full bg-purple-900/15 blur-[140px]" />
+        <div className="absolute -bottom-10 right-1/4 h-[400px] w-[500px] rounded-full bg-fuchsia-600/10 blur-[140px]" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
 

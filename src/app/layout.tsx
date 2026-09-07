@@ -1,20 +1,7 @@
-import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
 import { ThemeProvider } from "next-themes";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import "./globals.css";
-
-const inter = Inter({
-  variable: "--font-inter",
-  subsets: ["latin"],
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  variable: "--font-mono",
-  subsets: ["latin"],
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: {
@@ -22,29 +9,30 @@ export const metadata: Metadata = {
     template: "%s | MovieFlix",
   },
   description: "Self-hosted, private cinema and media streaming platform.",
-  viewport: "width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no",
   icons: {
-    icon: [
-      { url: "/favicon.ico", sizes: "32x32" },
-      { url: "/logo.svg", type: "image/svg+xml" },
-      { url: "/icon.png", sizes: "192x192", type: "image/png" },
-    ],
-    shortcut: "/favicon.ico",
-    apple: "/apple-icon.png",
+    icon: [{ url: "/logo.svg?v=2", type: "image/svg+xml" }],
+    shortcut: "/logo.svg?v=2",
+    apple: "/logo.svg?v=2",
   },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${inter.variable} ${jetbrainsMono.variable} h-full antialiased`}
+      className="h-full antialiased"
       suppressHydrationWarning
     >
       <head>
-        <link rel="icon" href="/logo.svg" type="image/svg+xml" />
-        <link rel="shortcut icon" href="/logo.svg" type="image/svg+xml" />
-        <link rel="apple-touch-icon" href="/logo.svg" />
+        <link rel="icon" href="/logo.svg?v=2" type="image/svg+xml" />
+        <link rel="shortcut icon" href="/logo.svg?v=2" type="image/svg+xml" />
+        <link rel="apple-touch-icon" href="/logo.svg?v=2" />
       </head>
       <body className="min-h-full flex flex-col bg-background text-foreground">
         <ThemeProvider

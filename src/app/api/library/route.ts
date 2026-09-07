@@ -6,6 +6,22 @@ import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { startScan, getScanStatus, getScanHistory } from "@/services/scanner";
 import { v4 as uuidv4 } from "uuid";
+import fs from "fs";
+import nodePath from "path";
+
+function validateLibraryPath(value: unknown) {
+  if (typeof value !== "string" || !value.trim()) return { error: "Path is required" };
+  const normalized = nodePath.resolve(value.trim());
+  if (!nodePath.isAbsolute(value.trim())) return { error: "Library path must be absolute" };
+  try {
+    const stat = fs.statSync(normalized);
+    fs.accessSync(normalized, fs.constants.R_OK);
+    if (!stat.isDirectory()) return { error: "Library path must be a directory" };
+  } catch {
+    return { error: "Library path does not exist or is not readable by MovieFlix" };
+  }
+  return { path: normalized };
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -49,6 +65,9 @@ export async function POST(request: NextRequest) {
     if (!path || !type) {
       return errorResponse("Path and type are required", 400);
     }
+    const validated = validateLibraryPath(path);
+    if (validated.error) return errorResponse(validated.error, 400);
+    const libraryPath = validated.path!;
 
     if (type !== "movies" && type !== "series") {
       return errorResponse("Type must be 'movies' or 'series'", 400);
@@ -58,7 +77,7 @@ export async function POST(request: NextRequest) {
     const [existing] = await db
       .select()
       .from(libraryConfig)
-      .where(eq(libraryConfig.path, path))
+      .where(eq(libraryConfig.path, libraryPath))
       .limit(1);
 
     if (existing) {
@@ -67,7 +86,7 @@ export async function POST(request: NextRequest) {
 
     await db.insert(libraryConfig).values({
       id: uuidv4(),
-      path,
+      path: libraryPath,
       type,
       enabled: true,
     });
@@ -94,8 +113,15 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { id, enabled } = body;
 
-    if (!id) {
+    if (!id || typeof enabled !== "boolean") {
       return errorResponse("Library ID is required", 400);
+    }
+
+    const [existing] = await db.select().from(libraryConfig).where(eq(libraryConfig.id, id)).limit(1);
+    if (!existing) return errorResponse("Library not found", 404);
+    if (enabled) {
+      const validated = validateLibraryPath(existing.path);
+      if (validated.error) return errorResponse(validated.error, 400);
     }
 
     await db

@@ -1,10 +1,9 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { paymentSubmissions, accounts, admins } from "@/db/schema";
+import { paymentSubmissions, accounts } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { v4 as uuidv4 } from "uuid";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +27,10 @@ export async function PATCH(
 
     if (!status || !["approved", "rejected"].includes(status)) {
       return errorResponse("Invalid status. Must be 'approved' or 'rejected'", 400);
+    }
+    const parsedExtendHours = Number(extendHours ?? 0);
+    if (!Number.isFinite(parsedExtendHours) || parsedExtendHours < 0 || parsedExtendHours > 24 * 365 * 10) {
+      return errorResponse("Extension must be between 0 and 87600 hours", 400);
     }
 
     const [existing] = await db
@@ -57,39 +60,35 @@ export async function PATCH(
 
     // Update the payment submission
     const now = new Date().toISOString();
-    await db
-      .update(paymentSubmissions)
-      .set({
+    db.transaction((tx) => {
+      tx.update(paymentSubmissions).set({
         status,
         adminNote: status === "approved" ? `Approved by admin (${payload.profileId})` : `Rejected by admin (${payload.profileId})`,
         reviewedByAdminId: payload.profileId,
         updatedAt: now,
-      })
-      .where(eq(paymentSubmissions.id, id));
+      }).where(eq(paymentSubmissions.id, id)).run();
 
     // If approved and extendHours provided, extend the account expiration
-    if (status === "approved" && extendHours && extendHours > 0) {
+    if (status === "approved" && parsedExtendHours > 0) {
       const currentExpiry = account.expiresAt ? new Date(account.expiresAt).getTime() : null;
       const nowMs = Date.now();
       let newExpiry: Date;
 
       if (currentExpiry && currentExpiry > nowMs) {
         // Extend from current expiration
-        newExpiry = new Date(currentExpiry + extendHours * 60 * 60 * 1000);
+        newExpiry = new Date(currentExpiry + parsedExtendHours * 60 * 60 * 1000);
       } else {
         // Extend from now (expired or no expiration)
-        newExpiry = new Date(nowMs + extendHours * 60 * 60 * 1000);
+        newExpiry = new Date(nowMs + parsedExtendHours * 60 * 60 * 1000);
       }
 
-      await db
-        .update(accounts)
-        .set({
+      tx.update(accounts).set({
           expiresAt: newExpiry.toISOString(),
           isLocked: false,
           updatedAt: now,
-        })
-        .where(eq(accounts.id, account.id));
-    }
+        }).where(eq(accounts.id, account.id)).run();
+      }
+    });
 
     return successResponse({
       message: `Payment submission ${status}`,

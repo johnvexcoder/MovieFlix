@@ -7,14 +7,14 @@
 
 export const SUPPORT_EMAIL = "movieflix.support@gmail.com";
 export const BRAND_NAME = "MovieFlix";
-export const BRAND_COLOR = "#e50914";
+export const BRAND_COLOR = "#00d2f5";
 
 // The MovieFlix "M" mark. This mirrors src/components/movieflix-logo.tsx and
 // public/logo.svg but is flattened (no feDropShadow filter) so it renders
 // reliably as a data-URI image inside email clients.
 const M_LOGO_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" fill="none">
-  <path d="M 32 216 L 32 24 C 32 20, 36 16, 42 16 L 70 16 C 76 16, 80 20, 80 24 L 80 216 C 80 220, 76 224, 70 224 L 42 224 C 36 224, 32 220, 32 216 Z" fill="#e50914"/>
-  <path d="M 160 216 L 160 24 C 160 20, 164 16, 170 16 L 198 16 C 204 16, 208 20, 208 24 L 208 216 C 208 220, 204 224, 198 224 L 170 224 C 164 224, 160 220, 160 216 Z" fill="#e50914"/>
+  <path d="M 32 216 L 32 24 C 32 20, 36 16, 42 16 L 70 16 C 76 16, 80 20, 80 24 L 80 216 C 80 220, 76 224, 70 224 L 42 224 C 36 224, 32 220, 32 216 Z" fill="#00d2f5"/>
+  <path d="M 160 216 L 160 24 C 160 20, 164 16, 170 16 L 198 16 C 204 16, 208 20, 208 24 L 208 216 C 208 220, 204 224, 198 224 L 170 224 C 164 224, 160 220, 160 216 Z" fill="#7c3aed"/>
   <path d="M 40 18 L 78 18 L 132 168 L 94 168 Z" fill="#b20710"/>
   <path d="M 108 168 L 146 168 L 200 18 L 162 18 Z" fill="#800208"/>
 </svg>`;
@@ -34,7 +34,7 @@ function footerBlock(): string {
   return `
     <hr style="margin:32px 0 20px; border:none; border-top:1px solid #e8e8e8;" />
     <p style="font-size:12px; color:#666666; margin:0 0 12px;">
-      Need help? Email us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#e50914; text-decoration:none;">${SUPPORT_EMAIL}</a>
+      Need help? Email us at <a href="mailto:${SUPPORT_EMAIL}" style="color:#00d2f5; text-decoration:none;">${SUPPORT_EMAIL}</a>
     </p>
     <div style="text-align:center;">
       <img src="${M_LOGO_DATA_URI}" alt="${BRAND_NAME}" style="height:24px; width:24px;" />
@@ -136,7 +136,7 @@ export function forgotPasswordEmail({ username, resetLink }: { username: string;
           Reset Password
         </a>
       </p>
-      <p style="font-size:13px; color:#666666;">Or open this link directly: <a href="${resetLink}" style="color:#e50914;">${resetLink}</a></p>
+      <p style="font-size:13px; color:#666666;">Or open this link directly: <a href="${resetLink}" style="color:#00d2f5;">${resetLink}</a></p>
       <p>If you did not request this, you can safely ignore this email.</p>
     `,
   });

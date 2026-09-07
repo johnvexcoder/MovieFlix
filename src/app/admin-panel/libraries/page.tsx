@@ -175,7 +175,7 @@ export default function AdminLibrariesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070709] text-white select-none">
+    <div className="movieflix-page-bg min-h-screen text-white select-none">
       <div className="mx-auto max-w-5xl px-4 sm:px-8 py-8">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
@@ -254,7 +254,7 @@ export default function AdminLibrariesPage() {
                 className="glass-panel flex flex-wrap items-center justify-between gap-4 rounded-2xl p-5 border border-white/10 shadow-lg transition-all hover:border-white/20"
               >
                 <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)]/20 to-red-950/40 text-[var(--brand)] ring-1 ring-red-500/30">
+                  <div className="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-400/20 to-violet-900/40 text-cyan-300 ring-1 ring-cyan-400/30">
                     {lib.type === "movies" ? (
                       <Film className="h-6 w-6" />
                     ) : (

@@ -74,6 +74,7 @@ export default function WatchPage() {
   const autoPlayAttemptedRef = useRef(false);
   const autoFallbackDoneRef = useRef(false);
   const userPausedRef = useRef(false);
+  const desiredPlayingRef = useRef(autoplayIntent);
 
   const [profile, setProfile] = useState<Profile | null>(null);
   const [media, setMedia] = useState<MediaDetail | null>(null);
@@ -288,7 +289,7 @@ export default function WatchPage() {
       // The browser auto-paused the element while hidden (common on Android app
       // switches) but the user wanted playback. Restore it by re-driving a
       // fresh source+play so a stale/broken stream doesn't leave a frozen frame.
-      if (wasPlayingBeforeHiddenRef.current) {
+      if (wasPlayingBeforeHiddenRef.current || desiredPlayingRef.current) {
         wasPlayingBeforeHiddenRef.current = false;
         if (video.paused || video.ended || video.readyState < 2) {
           setBuffering(true);
@@ -307,7 +308,7 @@ export default function WatchPage() {
       } else {
         // Track whether the user wanted playback when we went into the background.
         const video = videoRef.current;
-        wasPlayingBeforeHiddenRef.current = Boolean(video && !video.paused);
+        wasPlayingBeforeHiddenRef.current = desiredPlayingRef.current || Boolean(video && !video.paused);
         // A hidden tab can't legitimately play; clear any stale pending promise.
         playPromiseRef.current = null;
       }
@@ -332,8 +333,17 @@ export default function WatchPage() {
       const res = await fetch(`/api/media/${mediaId}/progress${epQuery}`);
       const data = await res.json();
       if (data.success && data.data && data.data.positionSeconds > 10 && !data.data.completed) {
-        const targetPos = data.data.positionSeconds;
+        const rawPosition = Number(data.data.positionSeconds);
         if (videoRef.current) {
+          const realDuration = videoRef.current.duration;
+          if (!Number.isFinite(rawPosition) || !Number.isFinite(realDuration) || realDuration <= 0) return;
+          // Never restore into the completion window. Older/corrupt progress
+          // rows could otherwise make TVs seek directly from 0:00 to the end.
+          const targetPos = Math.min(rawPosition, Math.max(0, realDuration - 30));
+          if (targetPos <= 10 || targetPos / realDuration >= 0.92) {
+            initialSeekDoneRef.current = true;
+            return;
+          }
           videoRef.current.currentTime = targetPos;
           initialSeekDoneRef.current = true;
           setResumeToast(`Resumed from ${formatTimestamp(targetPos)}`);
@@ -346,15 +356,20 @@ export default function WatchPage() {
   // Periodic watch progress saving (every 5 seconds)
   const saveProgress = useCallback(async () => {
     const video = videoRef.current;
-    if (!video || isNaN(video.currentTime) || video.currentTime <= 0) return;
+    if (!video || !Number.isFinite(video.currentTime) || video.currentTime <= 0) return;
+
+    const safeDuration = Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0;
+    const safePosition = safeDuration > 0
+      ? Math.min(video.currentTime, Math.max(0, safeDuration - 1))
+      : video.currentTime;
 
     try {
       await fetch(`/api/media/${mediaId}/progress`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          positionSeconds: video.currentTime,
-          durationSeconds: video.duration || 0,
+          positionSeconds: safePosition,
+          durationSeconds: safeDuration,
           episodeId: episodeParam || null,
         }),
       });
@@ -383,7 +398,7 @@ export default function WatchPage() {
     if (!video) return;
 
     const onTimeUpdate = () => {
-      setCurrentTime(video.currentTime);
+      if (Number.isFinite(video.currentTime)) setCurrentTime(video.currentTime);
       if (video.buffered.length > 0) {
         setBuffered(video.buffered.end(video.buffered.length - 1));
       }
@@ -401,7 +416,7 @@ export default function WatchPage() {
     };
 
     const onLoadedMetadata = () => {
-      setDuration(video.duration);
+      setDuration(Number.isFinite(video.duration) && video.duration > 0 ? video.duration : 0);
       // A fresh source is loaded: re-allow the one-shot autoplay attempt.
       autoPlayAttemptedRef.current = false;
       restoreProgress();
@@ -410,13 +425,14 @@ export default function WatchPage() {
     const onPlay = () => {
       setPlaying(true);
       userPausedRef.current = false;
+      desiredPlayingRef.current = true;
     };
     const onPause = () => {
       setPlaying(false);
-      userPausedRef.current = true;
     };
     const onEnded = () => {
       setPlaying(false);
+      desiredPlayingRef.current = false;
       if (nextEpisode) {
         router.push(`/profiles/${profileId}/watch/${mediaId}?episode=${nextEpisode.id}`);
       }
@@ -436,6 +452,7 @@ export default function WatchPage() {
           video.muted = true;
           setMuted(true);
         }
+        desiredPlayingRef.current = true;
         video.play().then(() => {
           // Playback started (muted). Try to lift mute — browsers that allow
           // it (e.g. after the visitor has engaged with the site before) will
@@ -587,15 +604,23 @@ export default function WatchPage() {
     // it as "playing intent" rather than firing a duplicate play() or a pause
     // that immediately cancels it.
     const hasPendingPlay = playPromiseRef.current != null;
+    if (hasPendingPlay) return;
 
-    if (video.paused && !hasPendingPlay) {
+    if (video.paused || video.ended) {
       // Guard against overlapping play() calls being cancelled by a later one.
-      const isPlaying = video.play().catch(() => {});
-      playPromiseRef.current = isPlaying;
-      const clear = () => setTimeout(() => { playPromiseRef.current = null; }, 60);
-      isPlaying.then(clear, clear);
+      desiredPlayingRef.current = true;
+      userPausedRef.current = false;
+      const request = video.play();
+      playPromiseRef.current = request;
+      request.catch(() => {
+        setShowControls(true);
+      }).finally(() => {
+        playPromiseRef.current = null;
+      });
       triggerCenterIcon("play");
     } else {
+      desiredPlayingRef.current = false;
+      userPausedRef.current = true;
       video.pause();
       playPromiseRef.current = null;
       triggerCenterIcon("pause");
@@ -605,8 +630,9 @@ export default function WatchPage() {
 
   const seek = useCallback((offset: number) => {
     const video = videoRef.current;
-    if (!video) return;
-    video.currentTime = Math.max(0, Math.min(video.duration, video.currentTime + offset));
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) return;
+    const position = Number.isFinite(video.currentTime) ? video.currentTime : 0;
+    video.currentTime = Math.max(0, Math.min(video.duration - 0.25, position + offset));
     triggerCenterIcon(offset > 0 ? "seek-fwd" : "seek-back");
     resetControlsTimer();
   }, [resetControlsTimer]);
@@ -749,7 +775,7 @@ export default function WatchPage() {
         video.currentTime = lastPositionRef.current;
       }
       video.load();
-      video.play().catch(() => {});
+      if (desiredPlayingRef.current) video.play().catch(() => {});
       setBuffering(false);
     }, 100);
     return () => clearTimeout(t);
@@ -791,7 +817,7 @@ export default function WatchPage() {
               try {
                 if (keepPos > 0) video.currentTime = keepPos;
               } catch {}
-              video.play().catch(() => {});
+              if (desiredPlayingRef.current) video.play().catch(() => {});
               setBuffering(false);
               setPreparingQuality(false);
               video.removeEventListener("loadedmetadata", onMeta);
@@ -832,7 +858,7 @@ export default function WatchPage() {
       try {
         if (keepPos > 0) video.currentTime = keepPos;
       } catch {}
-      video.play().catch(() => {});
+      if (desiredPlayingRef.current) video.play().catch(() => {});
       setBuffering(false);
       video.removeEventListener("loadedmetadata", onMeta);
     };
@@ -904,12 +930,12 @@ export default function WatchPage() {
     setHoverPosition(e.clientX - rect.left);
   };
 
-  const handleProgressSeek = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleProgressSeek = (e: React.PointerEvent<HTMLDivElement>) => {
     const video = videoRef.current;
-    if (!video || duration <= 0) return;
+    if (!video || !Number.isFinite(duration) || duration <= 0) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-    video.currentTime = percent * duration;
+    video.currentTime = Math.min(duration - 0.25, percent * duration);
     resetControlsTimer();
   };
 
@@ -964,8 +990,12 @@ export default function WatchPage() {
     <div
       ref={containerRef}
       onMouseMove={resetControlsTimer}
-      onClick={togglePlay}
-      className={`relative h-screen w-screen overflow-hidden bg-black select-none ${
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("button, a, input, [role='button'], [data-player-control]")) return;
+        togglePlay();
+      }}
+      className={`movieflix-player relative h-screen h-[100dvh] w-screen overflow-hidden bg-black select-none ${
         !showControls ? "cursor-none" : "cursor-default"
       }`}
     >
@@ -994,6 +1024,7 @@ export default function WatchPage() {
         poster={media.backdropUrl || media.posterUrl || `/api/media/${mediaId}/image?kind=backdrop`}
         className="h-full w-full object-cover"
         muted={muted}
+        autoPlay={autoplayIntent}
         playsInline
         preload="auto"
       >
@@ -1090,12 +1121,6 @@ export default function WatchPage() {
             // relies on this since there is no cursor/hover). Interactive
             // controls and menus bubble through but are ignored because their
             // target is never this overlay itself.
-            onClick={(e) => {
-              if (e.target === e.currentTarget) {
-                togglePlay();
-                resetControlsTimer();
-              }
-            }}
             className="absolute inset-0 flex flex-col justify-between bg-gradient-to-t from-black/90 via-transparent to-black/80 px-4 sm:px-8 py-6"
           >
             {/* Top Bar */}
@@ -1217,10 +1242,11 @@ export default function WatchPage() {
             <div className="space-y-3">
               {/* Interactive Scrubber / Seek Bar */}
               <div
+                data-player-control
                 className="group/seeker relative flex h-6 w-full cursor-pointer items-center"
                 onMouseMove={handleProgressBarHover}
                 onMouseLeave={() => setHoverTime(null)}
-                onClick={handleProgressSeek}
+                onPointerUp={handleProgressSeek}
               >
                 {/* Background Track */}
                 <div className="relative h-1.5 w-full overflow-hidden rounded-full bg-white/25 transition-all duration-200 group-hover/seeker:h-2.5">
@@ -1496,7 +1522,7 @@ export default function WatchPage() {
             onClick={() => setShowShortcuts(false)}
           >
             <div
-              className="w-full max-w-md rounded-3xl border border-white/15 bg-[#121215] p-6 shadow-2xl"
+              className="w-full max-w-md rounded-3xl border border-white/15 bg-card p-6 shadow-2xl"
               onClick={(e) => e.stopPropagation()}
             >
               <h3 className="text-xl font-bold text-white mb-4">Player Shortcuts</h3>

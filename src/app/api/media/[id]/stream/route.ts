@@ -90,32 +90,65 @@ export async function GET(
 
     const range = request.headers.get("range");
 
-    // Range-tolerant streaming: a missing Range header (some mobile browsers'
-    // first probe) answers with the first capped chunk as a 206 so the browser
-    // learns ranges are supported. When a Range header IS present, we MUST
-    // honour the requested start offset — otherwise the player receives data
-    // it thinks is at another position, which corrupts seeking and causes the
-    // infinite loading / freeze-after-few-seconds the user reported.
-    let start = 0;
-    let end = Math.min(start + MAX_CHUNK_BYTES - 1, fileSize - 1);
+    // Some Smart TV engines make an initial request without Range and require
+    // a standards-compliant 200 response. Sending an unsolicited partial 206
+    // makes those engines treat the first chunk as the whole movie and jump to
+    // the end. Stream the full file for that probe; browsers that support
+    // seeking use the bounded 206 path below.
+    if (!range) {
+      const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath);
+      const webStream = new ReadableStream({
+        start(controller) {
+          fileStream.on("data", (chunk) => controller.enqueue(chunk));
+          fileStream.on("end", () => controller.close());
+          fileStream.on("error", (err) => controller.error(err));
+        },
+        cancel() { fileStream.destroy(); },
+      });
+      return new NextResponse(webStream, {
+        status: 200,
+        headers: {
+          "Content-Length": String(fileSize),
+          "Content-Type": contentType,
+          ...PROTECTION_HEADERS,
+          "Cache-Control": "private, no-cache",
+        },
+      });
+    }
 
-    if (range) {
-      const parts = range.replace(/bytes=/, "").split("-");
-      const requestedStart = parts[0] ? parseInt(parts[0], 10) : 0;
-      const requestedEnd = parts[1]
-        ? parseInt(parts[1], 10)
-        : Math.min(requestedStart + 1024 * 1024 * 4 - 1, fileSize - 1);
+    const match = /^bytes=(\d*)-(\d*)$/i.exec(range.trim());
+    if (!match || (!match[1] && !match[2])) {
+      return new NextResponse("Range not satisfiable", {
+        status: 416,
+        headers: { "Content-Range": `bytes */${fileSize}` },
+      });
+    }
 
-      start = Math.min(requestedStart, fileSize - 1);
-      end = Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
-
-      if (start > end || start >= fileSize) {
+    let start: number;
+    let requestedEnd: number;
+    if (!match[1]) {
+      const suffixLength = Number(match[2]);
+      if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) {
         return new NextResponse("Range not satisfiable", {
           status: 416,
           headers: { "Content-Range": `bytes */${fileSize}` },
         });
       }
+      start = Math.max(0, fileSize - suffixLength);
+      requestedEnd = fileSize - 1;
+    } else {
+      start = Number(match[1]);
+      requestedEnd = match[2] ? Number(match[2]) : fileSize - 1;
     }
+
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(requestedEnd) || start < 0 || start >= fileSize || requestedEnd < start) {
+      return new NextResponse("Range not satisfiable", {
+        status: 416,
+        headers: { "Content-Range": `bytes */${fileSize}` },
+      });
+    }
+
+    const end = Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
 
     const chunkSize = end - start + 1;
     const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath, { start, end });

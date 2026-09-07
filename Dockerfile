@@ -38,19 +38,25 @@ ENV NODE_ENV=production \
     PORT=9000 \
     NODE_OPTIONS=--max-old-space-size=512
 
+RUN apk add --no-cache su-exec
+
 # Copy the standalone server (includes a bundled subset of node_modules,
 # including better-sqlite3's prebuilt linux-musl binary)
 COPY --from=builder /app/.next/standalone ./
 # Copy the static assets the standalone server references
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+# ffmpeg-static is externalized by Next and its executable is not included in
+# the standalone trace automatically.
+COPY --from=builder /app/node_modules/ffmpeg-static/ffmpeg /app/node_modules/ffmpeg-static/ffmpeg
+COPY docker-entrypoint.sh /usr/local/bin/movieflix-entrypoint
 
 # Ensure writable directories exist for the SQLite DB / thumbnails / artwork
 RUN mkdir -p /app/data/thumbnails /app/data/artwork /app/data/transcode-temp \
-    && chmod -R 777 /app/data
+    && chown -R node:node /app/data \
+    && chmod 755 /usr/local/bin/movieflix-entrypoint
 
-# Single-user homelab: run as root so the host-mounted ./data volume is always
-# writable regardless of the host's file ownership.
 EXPOSE 9000
 
+ENTRYPOINT ["movieflix-entrypoint"]
 CMD ["node", "server.js"]

@@ -226,6 +226,14 @@ export const watchHistory = sqliteTable("watch_history", {
   updatedAt: text("updated_at").notNull().default(""),
 });
 
+// Per-profile saved titles.
+export const myList = sqliteTable("my_list", {
+  id: text("id").primaryKey(),
+  profileId: text("profile_id").notNull().references(() => profiles.id),
+  mediaId: text("media_id").notNull().references(() => media.id),
+  createdAt: text("created_at").notNull().default(""),
+});
+
 // ===========================================
 // PROFILE SETTINGS TABLE
 // ===========================================

@@ -154,9 +154,9 @@ export async function DELETE(request: NextRequest) {
 
     // payment_submissions.payment_method_id references this row (FK), so delete
     // those first inside a transaction to avoid a constraint failure.
-    await db.transaction(async (tx) => {
-      await tx.delete(paymentSubmissions).where(eq(paymentSubmissions.paymentMethodId, id));
-      await tx.delete(paymentMethods).where(eq(paymentMethods.id, id));
+    db.transaction((tx) => {
+      tx.delete(paymentSubmissions).where(eq(paymentSubmissions.paymentMethodId, id)).run();
+      tx.delete(paymentMethods).where(eq(paymentMethods.id, id)).run();
     });
 
     return successResponse({ message: "Payment method deleted" });

@@ -77,7 +77,7 @@ export default function AdminSettingsPage() {
   const [smtpFrom, setSmtpFrom] = useState("");
 
   // Public URL used to build links inside emails (the "Log In" / reset links).
-  const [appPublicUrl, setAppPublicUrl] = useState("https://localhost:9000");
+  const [appPublicUrl, setAppPublicUrl] = useState("");
 
   // Reminder Settings
   const [reminderDays, setReminderDays] = useState(3);
@@ -257,7 +257,7 @@ export default function AdminSettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#070709] text-white select-none">
+    <div className="cinematic-bg min-h-screen text-white select-none">
       <div className="mx-auto max-w-4xl px-4 sm:px-8 py-8">
         {/* Header */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
@@ -529,7 +529,7 @@ export default function AdminSettingsPage() {
                     className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[var(--brand)] to-[#7a0006] text-sm font-bold text-white">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-fuchsia-500 text-sm font-bold text-slate-950 shadow-[0_0_18px_rgba(0,210,245,0.22)]">
                         {adm.username.charAt(0).toUpperCase()}
                       </div>
                       <div>

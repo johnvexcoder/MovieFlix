@@ -286,7 +286,7 @@ Full reference (see [.env.example](.env.example)):
 | `SESSION_STRICT_SUBNET` | Restrict sessions to the same `/24` subnet (`0` off, `1` on) | `0` |
 | `MEDIA_MOVIES_PATH` / `MEDIA_SERIES_PATH` | Library mount paths (container side) | `/media/movies`, `/media/series` |
 | `MEDIA_MOVIES_HOST` / `MEDIA_SERIES_HOST` | **Host folder** to bind into the container (set these to your real media folders; survives `install.sh` updates because they live in `.env`) | `/media/movies`, `/media/series` |
-| `FFMPEG_PATH` | Path to the ffmpeg binary | `ffmpeg` |
+| `FFMPEG_PATH` | Path to the ffmpeg binary | Bundled `ffmpeg-static` binary in Docker |
 | `TRANSCODE_TEMP_DIR` | Where transcoded renditions are cached | `./data/transcode-temp` |
 | `TRANSCODE_MAX_CONCURRENT` | Max simultaneous transcodes | `2` |
 | `SCAN_INTERVAL_MINUTES` | Auto-scan interval | `10` |
@@ -440,9 +440,9 @@ curl http://localhost:9000/api/health   # confirms app is healthy
 
 - **Admin Panel:** `http://localhost:9000/admin-panel/login`
 - **Username:** `admin`
-- **Password:** `admin123`
+- **Password:** Read `ADMIN_INITIAL_PASSWORD` from the generated `.env` file.
 
-> ⚠️ **Important:** Change the default password immediately after first login via Admin Panel → Settings → Administrators Roster. The default `admin123` password is only for initial setup convenience.
+The installer generates a unique initial administrator password and protects `.env` with owner-only permissions. Change it after the first login via Admin Panel → Settings → Administrators Roster.
 
 ---
 

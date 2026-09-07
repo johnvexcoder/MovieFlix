@@ -143,51 +143,54 @@ export async function POST(request: NextRequest) {
       expiresAt = expiryDate.toISOString();
     }
 
-    await db.insert(accounts).values({
-      id: accountId,
-      username,
-      email: email || null,
-      fullName: fullName || null,
-      passwordHash,
-      isTemp: isTemp || false,
-      // Force the user to set their own password on first login instead of
-      // relying on a plaintext credential shared over email.
-      mustChangePassword: true,
-      durationHours: durationHours || null,
-      expiresAt,
-      createdByAdminId: payload.profileId,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    });
-
-    // Create default main profile
     const profileId = uuidv4();
-    await db.insert(profiles).values({
-      id: profileId,
-      accountId,
-      name: fullName ? fullName : `${username}'s Profile`,
-      isMainProfile: true,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+    const now = new Date().toISOString();
+
+    // Account, default profile, and its settings are one unit. A transaction
+    // prevents half-created accounts when SQLite is busy or a later insert
+    // fails. better-sqlite3 transactions are synchronous, so use .run().
+    db.transaction((tx) => {
+      tx.insert(accounts).values({
+        id: accountId,
+        username,
+        email: email || null,
+        fullName: fullName || null,
+        passwordHash,
+        isTemp: isTemp || false,
+        mustChangePassword: true,
+        durationHours: durationHours || null,
+        expiresAt,
+        createdByAdminId: payload.profileId,
+        createdAt: now,
+        updatedAt: now,
+      }).run();
+      tx.insert(profiles).values({
+        id: profileId,
+        accountId,
+        name: fullName ? fullName : `${username}'s Profile`,
+        isMainProfile: true,
+        createdAt: now,
+        updatedAt: now,
+      }).run();
+      tx.insert(profileSettings).values({
+        id: uuidv4(),
+        profileId,
+        language: "en",
+        autoplayNext: true,
+        defaultQuality: "auto",
+        subtitleEnabled: false,
+      }).run();
     });
 
-    // Create profile settings
-    await db.insert(profileSettings).values({
-      id: uuidv4(),
-      profileId,
-      language: "en",
-      autoplayNext: true,
-      defaultQuality: "auto",
-      subtitleEnabled: false,
-    });
-
+    // Email delivery must not hold the database request open. The account is
+    // already durable; log delivery failure for the administrator to inspect.
     if (email) {
       const baseUrl = await getAppPublicUrl();
-      await sendEmail({
+      void sendEmail({
         to: email,
         subject: "Welcome to MovieFlix!",
         html: welcomeEmail({ username, fullName, password, baseUrl }),
-      });
+      }).catch((error) => console.error("Welcome email delivery failed:", error));
     }
 
     return successResponse(
@@ -239,25 +242,23 @@ export async function DELETE(request: NextRequest) {
       return errorResponse("Account not found", 404);
     }
 
-    // Clean up any active Redis sessions for this account's profiles so a
-    // deleted account cannot keep watching through a cached session.
-    try {
-      const accountProfilesBefore = await db
-        .select({ id: profiles.id })
-        .from(profiles)
-        .where(eq(profiles.accountId, accountId));
-      const sessionIds = await getActiveSessionsForProfiles(accountProfilesBefore.map((p) => p.id));
-      for (const sid of sessionIds) {
-        await removeActiveSession(sid.profileId, sid.sessionId);
-      }
-    } catch {
-      // Redis may be down; the DB cleanup below is the critical part.
-    }
+    const accountProfilesBefore = await db
+      .select({ id: profiles.id })
+      .from(profiles)
+      .where(eq(profiles.accountId, accountId));
 
     // Delete every dependent row (FK constraints) inside one transaction so the
     // account is never left half-deleted. Shared with the expired-account
     // cleanup service so both paths stay in sync.
     const { deletedProfiles } = await deleteAccountCompletely(accountId);
+
+    // Redis is optional and may be offline. Do not make account deletion wait
+    // on a network timeout after the SQLite transaction has succeeded.
+    void getActiveSessionsForProfiles(accountProfilesBefore.map((p) => p.id))
+      .then((sessionIds) => Promise.allSettled(
+        sessionIds.map((sid) => removeActiveSession(sid.profileId, sid.sessionId))
+      ))
+      .catch(() => {});
 
     return successResponse({ message: "Account deleted successfully", deletedProfiles });
   } catch (error) {

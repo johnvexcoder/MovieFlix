@@ -46,8 +46,7 @@ export function SplashScreen({ onComplete, brandName = "MOVIEFLIX", tagline = "S
         <div className="movieflix-wordmark-window">
           <div className="movieflix-wordmark">
             <div className="movieflix-brand-name">
-              {brandName === "MOVIEFLIX" ? <><span>MOVIE</span><span className="movieflix-flix">FLIX</span>
-                <svg className="movieflix-arrow" viewBox="0 0 70 85" fill="none"><path d="M8 77 L49 22 M30 20 L63 8 L59 44" stroke="#ff891a" strokeWidth="10" strokeLinejoin="miter"/></svg></> : brandName}
+              {brandName === "MOVIEFLIX" ? <><span>MOVIEFLI</span><span className="movieflix-animated-x">X<span className="movieflix-x-extension" /></span></> : brandName}
             </div>
             <p className="movieflix-tagline">{tagline}</p>
           </div>

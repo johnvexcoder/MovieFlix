@@ -4,6 +4,7 @@ services:
     image: movieflix-app
     container_name: movieflix-app
     restart: unless-stopped
+    init: true
     ports:
       - "9000:9000"
     # Hard RAM + swap caps so the container can never take the host down
@@ -18,7 +19,7 @@ services:
       # Redis
       - REDIS_URL=redis://redis:6379
       # Transcoding
-      - FFMPEG_PATH=ffmpeg
+      - FFMPEG_PATH=/app/node_modules/ffmpeg-static/ffmpeg
       - MEDIA_MOVIES_PATH=/media/movies
       - MEDIA_SERIES_PATH=/media/series
       - TRANSCODE_TEMP_DIR=./data/transcode-temp
@@ -29,6 +30,8 @@ services:
       # JWT secrets - MUST be provided, >= 32 chars, via a .env file on the host
       - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET to a random string >= 32 chars in .env}
       - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET to a random string >= 32 chars in .env}
+      - ADMIN_USERNAME=${ADMIN_USERNAME:-admin}
+      - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:?Set ADMIN_INITIAL_PASSWORD to at least 12 characters in .env}
       # Public URL (used for links inside emails)
       - APP_PUBLIC_URL=${APP_PUBLIC_URL:-http://localhost:9000}
       # SMTP - if empty the app still runs but emails are skipped
@@ -51,8 +54,8 @@ services:
       # Host media folders. Set MEDIA_MOVIES_HOST / MEDIA_SERIES_HOST in .env to
       # point at YOUR media library (they are NOT reset by install.sh updates).
       # The left side (host path) is read directly by FFmpeg/native file access.
-      - ${MEDIA_MOVIES_HOST:-/media/movies}:/media/movies
-      - ${MEDIA_SERIES_HOST:-/media/series}:/media/series
+      - ${MEDIA_MOVIES_HOST:-/media/movies}:/media/movies:ro
+      - ${MEDIA_SERIES_HOST:-/media/series}:/media/series:ro
     depends_on:
       - redis
     healthcheck:
@@ -67,8 +70,7 @@ services:
     container_name: movieflix-redis
     restart: unless-stopped
     mem_limit: 256m
-    ports:
-      - "6379:6379"
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "192mb", "--maxmemory-policy", "allkeys-lru"]
     volumes:
       - redis_data:/data
 

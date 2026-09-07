@@ -50,19 +50,34 @@ export async function PUT(request: NextRequest) {
     const { settings } = body;
 
     if (settings && typeof settings === "object") {
+      const publicUrl = settings.app_public_url;
+      if (typeof publicUrl === "string" && publicUrl.trim()) {
+        try {
+          const parsed = new URL(publicUrl.trim());
+          if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+            return errorResponse("Public URL must use http:// or https://", 400);
+          }
+        } catch {
+          return errorResponse("Public URL is not valid", 400);
+        }
+      }
+
       // Upsert each setting. The SMTP password is redacted on GET, so if the
       // admin saves without entering a new password (empty string) we preserve
       // the previously stored value rather than wiping it.
-      for (const [key, value] of Object.entries(settings)) {
-        if (typeof value !== "string") continue;
-        if (key === "smtp_pass" && value.trim() === "") continue;
-        const [existing] = await db.select().from(appSettings).where(eq(appSettings.key, key)).limit(1);
-        if (existing) {
-          await db.update(appSettings).set({ value }).where(eq(appSettings.key, key));
-        } else {
-          await db.insert(appSettings).values({ key, value });
+      db.transaction((tx) => {
+        for (const [key, value] of Object.entries(settings)) {
+          if (typeof value !== "string") continue;
+          if (key === "smtp_pass" && value.trim() === "") continue;
+          tx.insert(appSettings)
+            .values({ key, value: key === "app_public_url" ? value.trim().replace(/\/+$/, "") : value })
+            .onConflictDoUpdate({
+              target: appSettings.key,
+              set: { value: key === "app_public_url" ? value.trim().replace(/\/+$/, "") : value },
+            })
+            .run();
         }
-      }
+      });
     }
 
     return successResponse({ message: "Settings saved successfully" });

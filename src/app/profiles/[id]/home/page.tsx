@@ -84,6 +84,7 @@ export default function ProfileHomePage() {
 
   const featured = homeData?.featured;
   const continueWatching = (homeData?.continueWatching as MediaWithProgress[]) || [];
+  const myList = homeData?.myList || [];
   const recentlyAdded = homeData?.recentlyAdded || [];
   const trending = homeData?.trending || [];
   const genres = homeData?.genres || {};
@@ -128,6 +129,14 @@ export default function ProfileHomePage() {
             />
           )}
 
+          {myList.length > 0 && (
+            <ContentRow
+              title="My List"
+              items={myList}
+              profileId={profileId}
+            />
+          )}
+
           {/* 2. Trending Now in Vault */}
           {trending.length > 0 && (
             <ContentRow
@@ -159,8 +168,8 @@ export default function ProfileHomePage() {
 
           {/* Empty State when no media scanned yet */}
           {carouselItems.length === 0 && continueWatching.length === 0 && recentlyAdded.length === 0 && (
-            <div className="my-16 mx-auto max-w-xl rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-2xl">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-red-500/10 text-[var(--brand)] ring-1 ring-red-500/30">
+            <div className="my-16 mx-auto max-w-xl rounded-3xl border border-white/10 bg-card p-12 text-center shadow-2xl">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-cyan-500/10 text-[var(--brand)] ring-1 ring-cyan-400/30">
                 <Film className="h-8 w-8" />
               </div>
               <h3 className="text-2xl font-bold text-white">Media Vault is Empty</h3>

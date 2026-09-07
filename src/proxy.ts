@@ -104,8 +104,13 @@ function extractIpSubnet(ip: string): string {
 }
 
 function getRedirectUrl(path: string, request: NextRequest): URL {
-  const forwardedHost = request.headers.get("x-forwarded-host") || request.headers.get("host");
-  const forwardedProto = request.headers.get("x-forwarded-proto") || (request.nextUrl.protocol ? request.nextUrl.protocol.replace(":", "") : "http");
+  // Reverse proxies may append comma-separated hop values. Only the first hop
+  // describes the public request that reached Cloudflare/Tailscale.
+  const forwardedHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
+    .split(",")[0].trim();
+  const rawProto = (request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", ""))
+    .split(",")[0].trim().toLowerCase();
+  const forwardedProto = rawProto === "https" ? "https" : "http";
   if (forwardedHost) {
     return new URL(path, `${forwardedProto}://${forwardedHost}`);
   }

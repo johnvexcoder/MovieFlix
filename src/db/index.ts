@@ -4,6 +4,7 @@ import fs from "fs";
 import path from "path";
 import * as schema from "./schema";
 import { v4 as uuidv4 } from "uuid";
+import bcrypt from "bcryptjs";
 
 let _db: ReturnType<typeof drizzle<typeof schema>> | null = null;
 let _sqlite: InstanceType<typeof Database> | null = null;
@@ -21,6 +22,7 @@ export function getDb() {
     }
 
     _sqlite = new Database(DATABASE_PATH);
+    _sqlite.pragma("busy_timeout = 10000");
 
     try {
       _sqlite.pragma("journal_mode = WAL");
@@ -32,6 +34,11 @@ export function getDb() {
 
     try {
       _sqlite.pragma("foreign_keys = ON");
+    } catch {}
+
+    try {
+      _sqlite.pragma("synchronous = NORMAL");
+      _sqlite.pragma("temp_store = MEMORY");
     } catch {}
 
     _db = drizzle(_sqlite, { schema });
@@ -185,6 +192,13 @@ export function setupDatabase() {
       created_at TEXT NOT NULL DEFAULT '',
       updated_at TEXT NOT NULL DEFAULT ''
     );
+    CREATE TABLE IF NOT EXISTS my_list (
+      id TEXT PRIMARY KEY,
+      profile_id TEXT NOT NULL REFERENCES profiles(id),
+      media_id TEXT NOT NULL REFERENCES media(id),
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_my_list_profile_media ON my_list(profile_id, media_id);
     CREATE TABLE IF NOT EXISTS profile_settings (
       id TEXT PRIMARY KEY,
       profile_id TEXT NOT NULL UNIQUE REFERENCES profiles(id),
@@ -306,21 +320,30 @@ export function setupDatabase() {
     console.error("Migrate accounts.email index error:", e);
   }
 
-  // Create default admin/admin123 account if no admins exist
+  // Bootstrap the first administrator. Containers receive a generated secret;
+  // local development retains a documented convenience login.
   try {
     const adminCount = _sqlite.prepare("SELECT count(*) as count FROM admins").get() as { count: number };
     if (adminCount.count === 0) {
-      const adminPasswordHash = "$2b$12$7Uw.WZV9BZzZu.3pG6.xZefujxDf0iQAU8UHBv/uPs8ZhIEPX6VLW";
+      const username = process.env.ADMIN_USERNAME?.trim() || "admin";
+      const configuredPassword = process.env.ADMIN_INITIAL_PASSWORD;
+      if (process.env.NODE_ENV === "production" && (!configuredPassword || configuredPassword.length < 12)) {
+        throw new Error("ADMIN_INITIAL_PASSWORD must contain at least 12 characters for the first production startup");
+      }
+      const initialPassword = configuredPassword || "admin123";
+      const adminPasswordHash = bcrypt.hashSync(initialPassword, 12);
       _sqlite.prepare("INSERT INTO admins (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)").run(
-        "admin",
-        "admin",
+        uuidv4(),
+        username,
         adminPasswordHash,
         new Date().toISOString()
       );
-      console.log("✅ Created default admin account (username: admin, password: admin123)");
-      console.log("⚠️  IMPORTANT: Change the default password after first login!");
+      console.log(`Created initial administrator: ${username}`);
     }
-  } catch {}
+  } catch (error) {
+    console.error("Initial administrator setup failed:", error);
+    throw error;
+  }
 
   try {
     const libCount = _sqlite.prepare("SELECT count(*) as count FROM library_config").get() as { count: number };

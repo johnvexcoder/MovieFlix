@@ -180,7 +180,7 @@ export default function AdminPage() {
 
   async function fetchAccounts() {
     try {
-      const response = await fetch("/api/admin/accounts");
+      const response = await fetch("/api/admin/accounts", { cache: "no-store" });
       const data = await response.json();
 
       if (data.success) {
@@ -249,7 +249,7 @@ export default function AdminPage() {
         setWeeks(null);
         setDays(null);
         setHours(null);
-        fetchAccounts();
+        await fetchAccounts();
       } else {
         alert(data.error || "Failed to create account");
       }
@@ -277,7 +277,7 @@ export default function AdminPage() {
       if (data.success) {
         setExtendAccount(null);
         setAdditionalHours(24);
-        fetchAccounts();
+        await fetchAccounts();
       } else {
         alert(data.error || "Failed to extend account");
       }
@@ -327,7 +327,7 @@ export default function AdminPage() {
 
       const data = await response.json();
       if (data.success) {
-        fetchAccounts();
+        await fetchAccounts();
       } else {
         alert(data.error || "Failed to delete account");
       }
@@ -352,7 +352,7 @@ export default function AdminPage() {
 
       const data = await response.json();
       if (data.success) {
-        fetchAccounts();
+        await fetchAccounts();
       } else {
         alert(data.error || `Failed to ${action.toLowerCase()} account`);
       }
@@ -428,16 +428,16 @@ export default function AdminPage() {
   const totalProfiles = accounts.reduce((sum, a) => sum + a.profileCount, 0);
 
   return (
-    <div className="min-h-screen bg-[#070709] text-white select-none">
+    <div className="cinematic-bg min-h-screen text-white select-none">
       {/* Top Ambient Glow */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-red-600/10 via-purple-600/5 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-cyan-500/10 via-fuchsia-600/5 to-transparent" />
 
       <div className="relative mx-auto max-w-7xl px-4 sm:px-8 py-8">
         {/* Top Navigation Bar */}
         <div className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-white/10 pb-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-[var(--brand)] to-[#800208] shadow-lg shadow-red-950/60 ring-1 ring-white/20">
-              <Shield className="h-6 w-6 text-white" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-cyan-300 via-blue-500 to-fuchsia-500 shadow-lg shadow-cyan-950/60 ring-1 ring-white/20">
+              <Shield className="h-6 w-6 text-slate-950" />
             </div>
             <div>
               <div className="flex items-center gap-2">

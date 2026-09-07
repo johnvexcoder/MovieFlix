@@ -27,8 +27,11 @@ export function MovieFlixLogo({ className = "h-8 w-8", size = 48 }: MovieFlixLog
           <stop stopColor="#02efff"/><stop offset=".5" stopColor="#096bd9"/><stop offset="1" stopColor="#5314a8"/>
         </linearGradient>
       </defs>
-      <path d="M12 99 C51 109 68 39 121 30 L151 51 C81 42 61 132 12 99Z" fill={`url(#${id}-warm)`}/>
-      <path d="M10 127 Q47 132 74 96 L85 119 Q38 157 10 143Z" fill={`url(#${id}-ribbon)`}/>
+      <g className="movieflix-flames">
+        <path d="M7 92 C43 99 61 57 101 41 C72 68 64 103 25 113 C39 104 44 98 47 91 C33 99 18 98 7 92Z" fill={`url(#${id}-warm)`}/>
+        <path d="M4 121 C39 129 59 91 91 72 C71 96 59 127 22 139 C34 130 40 124 43 117 C29 125 15 125 4 121Z" fill={`url(#${id}-ribbon)`}/>
+        <path d="M10 149 C37 155 55 127 76 111 C62 132 48 153 22 161 C30 155 35 151 38 146 C27 151 18 152 10 149Z" fill="#20caff"/>
+      </g>
       <g className="movieflix-disc">
         <circle cx="139" cy="72" r="57" fill={`url(#${id}-disc)`} stroke="#daffff" strokeWidth="3"/>
         <path d="M104 49 l-6 11 M131 29 q8-2 15 0 M174 45 l6 12" stroke="#073071" strokeWidth="10" strokeLinecap="round"/>

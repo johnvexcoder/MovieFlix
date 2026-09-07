@@ -43,6 +43,20 @@ interface Episode {
 interface MediaDetail extends Media {
   seasons?: Season[];
   episodes?: Episode[];
+  recommendations?: Recommendation[];
+}
+
+interface Recommendation {
+  id: string;
+  type: string;
+  title: string;
+  year: number | null;
+  overview: string | null;
+  genres: string | null;
+  rating: number | null;
+  posterUrl: string | null;
+  backdropUrl: string | null;
+  recommendationReason: string;
 }
 
 export default function MediaDetailPage() {
@@ -56,11 +70,38 @@ export default function MediaDetailPage() {
   const [loading, setLoading] = useState(true);
   const [selectedSeason, setSelectedSeason] = useState<number>(1);
   const [inList, setInList] = useState(false);
+  const [listUpdating, setListUpdating] = useState(false);
 
   useEffect(() => {
     checkAuth();
     fetchMedia();
   }, [mediaId]);
+
+  useEffect(() => {
+    let active = true;
+    fetch(`/api/my-list?mediaId=${encodeURIComponent(mediaId)}`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => { if (active && data.success) setInList(Boolean(data.data?.inList)); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [mediaId]);
+
+  async function toggleMyList() {
+    if (listUpdating) return;
+    setListUpdating(true);
+    try {
+      const response = await fetch(
+        inList ? `/api/my-list?mediaId=${encodeURIComponent(mediaId)}` : "/api/my-list",
+        inList
+          ? { method: "DELETE" }
+          : { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ mediaId }) }
+      );
+      const data = await response.json();
+      if (response.ok && data.success) setInList(Boolean(data.data?.inList));
+    } finally {
+      setListUpdating(false);
+    }
+  }
 
   async function checkAuth() {
     try {
@@ -252,10 +293,11 @@ export default function MediaDetailPage() {
                 <Button
                   size="lg"
                   variant="outline"
-                  onClick={() => setInList(!inList)}
+                  onClick={toggleMyList}
+                  disabled={listUpdating}
                   className="rounded-xl border-white/20 bg-white/5 h-13 px-6 text-sm font-semibold text-white hover:bg-white/15"
                 >
-                  {inList ? <Check className="mr-2 h-4 w-4 text-emerald-400" /> : <Plus className="mr-2 h-4 w-4" />}
+                  {listUpdating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : inList ? <Check className="mr-2 h-4 w-4 text-emerald-400" /> : <Plus className="mr-2 h-4 w-4" />}
                   {inList ? "In My List" : "Add to List"}
                 </Button>
               </div>
@@ -280,7 +322,7 @@ export default function MediaDetailPage() {
                     onClick={() => setSelectedSeason(season.seasonNumber)}
                     className={`rounded-xl px-4 py-2 text-xs font-bold transition-all ${
                       selectedSeason === season.seasonNumber
-                        ? "bg-primary text-primary-foreground text-white shadow-lg shadow-red-950/60"
+                        ? "bg-primary text-primary-foreground shadow-lg shadow-cyan-950/60"
                         : "bg-white/5 text-neutral-400 hover:bg-white/10 hover:text-white"
                     }`}
                   >
@@ -302,7 +344,7 @@ export default function MediaDetailPage() {
                       `/profiles/${profileId}/watch/${media.id}?episode=${episode.id}`
                     )
                   }
-                  className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-2xl border border-white/10 bg-[#121215]/80 p-4 transition-all duration-200 hover:border-white/30 hover:bg-[#18181f] cursor-pointer"
+                  className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-2xl border border-white/10 bg-card/80 p-4 transition-all duration-200 hover:border-cyan-300/30 hover:bg-secondary cursor-pointer"
                 >
                   {/* Episode Thumbnail */}
                   <div className="relative aspect-video w-full sm:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-900 shadow-md">
@@ -328,7 +370,7 @@ export default function MediaDetailPage() {
                   {/* Episode Info */}
                   <div className="flex-1 min-w-0 space-y-1">
                     <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-white group-hover:text-red-400 transition-colors">
+                      <h3 className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">
                         {episode.episodeNumber}. {episode.title || "Episode"}
                       </h3>
                       {episode.durationMinutes && (
@@ -348,6 +390,47 @@ export default function MediaDetailPage() {
                 No episode files scanned for Season {selectedSeason} yet.
               </div>
             )}
+          </div>
+        </section>
+      )}
+
+      {media.recommendations && media.recommendations.length > 0 && (
+        <section className="mx-auto max-w-7xl px-4 pb-20 sm:px-8 md:px-16">
+          <div className="mb-6 flex items-center gap-3 border-b border-white/10 pb-4">
+            <Sparkles className="h-5 w-5 text-cyan-300" />
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-white">More Like This</h2>
+              <p className="mt-1 text-sm text-neutral-400">Three picks based on this title&apos;s genres and format.</p>
+            </div>
+          </div>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {media.recommendations.map((item) => (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => router.push(`/profiles/${profileId}/media/${item.id}`)}
+                className="group overflow-hidden rounded-2xl border border-white/10 bg-card text-left shadow-xl transition-all duration-300 hover:-translate-y-1 hover:border-cyan-300/40 hover:shadow-[0_18px_45px_rgba(0,210,245,0.12)] focus-visible:border-cyan-300"
+              >
+                <div className="relative aspect-video overflow-hidden bg-secondary">
+                  <img
+                    src={`/api/media/${item.id}/image?kind=backdrop`}
+                    alt=""
+                    className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
+                    loading="lazy"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-transparent to-transparent" />
+                  <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                    {item.rating && <span className="rounded-full bg-black/70 px-2 py-1 text-xs font-bold text-amber-300">★ {item.rating.toFixed(1)}</span>}
+                    {item.year && <span className="rounded-full bg-black/70 px-2 py-1 text-xs font-semibold text-white">{item.year}</span>}
+                  </div>
+                </div>
+                <div className="p-5">
+                  <h3 className="text-lg font-bold text-white group-hover:text-cyan-200">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-relaxed text-neutral-300">{item.recommendationReason}</p>
+                  {item.overview && <p className="mt-3 line-clamp-2 text-xs leading-relaxed text-neutral-500">{item.overview}</p>}
+                </div>
+              </button>
+            ))}
           </div>
         </section>
       )}

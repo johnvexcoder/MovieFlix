@@ -72,7 +72,7 @@ export default function AdminLoginPage() {
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#070709] px-4 py-12 select-none">
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/3 left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-600/10 blur-[150px]" />
+        <div className="absolute top-1/3 left-1/2 h-[500px] w-[500px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/10 blur-[150px]" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff06_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
 
@@ -84,7 +84,7 @@ export default function AdminLoginPage() {
       >
         {restoring ? (
           <div className="glass-panel flex min-h-[340px] flex-col items-center justify-center gap-4 rounded-3xl p-8">
-            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-red-500/10 ring-1 ring-red-500/30">
+            <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-cyan-500/10 ring-1 ring-cyan-400/30">
               <Loader2 className="h-7 w-7 animate-spin text-[var(--brand)]" />
             </div>
             <p className="text-sm font-medium text-neutral-400 animate-pulse">

@@ -33,7 +33,13 @@ export async function getSetting<T>(key: string, fallback: T): Promise<T> {
 export async function getAppPublicUrl(): Promise<string> {
   const stored = await getSetting<string>("app_public_url", "");
   const candidate = stored?.trim() || process.env.APP_PUBLIC_URL?.trim() || "http://localhost:9000";
-  return candidate.replace(/\/+$/, "");
+  try {
+    const url = new URL(candidate);
+    if (url.protocol === "http:" || url.protocol === "https:") {
+      return url.toString().replace(/\/+$/, "");
+    }
+  } catch {}
+  return "http://localhost:9000";
 }
 
 export async function getMaxSessions(): Promise<number> {

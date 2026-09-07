@@ -28,9 +28,9 @@ export async function DELETE(
     }
 
     // message_views.message_id references this row (FK), so drop those first.
-    await db.transaction(async (tx) => {
-      await tx.delete(messageViews).where(eq(messageViews.messageId, id));
-      await tx.delete(adminMessages).where(eq(adminMessages.id, id));
+    db.transaction((tx) => {
+      tx.delete(messageViews).where(eq(messageViews.messageId, id)).run();
+      tx.delete(adminMessages).where(eq(adminMessages.id, id)).run();
     });
     return successResponse({ message: "Message deleted" });
   } catch (error) {

@@ -100,7 +100,7 @@ function AvatarBrowser({
           onClick={() => setCategory(null)}
           className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
             category === null
-              ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/50"
+              ? "bg-primary text-primary-foreground shadow-md shadow-cyan-950/50"
               : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
           }`}
         >
@@ -113,7 +113,7 @@ function AvatarBrowser({
             onClick={() => setCategory(cat)}
             className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
               category === cat
-                ? "bg-primary text-primary-foreground text-white shadow-md shadow-red-950/50"
+                ? "bg-primary text-primary-foreground shadow-md shadow-cyan-950/50"
                 : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
             }`}
           >
@@ -152,7 +152,7 @@ function AvatarBrowser({
                     onClick={() => onSelect(option.id)}
                     className={`aspect-square overflow-hidden rounded-xl transition-all duration-200 hover:scale-110 ${
                       value === option.id
-                        ? "scale-105 ring-2 ring-[var(--brand)] ring-offset-2 ring-offset-[#121215] shadow-lg shadow-red-950/50"
+                        ? "scale-105 ring-2 ring-[var(--brand)] ring-offset-2 ring-offset-card shadow-lg shadow-cyan-950/50"
                         : "opacity-75 hover:opacity-100"
                     }`}
                   >
@@ -472,7 +472,7 @@ export default function ProfilesPage() {
     <div className="cinematic-bg relative flex min-h-screen flex-col items-center justify-center px-4 py-12 select-none">
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute top-1/3 left-1/2 h-[550px] w-[550px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-red-600/10 blur-[160px]" />
+        <div className="absolute top-1/3 left-1/2 h-[550px] w-[550px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/12 blur-[160px]" />
       </div>
 
       <motion.div

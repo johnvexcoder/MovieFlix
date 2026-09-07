@@ -7,9 +7,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-inter, Arial), sans-serif;
-  --font-mono: var(--font-mono);
-  --font-heading: var(--font-inter, Arial), sans-serif;
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --font-heading: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --color-brand: var(--brand);
   --color-brand-hover: var(--brand-hover);
   --color-brand-soft: var(--brand-soft);
@@ -219,7 +219,7 @@ select {
 
 /* Brand Button Treatments */
 .btn-brand {
-  @apply relative inline-flex items-center justify-center gap-2 rounded-lg bg-[#00d2f5] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-red-950/40 transition-all duration-200 hover:bg-[#66e8ff] hover:shadow-red-600/30 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
+  @apply relative inline-flex items-center justify-center gap-2 rounded-lg px-6 py-3 text-sm font-semibold shadow-lg shadow-cyan-950/40 transition-all duration-200 hover:shadow-cyan-500/25 hover:shadow-xl active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none;
 }
 
 .btn-secondary-netflix {
@@ -232,7 +232,7 @@ select {
 }
 
 .badge-netflix-red {
-  @apply inline-flex items-center rounded bg-[#00d2f5] px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-white uppercase shadow-sm shadow-red-900/60;
+  @apply inline-flex items-center rounded bg-[#00d2f5] px-1.5 py-0.5 text-[10px] font-extrabold tracking-wider text-slate-950 uppercase shadow-sm shadow-cyan-900/60;
 }
 
 /* Text Shimmer Gradient */
@@ -280,32 +280,47 @@ select {
 .movieflix-lockup { position: relative; width: min(90vw, 1050px); aspect-ratio: 4 / 1.25; }
 .movieflix-intro-mark {
   position: absolute; z-index: 2; width: 27%; height: auto; aspect-ratio: 1; left: 0; top: 0;
-  animation: movieflix-enter 1.7s cubic-bezier(.22,1,.36,1) both;
+  animation: movieflix-enter 2.05s cubic-bezier(.22,1,.36,1) both;
 }
 .movieflix-disc { transform-origin: 139px 72px; }
-.movieflix-splash .movieflix-disc { animation: movieflix-spin 1.05s .8s cubic-bezier(.22,1,.36,1) both; }
+.movieflix-splash .movieflix-disc { animation: movieflix-spin 1.2s .82s cubic-bezier(.33,1,.68,1) both; }
+.movieflix-splash .movieflix-flames { animation: movieflix-flame-pulse 1.2s .82s ease-in-out both; transform-origin: 82px 103px; }
 .movieflix-wordmark-window { position: absolute; left: 28%; right: 0; top: 20%; overflow: hidden; padding-top: 5%; margin-top: -5%; }
-.movieflix-wordmark { animation: movieflix-reveal .85s 1.65s cubic-bezier(.22,1,.36,1) both; }
+.movieflix-wordmark { animation: movieflix-reveal 1.05s 1.02s cubic-bezier(.22,1,.36,1) both; }
 .movieflix-brand-name { position: relative; width: max-content; font-weight: 900; font-size: clamp(20px, 11.5vw, 134px); line-height: 1.12; letter-spacing: -.055em; color: #04dcff; text-shadow: 0 0 22px #00baff55; }
-.movieflix-flix { color: #ff8a18; text-shadow: 0 0 22px #ff4d0055; }
-.movieflix-arrow { position: absolute; right: -3%; top: -35%; width: 10%; height: 75%; overflow: visible; filter: drop-shadow(0 0 6px #ff790080); animation: movieflix-arrow-rise .55s 2.55s ease-out both; }
-.movieflix-tagline { text-align: center; margin-top: .65em; font-size: clamp(9px, 2.65vw, 30px); font-weight: 700; letter-spacing: .21em; animation: movieflix-tagline-in .65s 3.15s ease-out both; }
+.movieflix-animated-x { position: relative; display: inline-block; color: #ff7a16; text-shadow: 0 0 8px #ff6b0088, 0 0 22px #ff6b004d; }
+.movieflix-x-extension { position: absolute; z-index: 2; left: 52%; bottom: 52%; width: .66em; height: .145em; border-radius: .02em; background: linear-gradient(90deg, #ff7517, #ff9d16); box-shadow: 0 0 .08em #ff6b00, 0 0 .18em #ff6b0080; transform: rotate(-52deg) scaleX(0); transform-origin: left center; animation: movieflix-arrow-rise .48s 2.45s cubic-bezier(.22,1,.36,1) forwards; }
+.movieflix-x-extension::after { content: ""; position: absolute; right: -.02em; top: 50%; width: .4em; height: .4em; border-top: .145em solid #ff9818; border-right: .145em solid #ff9818; filter: drop-shadow(0 0 .06em #ff6b00); opacity: 0; transform: translate(13%, -50%) rotate(45deg) scale(.65); animation: movieflix-arrow-head-in .25s 2.78s cubic-bezier(.22,1,.36,1) forwards; }
+.movieflix-tagline { text-align: center; margin-top: .65em; font-size: clamp(9px, 2.65vw, 30px); font-weight: 700; letter-spacing: .21em; animation: movieflix-tagline-in .7s 3s ease-out both; }
 .movieflix-skip { position: absolute; right: max(24px, env(safe-area-inset-right)); bottom: max(24px, env(safe-area-inset-bottom)); min-height: 44px; padding: 10px 20px; border: 1px solid #7796bb55; border-radius: 999px; background: #101b3180; font-size: 13px; cursor: pointer; }
 .movieflix-skip:hover { background: #1b2b46; border-color: #00d2f5; }
 @keyframes movieflix-enter {
-  0% { transform: translateX(135%) scale(.15); opacity: 0; }
-  40%, 50% { transform: translateX(135%) scale(1.2); opacity: 1; }
+  0% { transform: translateX(135%) scale(.12); opacity: 0; }
+  38% { transform: translateX(135%) scale(1.14); opacity: 1; }
+  48% { transform: translateX(135%) scale(1); opacity: 1; }
   100% { transform: translateX(0) scale(1); opacity: 1; }
 }
-@keyframes movieflix-spin { from { transform: rotate(-360deg); } to { transform: rotate(0); } }
+@keyframes movieflix-spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes movieflix-flame-pulse { 0%, 100% { transform: scaleX(1); } 45% { transform: scaleX(1.09); } }
 @keyframes movieflix-reveal { from { transform: translateX(-110%); } to { transform: translateX(0); } }
-@keyframes movieflix-arrow-rise { from { opacity: 0; transform: translate(-12px, 22px); } to { opacity: 1; transform: translate(0, 0); } }
+@keyframes movieflix-arrow-rise { to { transform: rotate(-52deg) scaleX(1); } }
+@keyframes movieflix-arrow-head-in { to { opacity: 1; transform: translate(13%, -50%) rotate(45deg) scale(1); } }
 @keyframes movieflix-tagline-in { from { opacity: 0; } to { opacity: 1; } }
 @media (prefers-reduced-motion: reduce) {
   html { scroll-behavior: auto; }
   *, *::before, *::after { animation-duration: .01ms !important; animation-delay: 0ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
-  .movieflix-intro-mark, .movieflix-wordmark, .movieflix-disc, .movieflix-arrow, .movieflix-tagline { animation: none !important; transform: none; opacity: 1; }
+  .movieflix-intro-mark, .movieflix-wordmark, .movieflix-disc, .movieflix-flames, .movieflix-tagline { animation: none !important; transform: none; opacity: 1; }
+  .movieflix-x-extension { animation: none !important; transform: rotate(-52deg) scaleX(1); }
+  .movieflix-x-extension::after { animation: none !important; opacity: 1; transform: translate(13%, -50%) rotate(45deg) scale(1); }
 }
 
-.movieflix-brand-name > span:first-child { background: linear-gradient(180deg, #00edff 15%, #0097e5 80%, #4beaff); background-clip: text; -webkit-background-clip: text; color: transparent; }
-.movieflix-brand-name > .movieflix-flix { background: linear-gradient(180deg, #ffba31, #ff690b 65%, #f6432b); background-clip: text; -webkit-background-clip: text; color: transparent; }
+.movieflix-brand-name > span:first-child { background: linear-gradient(90deg, #00eaff 0%, #00b8f5 61%, #ff9b1d 62%, #ff6120 100%); background-clip: text; -webkit-background-clip: text; color: transparent; }
+
+.movieflix-player button,
+.movieflix-player [role="button"],
+.movieflix-player input[type="range"] {
+  touch-action: manipulation;
+}
+@media (pointer: coarse) {
+  .movieflix-player button { min-width: 44px; min-height: 44px; }
+}

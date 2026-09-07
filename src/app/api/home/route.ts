@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
-import { media, watchHistory, profileSettings } from "@/db/schema";
+import { media, watchHistory, myList } from "@/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -61,6 +61,13 @@ export async function GET(request: NextRequest) {
       })
       .filter(Boolean);
 
+    const savedEntries = await db.select({ mediaId: myList.mediaId })
+      .from(myList)
+      .where(eq(myList.profileId, payload.profileId))
+      .orderBy(desc(myList.createdAt));
+    const savedIds = new Set(savedEntries.map((entry) => entry.mediaId));
+    const saved = allMedia.filter((item) => savedIds.has(item.id));
+
     // Recently added (last 20)
     const recentlyAdded = allMedia.slice(0, 20);
 
@@ -103,6 +110,7 @@ export async function GET(request: NextRequest) {
       featured,
       newReleases,
       continueWatching,
+      myList: saved,
       recentlyAdded,
       trending,
       genres,

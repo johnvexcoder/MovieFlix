@@ -158,7 +158,7 @@ function SearchContent() {
             <Loader2 className="h-10 w-10 animate-spin text-[var(--brand)]" />
           </div>
         ) : !searched ? (
-          <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-xl">
+          <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-card p-12 text-center shadow-xl">
             <Search className="mx-auto mb-4 h-12 w-12 text-neutral-600" />
             <h3 className="text-xl font-bold text-white">Search Vault</h3>
             <p className="mt-2 text-xs text-neutral-400">
@@ -166,7 +166,7 @@ function SearchContent() {
             </p>
           </div>
         ) : results.length === 0 ? (
-          <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-[#121215] p-12 text-center shadow-xl">
+          <div className="mx-auto max-w-md rounded-3xl border border-white/10 bg-card p-12 text-center shadow-xl">
             <Film className="mx-auto mb-4 h-12 w-12 text-neutral-600" />
             <h3 className="text-xl font-bold text-white">No Results Found</h3>
             <p className="mt-2 text-xs text-neutral-400">

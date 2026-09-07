@@ -13,15 +13,15 @@ interface SmtpSettings {
 
 export async function getSmtpSettings(): Promise<SmtpSettings> {
   const settings = await db.select().from(appSettings);
-  const config: any = {};
+  const config: Record<string, string> = {};
   for (const s of settings) {
     if (s.key.startsWith("smtp_")) {
-      config[s.key.replace("smtp_", "")] = s.value;
+      if (s.value != null) config[s.key.replace("smtp_", "")] = s.value;
     }
   }
   return {
     host: config.host || process.env.SMTP_HOST,
-    port: parseInt(config.port || process.env.SMTP_PORT || "587"),
+    port: Number.parseInt(config.port || process.env.SMTP_PORT || "587", 10),
     user: config.user || process.env.SMTP_USER,
     pass: config.pass || process.env.SMTP_PASS,
     from: config.from || process.env.SMTP_FROM || "noreply@movieflix.local",
@@ -30,7 +30,7 @@ export async function getSmtpSettings(): Promise<SmtpSettings> {
 
 export async function sendEmail({ to, subject, html }: { to: string; subject: string; html: string }) {
   const config = await getSmtpSettings();
-  if (!config.host || !config.user || !config.pass) {
+  if (!config.host || !config.user || !config.pass || !config.port || config.port < 1 || config.port > 65535) {
     console.warn("SMTP not fully configured. Skipping email to", to);
     return false;
   }
@@ -43,6 +43,9 @@ export async function sendEmail({ to, subject, html }: { to: string; subject: st
       user: config.user,
       pass: config.pass,
     },
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
   });
 
   try {
