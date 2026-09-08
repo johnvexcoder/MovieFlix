@@ -102,22 +102,58 @@ export async function setRateLimit(
   windowMs: number,
   maxRequests: number
 ): Promise<{ allowed: boolean; remaining: number }> {
-  const client = getRedisClient();
   const now = Date.now();
   const windowStart = now - windowMs;
+  // Namespace revisions isolate this implementation from keys written by old
+  // MovieFlix releases. A legacy string/list at the same key previously made
+  // MULTI/EXEC abort and took down every user and admin login.
+  const redisKey = `rate_limit:v2:${key}`;
+  const member = `${now}:${Math.random().toString(36).slice(2)}`;
+  const ttlSeconds = Math.max(1, Math.ceil(windowMs / 1000));
 
-  const multi = client.multi();
-  multi.zremrangebyscore(key, 0, windowStart);
-  multi.zadd(key, now.toString(), now.toString());
-  multi.zcard(key);
-  multi.expire(key, Math.ceil(windowMs / 1000));
+  try {
+    const client = getRedisClient();
+    const script = `
+      local kind = redis.call('TYPE', KEYS[1]).ok
+      if kind ~= 'none' and kind ~= 'zset' then redis.call('DEL', KEYS[1]) end
+      redis.call('ZREMRANGEBYSCORE', KEYS[1], 0, ARGV[1])
+      redis.call('ZADD', KEYS[1], ARGV[2], ARGV[3])
+      local count = redis.call('ZCARD', KEYS[1])
+      redis.call('EXPIRE', KEYS[1], ARGV[4])
+      return count
+    `;
+    const count = Number(await client.eval(script, 1, redisKey, windowStart, now, member, ttlSeconds));
+    return { allowed: count <= maxRequests, remaining: Math.max(0, maxRequests - count) };
+  } catch (error) {
+    console.error("Redis rate-limit unavailable; using process-local limiter:", error);
+    return applyLocalRateLimit(redisKey, now, windowStart, maxRequests, windowMs);
+  }
+}
 
-  const results = await multi.exec();
-  const count = (results?.[2]?.[1] as number) || 0;
+const localRateLimits = new Map<string, number[]>();
+
+function applyLocalRateLimit(
+  key: string,
+  now: number,
+  windowStart: number,
+  maxRequests: number,
+  windowMs: number
+): { allowed: boolean; remaining: number } {
+  const recent = (localRateLimits.get(key) || []).filter((timestamp) => timestamp > windowStart);
+  recent.push(now);
+  localRateLimits.set(key, recent);
+
+  // Bound fallback memory even during a prolonged Redis outage.
+  if (localRateLimits.size > 10_000) {
+    for (const [candidate, timestamps] of localRateLimits) {
+      if (!timestamps.some((timestamp) => timestamp > now - windowMs)) localRateLimits.delete(candidate);
+      if (localRateLimits.size <= 8_000) break;
+    }
+  }
 
   return {
-    allowed: count <= maxRequests,
-    remaining: Math.max(0, maxRequests - count),
+    allowed: recent.length <= maxRequests,
+    remaining: Math.max(0, maxRequests - recent.length),
   };
 }
 
