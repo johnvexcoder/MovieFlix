@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
+import path from "path";
 import { db } from "@/db";
 import { media, episodes } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -50,11 +51,11 @@ async function resolveTargetFile(id: string, episodeId: string | null) {
 }
 
 /**
- * GET /api/media/[id]/transcode/<height>/video.mp4
+ * GET /api/media/[id]/transcode/<height>/index.m3u8 (and its .ts segments)
  *
- * Transcodes (on demand, cached) the source to a fragmented MP4 at the given
- * height and streams it with range + download protection. Returns 503 with
- * Retry-After while the rendition is still being produced.
+ * Transcodes the source into an HLS playlist at the requested height and
+ * serves completed transport-stream segments as they become available.
+ * Returns 503 with Retry-After until the first segment is ready.
  */
 export async function GET(
   request: NextRequest,
@@ -84,19 +85,32 @@ export async function GET(
     if (!availableHeights(sourceHeight).includes(height)) {
       return new NextResponse("Unsupported quality", { status: 400 });
     }
-    if (p[1] !== "video.mp4") {
+    const assetName = p[1];
+    if (assetName !== "index.m3u8" && !/^segment-\d{5}\.ts$/.test(assetName)) {
       return new NextResponse("Not found", { status: 404 });
     }
 
     // Ensure transcode is playable (kicks off on first request; cached after)
-    await ensureTranscode(targetFilePath, height);
+    if (assetName === "index.m3u8") await ensureTranscode(targetFilePath, height);
 
-    const file = renditionFile(key, height);
+    const file = assetName === "index.m3u8"
+      ? renditionFile(key, height)
+      : path.join(path.dirname(renditionFile(key, height)), assetName);
     if (!isRenditionReady(key, height) || !fs.existsSync(file)) {
       return new NextResponse("Transcoding in progress", {
         status: 503,
         headers: { "Retry-After": "2" },
       });
+    }
+
+    if (assetName === "index.m3u8") {
+      let manifest = fs.readFileSync(file, "utf8");
+      if (episodeId) manifest = manifest.replace(/^(segment-\d{5}\.ts)$/gm, `$1?episode=${encodeURIComponent(episodeId)}`);
+      return new NextResponse(manifest, { headers: {
+        "Content-Type": "application/vnd.apple.mpegurl",
+        "Cache-Control": "private, no-cache, no-store",
+        "X-Content-Type-Options": "nosniff",
+      }});
     }
 
     const stat = fs.statSync(file);
@@ -120,7 +134,7 @@ export async function GET(
         status: 200,
         headers: {
           "Content-Length": String(fileSize),
-          "Content-Type": "video/mp4",
+          "Content-Type": "video/mp2t",
           "Accept-Ranges": "bytes",
           "X-Content-Type-Options": "nosniff",
           "Content-Disposition": "inline",
@@ -168,7 +182,7 @@ export async function GET(
       headers: {
         "Content-Range": `bytes ${start}-${end}/${fileSize}`,
         "Content-Length": String(chunkSize),
-        "Content-Type": "video/mp4",
+        "Content-Type": "video/mp2t",
         "Accept-Ranges": "bytes",
         "X-Content-Type-Options": "nosniff",
         "Content-Disposition": "inline",

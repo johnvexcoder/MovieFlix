@@ -28,6 +28,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { MessageToast } from "@/components/account/message-toast";
 import type { Profile, Media } from "@/types";
+import Hls from "hls.js";
 
 interface Season {
   id: string;
@@ -141,6 +142,8 @@ export default function WatchPage() {
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [preparingQuality, setPreparingQuality] = useState(false);
   const preparingAbortRef = useRef<AbortController | null>(null);
+  const preparingQualityRef = useRef(false);
+  const hlsRef = useRef<Hls | null>(null);
   // Latest values for the error-recovery handler: keeps the <video> listener
   // effect's dependency list stable while still avoiding stale closures.
   const latestValuesRef = useRef({ activeQuality, qualityHeights });
@@ -193,7 +196,7 @@ export default function WatchPage() {
   }, []);
 
   // Build the transcode base URL for this media/episode
-  const transcodeBase = `/api/media/${mediaId}/transcode${episodeParam ? `?episode=${episodeParam}` : ""}`;
+  const transcodeBase = `/api/media/${mediaId}/transcode`;
 
   useEffect(() => {
     checkAuth();
@@ -494,6 +497,12 @@ export default function WatchPage() {
     const onError = () => {
       const err = video.error;
       if (err && err.code === MediaError.MEDIA_ERR_ABORTED) return;
+
+      // The old source can emit one or more delayed error events after an
+      // automatic compatibility transcode has started. Those events belong to
+      // the abandoned source and must not replace the preparation screen with
+      // a terminal playback error.
+      if (preparingQualityRef.current) return;
       setBuffering(false);
       setPlaying(false);
       const failedPos = video.currentTime || lastPositionRef.current;
@@ -508,7 +517,7 @@ export default function WatchPage() {
         !autoFallbackDoneRef.current
       ) {
         autoFallbackDoneRef.current = true;
-        const autoHeight = latest.qualityHeights.find((h) => h <= 1080) ?? latest.qualityHeights[0];
+        const autoHeight = latest.qualityHeights.find((h) => h <= 720) ?? latest.qualityHeights[latest.qualityHeights.length - 1];
         void actionRefs.current?.switchQuality(autoHeight);
         return;
       }
@@ -771,9 +780,22 @@ export default function WatchPage() {
     setRecoverAttempts(0);
     // The user explicitly asked to retry: re-enable autoplay for the reload.
     userPausedRef.current = false;
+    desiredPlayingRef.current = true;
+    if (typeof activeQuality === "number") {
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+      void actionRefs.current?.switchQuality(activeQuality);
+      return;
+    }
     // Bump key to force a clean re-init of the <video> element
     setStreamKey((k) => k + 1);
     lastPositionRef.current = resumePos;
+  }, [activeQuality]);
+
+  useEffect(() => () => {
+    preparingAbortRef.current?.abort();
+    hlsRef.current?.destroy();
+    hlsRef.current = null;
   }, []);
 
   // When streamKey changes, recreate the src and resume
@@ -801,10 +823,11 @@ export default function WatchPage() {
       const keepPos = video.currentTime || lastPositionRef.current || 0;
 
       setPreparingQuality(true);
+      preparingQualityRef.current = true;
       setShowQualityMenu(false);
       setBuffering(true);
 
-      const url = `${transcodeBase}/${height}/video.mp4`;
+      const url = `${transcodeBase}/${height}/index.m3u8${episodeParam ? `?episode=${encodeURIComponent(episodeParam)}` : ""}`;
       const abort = new AbortController();
       preparingAbortRef.current = abort;
 
@@ -821,7 +844,8 @@ export default function WatchPage() {
             lastPositionRef.current = keepPos;
             initialSeekDoneRef.current = false;
             const prev = video.currentTime;
-            video.src = url;
+            hlsRef.current?.destroy();
+            hlsRef.current = null;
             setStreamUrl(url);
             setActiveQuality(height);
             // Wait for metadata then restore position
@@ -832,28 +856,61 @@ export default function WatchPage() {
               if (desiredPlayingRef.current) video.play().catch(() => {});
               setBuffering(false);
               setPreparingQuality(false);
+              preparingQualityRef.current = false;
               video.removeEventListener("loadedmetadata", onMeta);
             };
             video.addEventListener("loadedmetadata", onMeta);
+            if (Hls.isSupported()) {
+              const hls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                backBufferLength: 30,
+                manifestLoadingMaxRetry: 6,
+                fragLoadingMaxRetry: 6,
+              });
+              hlsRef.current = hls;
+              hls.loadSource(url);
+              hls.attachMedia(video);
+              hls.on(Hls.Events.ERROR, (_event, data) => {
+                if (!data.fatal) return;
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+                else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+                else {
+                  preparingQualityRef.current = false;
+                  setBuffering(false);
+                  setStreamError("The compatible stream could not continue. Tap to retry.");
+                }
+              });
+            } else {
+              // Safari and many Smart TVs play HLS natively.
+              video.src = url;
+              video.load();
+            }
             if (prev > 0) video.currentTime = keepPos;
-            video.load();
             return;
           }
           await new Promise((r) => setTimeout(r, 1500));
         }
         setBuffering(false);
         setPreparingQuality(false);
+        preparingQualityRef.current = false;
+        setStreamError("The compatible stream is still being prepared. Tap retry in a moment.");
       } catch {
         setBuffering(false);
         setPreparingQuality(false);
+        preparingQualityRef.current = false;
+        if (!abort.signal.aborted) setStreamError("Could not prepare a compatible stream. Tap to retry.");
       }
     },
-    [transcodeBase, refreshSession]
+    [transcodeBase, episodeParam, refreshSession]
   );
 
   // Switch back to the source stream (native range streaming)
   const switchToSource = useCallback(() => {
     if (preparingAbortRef.current) preparingAbortRef.current.abort();
+    preparingQualityRef.current = false;
+    hlsRef.current?.destroy();
+    hlsRef.current = null;
     const video = videoRef.current;
     if (!video) return;
     const keepPos = video.currentTime || lastPositionRef.current || 0;
@@ -1028,7 +1085,7 @@ export default function WatchPage() {
       <video
         key={streamKey}
         ref={videoRef}
-        src={streamUrl}
+        src={activeQuality === "source" || activeQuality === null ? streamUrl : undefined}
         poster={media.backdropUrl || media.posterUrl || `/api/media/${mediaId}/image?kind=backdrop`}
         className="h-full w-full object-cover"
         muted={muted}

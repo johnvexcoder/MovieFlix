@@ -8,7 +8,9 @@ import { isSafeFfmpegInput } from "@/lib/ffmpeg-security";
 // Quality ladder (heights), ordered high -> low
 export const QUALITY_LADDER = [2160, 1440, 1080, 720, 480, 360];
 
-const MAX_STARTUP_WAIT_MS = 240_000;
+// Route callers poll readiness. Keep each request short so reverse proxies,
+// browsers, and Smart TVs do not time out while a full movie is transcoding.
+const MAX_STARTUP_WAIT_MS = 750;
 
 interface ActiveJob {
   height: number;
@@ -38,7 +40,7 @@ export function transcodeKey(filePath: string): string {
 }
 
 export function renditionFile(key: string, height: number): string {
-  return path.join(resolveTempRoot(), key, String(height), "video.mp4");
+  return path.join(resolveTempRoot(), key, String(height), "index.m3u8");
 }
 
 export function renditionDir(key: string, height: number): string {
@@ -46,7 +48,7 @@ export function renditionDir(key: string, height: number): string {
 }
 
 function completionFile(key: string, height: number): string {
-  return `${renditionFile(key, height)}.complete`;
+  return path.join(renditionDir(key, height), ".complete");
 }
 
 /** Return heights we should expose, capped by the source's native height. */
@@ -56,15 +58,17 @@ export function availableHeights(sourceHeight: number | null): number[] {
 }
 
 export function isRenditionReady(key: string, height: number): boolean {
-  // Never advertise a still-growing file as a finished MP4. Doing so exposes
-  // its temporary Content-Length as the movie length, causing TV browsers and
-  // quality switches to reach "the end" after only the first fragments.
-  if (activeJobs.has(`${key}:${height}`)) return false;
   const file = renditionFile(key, height);
-  if (!fs.existsSync(file) || !fs.existsSync(completionFile(key, height))) return false;
-  // The transcode job has finished and produced a non-empty rendition.
-  const size = fs.statSync(file).size;
-  return size > 64 * 1024;
+  if (!fs.existsSync(file)) return false;
+  try {
+    // HLS is safe to expose while it grows: its duration is described by
+    // completed media segments rather than a temporary MP4 Content-Length.
+    const manifest = fs.readFileSync(file, "utf8");
+    const firstSegment = manifest.match(/^([^#\r\n]+\.ts)$/m)?.[1];
+    return Boolean(firstSegment && fs.existsSync(path.join(renditionDir(key, height), firstSegment)));
+  } catch {
+    return false;
+  }
 }
 
 function startSingleJob(key: string, height: number, sourceFile: string): Promise<void> {
@@ -74,10 +78,10 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
     const begin = () => {
       runningJobs++;
       const dir = renditionDir(key, height);
+      fs.rmSync(dir, { recursive: true, force: true });
       fs.mkdirSync(dir, { recursive: true });
       const outFile = renditionFile(key, height);
       // Remove any stale partial output
-      if (fs.existsSync(outFile)) fs.rmSync(outFile, { force: true });
       fs.rmSync(completionFile(key, height), { force: true });
 
       const proc = ffmpeg(sourceFile, { timeout: 0 })
@@ -98,10 +102,13 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
           // no dynamics processing, no loudness normalization.
           "-af",
           "volume=6dB",
-          "-movflags",
-          "frag_keyframe+empty_moov+faststart",
-          "-f",
-          "mp4",
+          "-f", "hls",
+          "-hls_time", "4",
+          "-hls_list_size", "0",
+          "-hls_playlist_type", "event",
+          "-hls_flags", "independent_segments+temp_file",
+          "-force_key_frames", "expr:gte(t,n_forced*4)",
+          "-hls_segment_filename", path.join(dir, "segment-%05d.ts"),
         ])
         .output(outFile);
 
