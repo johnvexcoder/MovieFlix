@@ -103,10 +103,32 @@ export async function GET(
     const fileSize = stat.size;
     const range = request.headers.get("range");
 
-    // Range-tolerant: a missing Range header (some mobile browsers' first
-    // probe) answers with the first capped chunk as a 206 so the browser
-    // learns ranges are supported. When a Range header IS present we must
-    // honour requestedStart — see stream route for the corruption note.
+    // Older Smart TV engines probe without a Range header and require a full
+    // 200 response. An unsolicited partial 206 makes some of them treat the
+    // first chunk as the whole movie and jump directly to the end.
+    if (!range) {
+      const fileStream = fs.createReadStream(file);
+      const webStream = new ReadableStream({
+        start(controller) {
+          fileStream.on("data", (chunk) => controller.enqueue(chunk));
+          fileStream.on("end", () => controller.close());
+          fileStream.on("error", (err) => controller.error(err));
+        },
+        cancel() { fileStream.destroy(); },
+      });
+      return new NextResponse(webStream, {
+        status: 200,
+        headers: {
+          "Content-Length": String(fileSize),
+          "Content-Type": "video/mp4",
+          "Accept-Ranges": "bytes",
+          "X-Content-Type-Options": "nosniff",
+          "Content-Disposition": "inline",
+          "Cache-Control": "private, no-cache",
+        },
+      });
+    }
+
     let start = 0;
     let end = Math.min(start + MAX_CHUNK_BYTES - 1, fileSize - 1);
 

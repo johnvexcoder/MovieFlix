@@ -155,7 +155,7 @@ export default function UpdatePaymentPage() {
         </div>
       ) : (
         <>
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="flex snap-x gap-3 overflow-x-auto pb-3">
             {methods.map((m) => (
               <button
                 key={m.id}
@@ -165,7 +165,7 @@ export default function UpdatePaymentPage() {
                   setCopied(false);
                   setError(null);
                 }}
-                className="glass-panel flex items-center gap-4 rounded-3xl border border-white/10 p-5 text-left transition-all hover:border-emerald-500/40 hover:bg-white/10"
+                className="glass-panel flex min-w-[78vw] snap-start items-center gap-4 rounded-3xl border border-white/10 p-5 text-left transition-all hover:border-cyan-300/40 hover:bg-white/10 sm:min-w-[300px]"
               >
                 {m.iconUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element

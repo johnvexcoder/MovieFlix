@@ -28,18 +28,20 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
 
-  // Auto-rotate every 3 seconds unless hovered
+  const heroItems = items.slice(0, 10);
+
+  // Give viewers enough time to read each spotlight before advancing.
   useEffect(() => {
-    if (items.length <= 1 || isHovered) return;
+    if (heroItems.length <= 1 || isHovered) return;
 
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => (prev + 1) % items.length);
-    }, 3000);
+      setCurrentIndex((prev) => (prev + 1) % heroItems.length);
+    }, 15000);
 
     return () => clearInterval(timer);
-  }, [items.length, isHovered]);
+  }, [heroItems.length, isHovered]);
 
-  if (items.length === 0) {
+  if (heroItems.length === 0) {
     return (
       <div className="relative flex h-[70vh] min-h-[500px] w-full items-center justify-center bg-gradient-to-br from-neutral-900 via-black to-neutral-950">
         <div className="flex flex-col items-center gap-3 text-center">
@@ -50,8 +52,8 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
     );
   }
 
-  const safeIndex = currentIndex % items.length;
-  const item = items[safeIndex] || items[0];
+  const safeIndex = currentIndex % heroItems.length;
+  const item = heroItems[safeIndex] || heroItems[0];
   const backdropUrl = `/api/media/${item.id}/image?kind=backdrop`;
 
   // Check if added within 48 hours
@@ -71,12 +73,12 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentIndex((prev) => (prev - 1 + items.length) % items.length);
+    setCurrentIndex((prev) => (prev - 1 + heroItems.length) % heroItems.length);
   };
 
   const handleNext = (e: React.MouseEvent) => {
     e.stopPropagation();
-    setCurrentIndex((prev) => (prev + 1) % items.length);
+    setCurrentIndex((prev) => (prev + 1) % heroItems.length);
   };
 
   return (
@@ -113,7 +115,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
       </AnimatePresence>
 
       {/* Manual Navigation Chevrons on Hover */}
-      {items.length > 1 && (
+      {heroItems.length > 1 && (
         <>
           <button
             type="button"
@@ -234,10 +236,10 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
         </motion.div>
       </div>
 
-      {/* 3-Second Visual Progress Pill Indicators (Bottom Right) */}
-      {items.length > 1 && (
+      {/* 15-second Visual Progress Pill Indicators (Bottom Right) */}
+      {heroItems.length > 1 && (
         <div className="absolute bottom-10 right-6 md:right-16 z-20 flex items-center gap-2">
-          {items.map((it, idx) => (
+          {heroItems.map((it, idx) => (
             <button
               key={it.id}
               type="button"
@@ -251,7 +253,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
                   key={`progress-${idx}`}
                   initial={{ width: 0 }}
                   animate={{ width: "100%" }}
-                  transition={{ duration: 3, ease: "linear" }}
+                  transition={{ duration: 15, ease: "linear" }}
                   className="h-full bg-primary text-primary-foreground shadow-md shadow-red-950/60"
                 />
               )}

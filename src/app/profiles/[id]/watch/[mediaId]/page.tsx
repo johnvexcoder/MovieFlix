@@ -228,9 +228,9 @@ export default function WatchPage() {
 
   // Compute available adaptive quality heights from the source resolution
   useEffect(() => {
-    if (!media?.videoHeight) return;
     const ladder = [2160, 1440, 1080, 720, 480, 360];
-    const heights = ladder.filter((h) => h <= (media.videoHeight ?? 2160));
+    if (!media) return;
+    const heights = ladder.filter((h) => h <= (media.videoHeight ?? 1080));
     setQualityHeights(heights);
     setActiveQuality("source");
   }, [media?.videoHeight]);
@@ -420,6 +420,18 @@ export default function WatchPage() {
       // A fresh source is loaded: re-allow the one-shot autoplay attempt.
       autoPlayAttemptedRef.current = false;
       restoreProgress();
+      // Start as soon as metadata is available instead of waiting for a later
+      // canplay event, which can take several seconds on remote servers.
+      if (autoplayRequestedRef.current && !userPausedRef.current) {
+        video.muted = true;
+        setMuted(true);
+        desiredPlayingRef.current = true;
+        const request = video.play();
+        playPromiseRef.current = request;
+        request.catch(() => setShowControls(true)).finally(() => {
+          playPromiseRef.current = null;
+        });
+      }
     };
 
     const onPlay = () => {
@@ -990,11 +1002,7 @@ export default function WatchPage() {
     <div
       ref={containerRef}
       onMouseMove={resetControlsTimer}
-      onClick={(event) => {
-        const target = event.target as HTMLElement;
-        if (target.closest("button, a, input, [role='button'], [data-player-control]")) return;
-        togglePlay();
-      }}
+      onPointerDown={resetControlsTimer}
       className={`movieflix-player relative h-screen h-[100dvh] w-screen overflow-hidden bg-black select-none ${
         !showControls ? "cursor-none" : "cursor-default"
       }`}
@@ -1027,6 +1035,7 @@ export default function WatchPage() {
         autoPlay={autoplayIntent}
         playsInline
         preload="auto"
+        disablePictureInPicture={false}
       >
         {activeSubtitle && (
           <track
@@ -1294,7 +1303,9 @@ export default function WatchPage() {
                     variant="ghost"
                     size="icon"
                     onClick={togglePlay}
-                    className="h-10 w-10 text-white hover:text-[var(--brand)] hover:bg-white/10"
+                    data-player-control
+                    aria-label={playing ? "Pause" : "Play"}
+                    className="h-12 w-12 touch-manipulation text-white hover:text-[var(--brand)] hover:bg-white/10"
                   >
                     {playing ? (
                       <Pause className="h-6 w-6" />
