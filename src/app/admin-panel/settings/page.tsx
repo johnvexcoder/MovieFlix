@@ -33,6 +33,7 @@ import { checkAdminSession } from "@/lib/client-auth";
 import { PaymentMethodsManager } from "@/components/admin/payment-methods-manager";
 import { PlanPromoManager } from "@/components/admin/plan-promo-manager";
 import { AdminNavigation } from "@/components/admin/admin-navigation";
+import { AboutTeamManager } from "@/components/admin/about-team-manager";
 
 interface AdminUser {
   id: string;
@@ -113,8 +114,8 @@ export default function AdminSettingsPage() {
   }
 
   async function handleCreateAdmin() {
-    if (!newUsername.trim() || newPassword.length < 6) {
-      setPasswordMessage({ ok: false, text: "Username is required and password must be at least 6 characters." });
+    if (!newUsername.trim() || newPassword.length < 12) {
+      setPasswordMessage({ ok: false, text: "Username is required and password must be at least 12 characters." });
       return;
     }
     setAdminActionLoading(true);
@@ -160,8 +161,8 @@ export default function AdminSettingsPage() {
   }
 
   async function handleChangePassword() {
-    if (!currentPassword || newPasswordSelf.length < 6) {
-      setPasswordMessage({ ok: false, text: "Enter current password and a new password (min 6 chars)." });
+    if (!currentPassword || newPasswordSelf.length < 12) {
+      setPasswordMessage({ ok: false, text: "Enter current password and a new password (min 12 chars)." });
       return;
     }
     if (newPasswordSelf !== confirmPassword) {
@@ -503,6 +504,8 @@ export default function AdminSettingsPage() {
 
           <PaymentMethodsManager />
 
+          <AboutTeamManager />
+
           {/* Administrators Roster */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
@@ -580,7 +583,7 @@ export default function AdminSettingsPage() {
                     type="password"
                     value={newPasswordSelf}
                     onChange={(e) => setNewPasswordSelf(e.target.value)}
-                    placeholder="Min 6 characters"
+                    placeholder="Min 12 characters"
                     className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
                   />
                 </div>
@@ -684,7 +687,7 @@ export default function AdminSettingsPage() {
                 type="password"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min 6 characters"
+                placeholder="Min 12 characters"
                 className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
               />
             </div>

@@ -1,7 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { media, watchHistory } from "@/db/schema";
-import { eq, and, desc, sql, like } from "drizzle-orm";
+import { media } from "@/db/schema";
+import { eq, and, desc, sql } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 
@@ -24,7 +24,6 @@ export async function GET(request: NextRequest) {
     const genre = searchParams.get("genre");
     const year = searchParams.get("year");
     const search = searchParams.get("q");
-    const sort = searchParams.get("sort") || "createdAt";
     const order = searchParams.get("order") || "desc";
 
     const offset = (page - 1) * limit;
@@ -45,7 +44,18 @@ export async function GET(request: NextRequest) {
     }
 
     if (search) {
-      conditions.push(sql`${media.title} LIKE ${`%${search}%`}`);
+      // Match human typing rather than exact punctuation. "spiderman" finds
+      // "Spider-Man" and "ironman" finds "Iron Man". Overview and genres
+      // are included so a title can also be discovered by subject.
+      const compact = search.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+      if (compact) {
+        const pattern = `%${compact}%`;
+        conditions.push(sql`(
+          replace(replace(replace(replace(lower(${media.title}), ' ', ''), '-', ''), ':', ''), '.', '') LIKE ${pattern}
+          OR replace(replace(replace(lower(coalesce(${media.overview}, '')), ' ', ''), '-', ''), '.', '') LIKE ${pattern}
+          OR replace(replace(replace(lower(coalesce(${media.genres}, '')), ' ', ''), '-', ''), '.', '') LIKE ${pattern}
+        )`);
+      }
     }
 
     const whereClause = conditions.length > 0 ? and(...conditions) : undefined;

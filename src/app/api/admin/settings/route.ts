@@ -1,9 +1,25 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { appSettings } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+
+const ALLOWED_SETTINGS = new Set(["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","reminder_days","reminder_message","max_sessions","session_timeout","app_public_url","about_team"]);
+
+function sanitizeTeam(value: string): string | null {
+  try {
+    const data = JSON.parse(value);
+    if (!Array.isArray(data) || data.length > 12) return null;
+    return JSON.stringify(data.map((item) => ({
+      id: String(item.id || "").slice(0, 80), name: String(item.name || "").trim().slice(0, 80),
+      role: String(item.role || "").trim().slice(0, 80),
+      imageUrl: String(item.imageUrl || "").startsWith("/api/files?file=") ? String(item.imageUrl) : "",
+      positionX: Math.max(0, Math.min(100, Number(item.positionX) || 50)),
+      positionY: Math.max(0, Math.min(100, Number(item.positionY) || 50)),
+      scale: Math.max(100, Math.min(180, Number(item.scale) || 100)),
+    })).filter((item) => item.id && item.name && item.role && item.imageUrl));
+  } catch { return null; }
+}
 
 export async function GET(request: NextRequest) {
   try {
@@ -67,13 +83,15 @@ export async function PUT(request: NextRequest) {
       // the previously stored value rather than wiping it.
       db.transaction((tx) => {
         for (const [key, value] of Object.entries(settings)) {
-          if (typeof value !== "string") continue;
+          if (!ALLOWED_SETTINGS.has(key) || typeof value !== "string" || value.length > 50_000) continue;
           if (key === "smtp_pass" && value.trim() === "") continue;
+          const safeValue = key === "about_team" ? sanitizeTeam(value) : value;
+          if (safeValue === null) continue;
           tx.insert(appSettings)
-            .values({ key, value: key === "app_public_url" ? value.trim().replace(/\/+$/, "") : value })
+            .values({ key, value: key === "app_public_url" ? safeValue.trim().replace(/\/+$/, "") : safeValue })
             .onConflictDoUpdate({
               target: appSettings.key,
-              set: { value: key === "app_public_url" ? value.trim().replace(/\/+$/, "") : value },
+              set: { value: key === "app_public_url" ? safeValue.trim().replace(/\/+$/, "") : safeValue },
             })
             .run();
         }

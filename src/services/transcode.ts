@@ -45,6 +45,10 @@ export function renditionDir(key: string, height: number): string {
   return path.join(resolveTempRoot(), key, String(height));
 }
 
+function completionFile(key: string, height: number): string {
+  return `${renditionFile(key, height)}.complete`;
+}
+
 /** Return heights we should expose, capped by the source's native height. */
 export function availableHeights(sourceHeight: number | null): number[] {
   const src = sourceHeight || 4320;
@@ -52,9 +56,13 @@ export function availableHeights(sourceHeight: number | null): number[] {
 }
 
 export function isRenditionReady(key: string, height: number): boolean {
+  // Never advertise a still-growing file as a finished MP4. Doing so exposes
+  // its temporary Content-Length as the movie length, causing TV browsers and
+  // quality switches to reach "the end" after only the first fragments.
+  if (activeJobs.has(`${key}:${height}`)) return false;
   const file = renditionFile(key, height);
-  if (!fs.existsSync(file)) return false;
-  // A fragmented MP4 is "ready to play" once the moov data (+ some fragments) exist.
+  if (!fs.existsSync(file) || !fs.existsSync(completionFile(key, height))) return false;
+  // The transcode job has finished and produced a non-empty rendition.
   const size = fs.statSync(file).size;
   return size > 64 * 1024;
 }
@@ -70,6 +78,7 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
       const outFile = renditionFile(key, height);
       // Remove any stale partial output
       if (fs.existsSync(outFile)) fs.rmSync(outFile, { force: true });
+      fs.rmSync(completionFile(key, height), { force: true });
 
       const proc = ffmpeg(sourceFile, { timeout: 0 })
         .outputOptions([
@@ -103,6 +112,7 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
         if (settled) return;
         settled = true;
         activeJobs.delete(`${key}:${height}`);
+        fs.writeFileSync(completionFile(key, height), new Date().toISOString());
         runningJobs--;
         dequeue();
         resolve();

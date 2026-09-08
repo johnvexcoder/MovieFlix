@@ -54,8 +54,8 @@ export async function POST(request: NextRequest) {
     if (!username || typeof username !== "string" || !username.trim()) {
       return errorResponse("Username is required", 400);
     }
-    if (!password || typeof password !== "string" || password.length < 6) {
-      return errorResponse("Password must be at least 6 characters", 400);
+    if (!password || typeof password !== "string" || password.length < 12) {
+      return errorResponse("Password must be at least 12 characters", 400);
     }
 
     const cleanUsername = username.trim();

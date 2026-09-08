@@ -308,7 +308,7 @@ export async function proxy(request: NextRequest) {
   );
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: http: https:; script-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob:; style-src 'self' 'unsafe-inline' https:; img-src 'self' data: https: http: blob:; font-src 'self' data: https:; connect-src 'self' http: https: ws: wss: data: blob:; media-src 'self' data: blob: http: https:;"
+    `default-src 'self'; script-src 'self' 'unsafe-inline'${process.env.NODE_ENV === "development" ? " 'unsafe-eval'" : ""}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https: http: blob:; font-src 'self' data:; connect-src 'self' http: https: ws: wss:; media-src 'self' blob: http: https:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';`
   );
 
   if (isHttps) {

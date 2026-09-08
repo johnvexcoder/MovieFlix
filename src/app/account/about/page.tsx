@@ -1,75 +1,32 @@
 "use client";
 
-import { Info, Film, Shield, Clock, Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Clock, Film, Shield, Sparkles } from "lucide-react";
 import { AccountSettingsShell } from "@/components/account/account-settings-shell";
 import { MovieFlixLogo } from "@/components/movieflix-logo";
+import type { AboutTeamMember } from "@/components/admin/about-team-manager";
 
 export default function AboutPage() {
-  return (
-    <AccountSettingsShell heading="About MovieFlix" subheading="A private streaming platform for movies and TV series.">
-      <div className="space-y-5">
-        <div className="glass-panel rounded-3xl border border-white/10 p-6 shadow-xl">
-          <div className="flex items-center gap-4">
-            <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 ring-1 ring-white/10">
-              <MovieFlixLogo className="h-12 w-12" size={48} />
-            </div>
-            <div>
-              <p className="text-xl font-black tracking-tight text-white">
-                Movie<span className="text-[var(--brand)]">Flix</span>
-              </p>
-              <p className="text-xs font-semibold tracking-wider text-neutral-400 uppercase">Private Streaming Platform</p>
-            </div>
-          </div>
-          <p className="mt-4 text-sm leading-relaxed text-neutral-300">
-            MovieFlix is a private, self-hosted streaming platform that lets you watch your favorite movies and TV
-            series anywhere. Built with a focus on performance, security, and a familiar streaming experience.
-          </p>
-        </div>
+  const [team, setTeam] = useState<AboutTeamMember[]>([]);
+  useEffect(() => {
+    fetch("/api/about").then((r) => r.json()).then((data) => {
+      if (data.success && Array.isArray(data.data?.team)) setTeam(data.data.team);
+    }).catch(() => {});
+  }, []);
 
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div className="glass-panel rounded-3xl border border-white/10 p-5">
-            <Film className="h-5 w-5 text-[var(--brand)]" />
-            <h3 className="mt-2.5 text-sm font-bold text-white">Your Library, Instantly</h3>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-              Movies and series are scanned from your storage and served with adaptive quality, local subtitles, and
-              resume support.
-            </p>
-          </div>
-          <div className="glass-panel rounded-3xl border border-white/10 p-5">
-            <Shield className="h-5 w-5 text-emerald-400" />
-            <h3 className="mt-2.5 text-sm font-bold text-white">Private & Secure</h3>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-              Access is restricted to invited accounts only. Sessions are short-lived, tokens rotate, and lockouts take
-              effect immediately.
-            </p>
-          </div>
-          <div className="glass-panel rounded-3xl border border-white/10 p-5">
-            <Clock className="h-5 w-5 text-amber-400" />
-            <h3 className="mt-2.5 text-sm font-bold text-white">Never Miss a Beat</h3>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-              Pick up exactly where you left off across devices, with watch history and per-profile progress.
-            </p>
-          </div>
-          <div className="glass-panel rounded-3xl border border-white/10 p-5">
-            <Sparkles className="h-5 w-5 text-purple-400" />
-            <h3 className="mt-2.5 text-sm font-bold text-white">Built for the Fans</h3>
-            <p className="mt-1 text-xs leading-relaxed text-neutral-400">
-              Suggestions, feedback, and reports from subscribers help shape every update.
-            </p>
-          </div>
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-xs text-neutral-500">
-          <div className="flex items-center justify-center gap-1.5">
-            <Info className="h-3.5 w-3.5" />
-            <span>MovieFlix Platform · Self-hosted media streaming</span>
-          </div>
-          <p className="mt-1">
-            For support, use the <span className="font-semibold text-neutral-300">Report a Problem</span> option in your
-            account menu.
-          </p>
-        </div>
-      </div>
-    </AccountSettingsShell>
-  );
+  return <AccountSettingsShell heading="About MovieFlix" subheading="Stories worth watching, ready wherever you are.">
+    <div className="space-y-5">
+      <section className="overflow-hidden rounded-3xl border border-cyan-300/15 bg-[radial-gradient(circle_at_top_right,rgba(0,210,245,.15),transparent_38%),#091426] p-5 shadow-2xl sm:p-8">
+        <div className="flex items-center gap-4"><MovieFlixLogo className="h-16 w-16" size={64}/><div><h2 className="text-2xl font-black">MOVIE<span className="text-orange-400">FLIX</span></h2><p className="text-xs font-bold uppercase tracking-[.2em] text-cyan-300">Streaming now</p></div></div>
+        <h3 className="mt-7 max-w-xl text-3xl font-black leading-tight text-white sm:text-5xl">Entertainment that moves with you.</h3>
+        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-300 sm:text-base">MovieFlix brings movies and series together in one polished streaming experience. Discover new releases, continue from the moment you stopped, create personal profiles, build your list, and watch on the screens that matter to you.</p>
+        <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-400">Our service is designed for direct, dependable access to your MovieFlix catalog, with flexible membership plans, secure accounts, responsive playback, subtitles, and quality controls across phones, computers, tablets, and supported televisions.</p>
+      </section>
+      <div className="grid grid-cols-2 gap-3"><Feature icon={Film} title="Made for movie nights" text="A focused catalog with rich details, recommendations, and personal lists."/><Feature icon={Shield} title="Account protection" text="Protected sessions, controlled access, and server-verified membership."/><Feature icon={Clock} title="Continue anywhere" text="Resume supported titles from your saved viewing position."/><Feature icon={Sparkles} title="Always improving" text="Feedback and suggestions help shape the MovieFlix experience."/></div>
+      {team.length > 0 && <section><div className="mb-4"><h2 className="text-xl font-black text-white">The people behind MovieFlix</h2><p className="mt-1 text-sm text-slate-400">Building a better way to enjoy every story.</p></div><div className={`grid gap-4 ${team.length===1?"mx-auto max-w-xl grid-cols-1":"sm:grid-cols-2"}`}>{team.map((member)=><article key={member.id} className="relative aspect-[16/10] overflow-hidden rounded-3xl border border-white/10 bg-[#091426] shadow-xl"><img src={member.imageUrl} alt={member.name} className="h-full w-full" style={{objectFit:"cover",objectPosition:`${member.positionX}% ${member.positionY}%`,transform:`scale(${member.scale/100})`}}/><div className="absolute inset-x-3 bottom-3 rounded-2xl border border-white/10 bg-black/55 p-4 backdrop-blur-md"><h3 className="text-xl font-black text-white drop-shadow">{member.name}</h3><p className="mt-0.5 text-xs font-bold uppercase tracking-[.16em] text-cyan-200">{member.role}</p></div></article>)}</div></section>}
+      <footer className="rounded-2xl border border-white/10 bg-white/5 p-4 text-center text-xs leading-5 text-neutral-400">MovieFlix streaming availability and supported playback formats depend on the media provided by your service operator and the capabilities of your device.</footer>
+    </div>
+  </AccountSettingsShell>;
 }
+
+function Feature({icon:Icon,title,text}:{icon:typeof Film;title:string;text:string}) { return <article className="rounded-2xl border border-white/10 bg-white/5 p-4 sm:p-5"><Icon className="h-5 w-5 text-cyan-300"/><h3 className="mt-3 text-sm font-bold text-white">{title}</h3><p className="mt-1 text-xs leading-5 text-slate-400">{text}</p></article>; }

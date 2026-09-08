@@ -1,5 +1,6 @@
 /* Conservative fallback layer for older Chromium/WebKit Smart TV browsers. */
 html,body{margin:0;min-height:100%;background:#020611;color:#fff;font-family:Arial,Helvetica,sans-serif}
+body{display:block;background-color:#020611!important;color:#fff!important}
 *{box-sizing:border-box}
 .sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
 .cinematic-bg,.movieflix-page-bg{min-height:100vh;background:#020611;background-image:radial-gradient(circle at 25% 20%,#06334a 0,#020611 42%),radial-gradient(circle at 80% 80%,#251035 0,#020611 45%)}
@@ -13,5 +14,6 @@ html,body{margin:0;min-height:100%;background:#020611;color:#fff;font-family:Ari
 .glass-panel{background:#0b1629;border:1px solid #243955}
 button,input,select,textarea{font:inherit}
 img,svg,video{max-width:100%}
+video{background:#000}
 @media(max-width:700px){.movieflix-lockup{height:220px}.movieflix-brand-name{font-size:48px;letter-spacing:-3px}.movieflix-tagline{font-size:13px;letter-spacing:3px}}
 @media(min-width:701px) and (max-width:1100px){.movieflix-brand-name{font-size:72px}.movieflix-tagline{font-size:18px}}

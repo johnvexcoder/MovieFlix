@@ -14,6 +14,14 @@ export const dynamic = "force-dynamic";
 const ALLOWED_EXTENSIONS = new Set([".png", ".jpg", ".jpeg", ".webp", ".gif"]);
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5 MB
 
+function hasImageSignature(buffer: Buffer, ext: string): boolean {
+  if (ext === ".png") return buffer.subarray(0, 8).equals(Buffer.from([137,80,78,71,13,10,26,10]));
+  if (ext === ".jpg" || ext === ".jpeg") return buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff;
+  if (ext === ".webp") return buffer.subarray(0, 4).toString() === "RIFF" && buffer.subarray(8, 12).toString() === "WEBP";
+  if (ext === ".gif") return ["GIF87a", "GIF89a"].includes(buffer.subarray(0, 6).toString());
+  return false;
+}
+
 function uploadsRoot(): string {
   const envPath = process.env.DATABASE_PATH || process.env.DATABASE_URL || "./data/database.sqlite";
   const dbPath = envPath.startsWith("file:") ? envPath.replace(/^file:/, "") : envPath;
@@ -56,6 +64,7 @@ export async function POST(request: NextRequest) {
     const absPath = path.join(root, relPath);
 
     const buffer = Buffer.from(await (file as File).arrayBuffer());
+    if (!hasImageSignature(buffer, ext)) return errorResponse("The uploaded file is not a valid image", 400);
     await fs.writeFile(absPath, buffer);
     if (signup) {
       await db.update(signupSessions).set({ receiptPath: relPath }).where(eq(signupSessions.id, signup.session.id));

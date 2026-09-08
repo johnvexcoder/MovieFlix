@@ -827,7 +827,7 @@ export default function WatchPage() {
             // Wait for metadata then restore position
             const onMeta = () => {
               try {
-                if (keepPos > 0) video.currentTime = keepPos;
+                if (keepPos > 0 && Number.isFinite(video.duration)) video.currentTime = Math.min(keepPos, Math.max(0, video.duration - 1));
               } catch {}
               if (desiredPlayingRef.current) video.play().catch(() => {});
               setBuffering(false);
@@ -868,7 +868,7 @@ export default function WatchPage() {
     setBuffering(true);
     const onMeta = () => {
       try {
-        if (keepPos > 0) video.currentTime = keepPos;
+        if (keepPos > 0 && Number.isFinite(video.duration)) video.currentTime = Math.min(keepPos, Math.max(0, video.duration - 1));
       } catch {}
       if (desiredPlayingRef.current) video.play().catch(() => {});
       setBuffering(false);
