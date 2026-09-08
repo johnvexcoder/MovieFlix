@@ -189,7 +189,9 @@ export function findLocalBackdrop(videoFilePath: string): string | null {
 }
 
 /**
- * Find local subtitle files (.srt / .vtt) adjacent to a media file.
+ * Find local subtitle files (.srt / .vtt) adjacent to a media file or inside
+ * a conventional subtitle directory. Scanning is deliberately bounded so a
+ * malformed library cannot turn a playback request into a large disk crawl.
  * Returns an array of { path, lang, label }.
  *
  * Language tagging conventions matched:
@@ -205,44 +207,58 @@ export function findLocalSubtitles(videoFilePath: string): {
   const dir = path.dirname(videoFilePath);
   const base = path.basename(videoFilePath, path.extname(videoFilePath));
 
-  let entries: string[];
-  try {
-    entries = fs.readdirSync(dir);
-  } catch {
-    return [];
-  }
-
   const results: { filePath: string; lang: string; label: string }[] = [];
+  const subtitleDirs = /^(subs?|subtitles?|captions?|cc)$/i;
+  const maxFiles = 64;
 
-  for (const file of entries) {
-    if (!SUBTITLE_FILENAMES.test(file)) continue;
-    if (file.toLowerCase().indexOf(base.toLowerCase()) !== 0) continue; // must share video base name
+  const detectLanguage = (relativePath: string, remainder: string) => {
+    const candidates = [remainder, ...relativePath.split(path.sep)]
+      .flatMap((part) => part.toLowerCase().split(/[^a-z]+/))
+      .filter(Boolean);
+    const known = knownLanguages();
+    for (const tag of candidates) {
+      if (known[tag]) return { lang: tag, label: known[tag] };
+      const named = knownByLongName(tag);
+      if (named) return { lang: named.code, label: named.label };
+    }
+    return { lang: "", label: "Subtitles" };
+  };
 
-    const stem = path.basename(file, path.extname(file)); // e.g. "Movie.en"
-    const remainder = stem.slice(base.length); // e.g. ".en"
-
-    let lang = "";
-    let label = "Subtitles";
-    if (remainder) {
-      const tag = remainder.replace(/^[.\-_]+/, "").toLowerCase();
-      if (tag.length > 0) {
-        const known = knownLanguages();
-        if (known[tag]) {
-          lang = tag;
-          label = known[tag];
-        } else {
-          // Long english name like "english"
-          const named = knownByLongName(tag);
-          if (named) {
-            lang = named.code;
-            label = named.label;
-          }
-        }
-      }
+  const scan = (currentDir: string, depth: number, insideSubtitleDir: boolean) => {
+    if (depth > 2 || results.length >= maxFiles) return;
+    let entries: fs.Dirent[];
+    try {
+      entries = fs.readdirSync(currentDir, { withFileTypes: true });
+    } catch {
+      return;
     }
 
-    results.push({ filePath: path.join(dir, file), lang, label });
-  }
+    for (const entry of entries) {
+      if (results.length >= maxFiles) break;
+      if (entry.isSymbolicLink()) continue;
+      const fullPath = path.join(currentDir, entry.name);
+      if (entry.isDirectory()) {
+        // Only descend from the movie directory into a recognized subtitle
+        // folder; once there, allow language folders such as Subs/English/.
+        if ((depth === 0 && subtitleDirs.test(entry.name)) || insideSubtitleDir) {
+          scan(fullPath, depth + 1, true);
+        }
+        continue;
+      }
+      if (!entry.isFile() || !SUBTITLE_FILENAMES.test(entry.name)) continue;
+
+      const stem = path.basename(entry.name, path.extname(entry.name));
+      const sharesMovieName = stem.toLowerCase().indexOf(base.toLowerCase()) === 0;
+      if (!insideSubtitleDir && !sharesMovieName) continue;
+
+      const relativePath = path.relative(dir, fullPath);
+      const remainder = sharesMovieName ? stem.slice(base.length).replace(/^[.\-_]+/, "") : stem;
+      const language = detectLanguage(relativePath, remainder);
+      results.push({ filePath: fullPath, ...language });
+    }
+  };
+
+  scan(dir, 0, false);
 
   return results;
 }
@@ -305,6 +321,8 @@ function knownByLongName(tag: string): { code: string; label: string } | null {
     arabic: { code: "ar", label: "Arabic" },
     hindi: { code: "hi", label: "Hindi" },
     turkish: { code: "tr", label: "Turkish" },
+    filipino: { code: "fil", label: "Filipino" },
+    tagalog: { code: "fil", label: "Filipino" },
   };
   return map[tag] || null;
 }

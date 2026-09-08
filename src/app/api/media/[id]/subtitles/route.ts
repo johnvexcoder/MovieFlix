@@ -6,6 +6,7 @@ import { media, episodes } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { findLocalSubtitles } from "@/lib/local-media";
+import { extractEmbeddedSubtitle, listEmbeddedSubtitles } from "@/lib/embedded-subtitles";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,14 @@ export async function GET(
     }
 
     const fileParam = searchParams.get("file");
+    const embeddedParam = searchParams.get("embedded");
+
+    if (embeddedParam !== null) {
+      const streamIndex = Number(embeddedParam);
+      const content = await extractEmbeddedSubtitle(targetFilePath, streamIndex);
+      if (!content) return new NextResponse("Subtitle track is unavailable", { status: 404 });
+      return new NextResponse(content.toString("utf-8"), { headers: { "Content-Type": "text/vtt; charset=utf-8", "Cache-Control": "private, max-age=3600" } });
+    }
 
     // Serving a specific subtitle file
     if (fileParam) {
@@ -99,7 +108,7 @@ export async function GET(
       }
 
       const content = fs.readFileSync(resolvedFile, "utf-8");
-      const isVtt = /\.vtt$/.test(resolvedFile);
+      const isVtt = /\.vtt$/i.test(resolvedFile);
       let body = content;
 
       // Convert SRT to WebVTT so the browser <track> can render it
@@ -116,11 +125,20 @@ export async function GET(
     }
 
     // Listing available subtitles
-    const subs = findLocalSubtitles(targetFilePath).map((s) => ({
+    const sidecars = findLocalSubtitles(targetFilePath).map((s, index) => ({
       file: Buffer.from(s.filePath, "utf-8").toString("base64"),
       lang: s.lang,
-      label: s.label,
+      label: s.label === "Subtitles" ? `External subtitle ${index + 1}` : s.label,
+      source: "sidecar" as const,
     }));
+    const embedded = (await listEmbeddedSubtitles(targetFilePath)).map((s, index) => ({
+      file: `embedded:${s.streamIndex}`,
+      lang: s.lang,
+      label: s.label === "Unknown language" ? `Embedded subtitle ${index + 1}` : s.label,
+      source: "embedded" as const,
+      streamIndex: s.streamIndex,
+    }));
+    const subs = [...embedded, ...sidecars];
 
     return NextResponse.json({ success: true, data: { subtitles: subs } });
   } catch (error) {

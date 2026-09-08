@@ -130,7 +130,7 @@ export default function WatchPage() {
 
   // Subtitle state
   const [subtitles, setSubtitles] = useState<
-    { file: string; lang: string; label: string }[]
+    { file: string; lang: string; label: string; source?: "embedded" | "sidecar"; streamIndex?: number }[]
   >([]);
   const [activeSubtitle, setActiveSubtitle] = useState<string | null>(null);
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
@@ -1037,15 +1037,21 @@ export default function WatchPage() {
         preload="auto"
         disablePictureInPicture={false}
       >
-        {activeSubtitle && (
+        {activeSubtitle && (() => {
+          const selectedTrack = subtitles.find((s) => s.file === activeSubtitle);
+          const subtitleQuery = selectedTrack?.source === "embedded"
+            ? `embedded=${selectedTrack.streamIndex}`
+            : `file=${encodeURIComponent(activeSubtitle)}`;
+          return (
           <track
             kind="subtitles"
-            src={`/api/media/${mediaId}/subtitles?file=${encodeURIComponent(activeSubtitle)}${episodeParam ? `&episode=${episodeParam}` : ""}`}
-            srcLang={subtitles.find((s) => s.file === activeSubtitle)?.lang || "en"}
-            label={subtitles.find((s) => s.file === activeSubtitle)?.label || "Subtitles"}
+            src={`/api/media/${mediaId}/subtitles?${subtitleQuery}${episodeParam ? `&episode=${episodeParam}` : ""}`}
+            srcLang={selectedTrack?.lang || "und"}
+            label={selectedTrack?.label || "Subtitles"}
             default
           />
-        )}
+          );
+        })()}
       </video>
 
       {/* Buffering Spinner Overlay */}
@@ -1438,7 +1444,8 @@ export default function WatchPage() {
                                   : "text-white hover:bg-white/10"
                               }`}
                             >
-                              {s.label}
+                              <span>{s.label}<small className="ml-2 text-[10px] font-normal text-neutral-500">{s.source === "embedded" ? "Built in" : "External"}</small></span>
+                              {activeSubtitle === s.file && <Check className="h-4 w-4" />}
                             </button>
                           ))}
                         </div>
