@@ -21,6 +21,8 @@ const MAX_CHUNK_BYTES = 8 * 1024 * 1024;
 async function resolveTargetFile(id: string, episodeId: string | null) {
   let targetFilePath: string | null = null;
   let sourceHeight: number | null = null;
+  let videoCodec: string | null = null;
+  let audioCodec: string | null = null;
 
   if (episodeId) {
     const [ep] = await db
@@ -31,6 +33,8 @@ async function resolveTargetFile(id: string, episodeId: string | null) {
     if (ep?.filePath) {
       targetFilePath = ep.filePath;
       sourceHeight = ep.videoHeight ?? null;
+      videoCodec = ep.videoCodec ?? null;
+      audioCodec = ep.audioCodec ?? null;
     }
   }
 
@@ -43,11 +47,13 @@ async function resolveTargetFile(id: string, episodeId: string | null) {
     if (m?.filePath) {
       targetFilePath = m.filePath;
       sourceHeight = m.videoHeight ?? null;
+      videoCodec = m.videoCodec ?? null;
+      audioCodec = m.audioCodec ?? null;
     }
   }
 
   if (!targetFilePath || !fs.existsSync(targetFilePath)) return null;
-  return { targetFilePath, sourceHeight };
+  return { targetFilePath, sourceHeight, videoCodec, audioCodec };
 }
 
 /**
@@ -77,7 +83,7 @@ export async function GET(
     if (!resolved) {
       return new NextResponse("Media file not found", { status: 404 });
     }
-    const { targetFilePath, sourceHeight } = resolved;
+    const { targetFilePath, sourceHeight, videoCodec, audioCodec } = resolved;
     const key = transcodeKey(targetFilePath);
 
     const p = segments.map((s) => s.toLowerCase());
@@ -92,7 +98,12 @@ export async function GET(
 
     // Ensure transcode is playable (kicks off on first request; cached after)
     if (assetName === "index.m3u8") {
-      const transcode = await ensureTranscode(targetFilePath, height);
+      const normalizedVideoCodec = (videoCodec || "").toLowerCase();
+      const normalizedAudioCodec = (audioCodec || "").toLowerCase();
+      const transcode = await ensureTranscode(targetFilePath, height, {
+        copyVideo: ["h264", "avc", "avc1"].includes(normalizedVideoCodec) && sourceHeight === height,
+        copyAudio: ["aac", "mp3"].includes(normalizedAudioCodec),
+      });
       if (transcode.status === "failed") {
         return new NextResponse("Compatibility stream failed", {
           status: 500,
