@@ -517,7 +517,11 @@ export default function WatchPage() {
         !autoFallbackDoneRef.current
       ) {
         autoFallbackDoneRef.current = true;
-        const autoHeight = latest.qualityHeights.find((h) => h <= 720) ?? latest.qualityHeights[latest.qualityHeights.length - 1];
+        const codec = (media?.videoCodec || "").toLowerCase();
+        const canFastRemux = ["h264", "avc", "avc1"].includes(codec);
+        const autoHeight = canFastRemux
+          ? latest.qualityHeights[0]
+          : latest.qualityHeights.find((h) => h <= 480) ?? latest.qualityHeights[latest.qualityHeights.length - 1];
         void actionRefs.current?.switchQuality(autoHeight);
         return;
       }
@@ -840,7 +844,7 @@ export default function WatchPage() {
             // Stale access token mid-session: refresh once, keep polling.
             await refreshSession();
           }
-          if (res.status !== 503) {
+          if (res.ok) {
             lastPositionRef.current = keepPos;
             initialSeekDoneRef.current = false;
             const prev = video.currentTime;
@@ -888,6 +892,10 @@ export default function WatchPage() {
             }
             if (prev > 0) video.currentTime = keepPos;
             return;
+          }
+          if (res.status !== 503) {
+            const reason = (await res.text()).trim();
+            throw new Error(reason || `Compatibility stream failed (${res.status})`);
           }
           await new Promise((r) => setTimeout(r, 1500));
         }

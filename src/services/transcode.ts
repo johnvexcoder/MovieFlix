@@ -20,10 +20,12 @@ interface ActiveJob {
   height: number;
   proc: ffmpeg.FfmpegCommand;
   startedAt: number;
+  lastRequestedAt: number;
 }
 
 // Simple in-process concurrency gate
 const activeJobs = new Map<string, ActiveJob>();
+const queuedJobs = new Map<string, number>();
 const pendingQueue: (() => void)[] = [];
 let runningJobs = 0;
 const recentFailures = new Map<string, number>();
@@ -77,11 +79,24 @@ export function isRenditionReady(key: string, height: number): boolean {
   }
 }
 
-function startSingleJob(key: string, height: number, sourceFile: string): Promise<void> {
+function startSingleJob(
+  key: string,
+  height: number,
+  sourceFile: string,
+  options: { copyVideo?: boolean; copyAudio?: boolean } = {}
+): Promise<void> {
   const slots = getEnvView().TRANSCODE_MAX_CONCURRENT || 2;
 
   return new Promise<void>((resolve, reject) => {
     const begin = () => {
+      const jobKey = `${key}:${height}`;
+      const lastQueuedRequest = queuedJobs.get(jobKey);
+      queuedJobs.delete(jobKey);
+      if (lastQueuedRequest && Date.now() - lastQueuedRequest > 45_000) {
+        dequeue();
+        resolve();
+        return;
+      }
       runningJobs++;
       const dir = renditionDir(key, height);
       fs.rmSync(dir, { recursive: true, force: true });
@@ -90,35 +105,29 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
       // Remove any stale partial output
       fs.rmSync(completionFile(key, height), { force: true });
 
+      const videoOptions = options.copyVideo
+        ? ["-c:v copy"]
+        : ["-c:v libx264", "-preset ultrafast", "-tune zerolatency", "-crf 23", "-pix_fmt yuv420p", "-vf", `scale=-2:${height}`];
+      const audioOptions = options.copyAudio
+        ? ["-c:a copy"]
+        : ["-c:a aac", "-b:a 128k", "-ac 2", "-af", "volume=6dB"];
       const proc = ffmpeg(sourceFile, { timeout: 0 })
         .outputOptions([
           "-map 0:v:0",
           "-map 0:a:0?",
-          "-c:v libx264",
-          "-preset veryfast",
-          "-crf 23",
-          "-pix_fmt yuv420p",
-          "-vf",
-          `scale=-2:${height}`,
-          "-c:a aac",
-          "-b:a 128k",
-          "-ac 2",
-          // Light volume gain on the transcoded rendition only (source file is
-          // never modified). Purely a perceptual boost for quiet sources —
-          // no dynamics processing, no loudness normalization.
-          "-af",
-          "volume=6dB",
+          ...videoOptions,
+          ...audioOptions,
           "-f", "hls",
-          "-hls_time", "4",
+          "-hls_time", "2",
           "-hls_list_size", "0",
           "-hls_playlist_type", "event",
           "-hls_flags", "independent_segments+temp_file",
-          "-force_key_frames", "expr:gte(t,n_forced*4)",
+          "-force_key_frames", "expr:gte(t,n_forced*2)",
           "-hls_segment_filename", path.join(dir, "segment-%05d.ts"),
         ])
         .output(outFile);
 
-      activeJobs.set(`${key}:${height}`, { height, proc, startedAt: Date.now() });
+      activeJobs.set(`${key}:${height}`, { height, proc, startedAt: Date.now(), lastRequestedAt: Date.now() });
 
       let settled = false;
       const onEnd = () => {
@@ -149,6 +158,7 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
       if (runningJobs < slots) {
         begin();
       } else {
+        queuedJobs.set(`${key}:${height}`, Date.now());
         pendingQueue.push(() => begin());
       }
     };
@@ -163,7 +173,8 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
  */
 export async function ensureTranscode(
   filePath: string,
-  height: number
+  height: number,
+  options: { copyVideo?: boolean; copyAudio?: boolean } = {}
 ): Promise<{ status: "ready" | "running" | "failed" }> {
   if (!isSafeFfmpegInput(filePath)) {
     console.error(`Refusing to transcode unsafe input path: ${filePath}`);
@@ -175,7 +186,13 @@ export async function ensureTranscode(
   }
 
   const jobKey = `${key}:${height}`;
-  if (activeJobs.has(jobKey)) {
+  const active = activeJobs.get(jobKey);
+  if (active) {
+    active.lastRequestedAt = Date.now();
+    return { status: "running" };
+  }
+  if (queuedJobs.has(jobKey)) {
+    queuedJobs.set(jobKey, Date.now());
     return { status: "running" };
   }
 
@@ -185,7 +202,7 @@ export async function ensureTranscode(
   }
 
   const started = Date.now();
-  startSingleJob(key, height, filePath).catch(() => {});
+  startSingleJob(key, height, filePath, options).catch(() => {});
 
   // Poll for playability up to a timeout; job continues in background after.
   while (Date.now() - started < MAX_STARTUP_WAIT_MS) {
@@ -197,6 +214,19 @@ export async function ensureTranscode(
 
   return isRenditionReady(key, height) ? { status: "ready" } : { status: "running" };
 }
+
+// Stop conversions nobody is watching. Without this, two abandoned full-film
+// jobs can occupy the default two slots and make every later title wait.
+const idleJobTimer = setInterval(() => {
+  const now = Date.now();
+  for (const [jobKey, job] of activeJobs) {
+    if (now - job.lastRequestedAt > 45_000) {
+      try { job.proc.kill("SIGKILL"); } catch {}
+      activeJobs.delete(jobKey);
+    }
+  }
+}, 15_000);
+idleJobTimer.unref?.();
 
 export function cancelTranscodes(key: string): void {
   for (const [jobKey, job] of activeJobs) {
