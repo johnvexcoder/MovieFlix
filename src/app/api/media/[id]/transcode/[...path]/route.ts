@@ -91,7 +91,15 @@ export async function GET(
     }
 
     // Ensure transcode is playable (kicks off on first request; cached after)
-    if (assetName === "index.m3u8") await ensureTranscode(targetFilePath, height);
+    if (assetName === "index.m3u8") {
+      const transcode = await ensureTranscode(targetFilePath, height);
+      if (transcode.status === "failed") {
+        return new NextResponse("Compatibility stream failed", {
+          status: 500,
+          headers: { "Retry-After": "30" },
+        });
+      }
+    }
 
     const file = assetName === "index.m3u8"
       ? renditionFile(key, height)

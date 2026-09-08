@@ -1,9 +1,13 @@
 import ffmpeg from "fluent-ffmpeg";
+import ffmpegStatic from "ffmpeg-static";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { getEnv } from "@/lib/env";
 import { isSafeFfmpegInput } from "@/lib/ffmpeg-security";
+
+const ffmpegExecutable = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg";
+ffmpeg.setFfmpegPath(ffmpegExecutable);
 
 // Quality ladder (heights), ordered high -> low
 export const QUALITY_LADDER = [2160, 1440, 1080, 720, 480, 360];
@@ -22,6 +26,8 @@ interface ActiveJob {
 const activeJobs = new Map<string, ActiveJob>();
 const pendingQueue: (() => void)[] = [];
 let runningJobs = 0;
+const recentFailures = new Map<string, number>();
+const FAILURE_COOLDOWN_MS = 30_000;
 
 function getEnvView() {
   return getEnv();
@@ -119,6 +125,7 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
         if (settled) return;
         settled = true;
         activeJobs.delete(`${key}:${height}`);
+        recentFailures.delete(`${key}:${height}`);
         fs.writeFileSync(completionFile(key, height), new Date().toISOString());
         runningJobs--;
         dequeue();
@@ -128,6 +135,8 @@ function startSingleJob(key: string, height: number, sourceFile: string): Promis
         if (settled) return;
         settled = true;
         activeJobs.delete(`${key}:${height}`);
+        recentFailures.set(`${key}:${height}`, Date.now());
+        console.error(`Compatibility transcode failed (${height}p):`, err);
         runningJobs--;
         dequeue();
         reject(err);
@@ -168,6 +177,11 @@ export async function ensureTranscode(
   const jobKey = `${key}:${height}`;
   if (activeJobs.has(jobKey)) {
     return { status: "running" };
+  }
+
+  const failedAt = recentFailures.get(jobKey);
+  if (failedAt && Date.now() - failedAt < FAILURE_COOLDOWN_MS) {
+    return { status: "failed" };
   }
 
   const started = Date.now();

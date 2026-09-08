@@ -76,7 +76,7 @@ export function AboutTeamManager() {
     </div>
     {members.length === 0 && <div className="mt-5 rounded-2xl border border-dashed border-white/15 p-8 text-center text-sm text-neutral-500">No team profiles are published.</div>}
     <div className="mt-5 grid gap-4 md:grid-cols-2">{members.map((member) => <article key={member.id} className="rounded-2xl border border-white/10 bg-white/5 p-3">
-      <div className="relative aspect-[16/10] overflow-hidden rounded-xl bg-[#07101f]">
+      <div className="relative mx-auto aspect-[3/4] w-full max-w-xs overflow-hidden rounded-xl bg-[#07101f]">
         {member.imageUrl ? <img src={member.imageUrl} alt="" className="h-full w-full" style={{objectFit:"cover",objectPosition:`${member.positionX}% ${member.positionY}%`,transform:`scale(${member.scale/100})`}}/>:<div className="flex h-full items-center justify-center text-neutral-600"><ImagePlus className="h-10 w-10"/></div>}
         <div className="absolute inset-x-2 bottom-2 rounded-xl bg-black/55 p-3 backdrop-blur-md"><b className="block text-lg">{member.name||"Name"}</b><span className="text-xs uppercase tracking-wider text-cyan-200">{member.role||"Position"}</span></div>
       </div>
