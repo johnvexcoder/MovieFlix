@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { accounts, paymentMethods, paymentSubmissions } from "@/db/schema";
+import { accounts, paymentMethods, paymentSubmissions, subscriptionPlans } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { paymentMethodId, senderName, senderAccountNumber, amount, referenceNumber, receiptPath } = body;
+    const { paymentMethodId, planId, senderName, senderAccountNumber, referenceNumber, receiptPath } = body;
 
     if (!paymentMethodId || typeof paymentMethodId !== "string") {
       return errorResponse("Payment method is required", 400);
@@ -71,10 +71,7 @@ export async function POST(request: NextRequest) {
     if (!senderAccountNumber || typeof senderAccountNumber !== "string" || !senderAccountNumber.trim()) {
       return errorResponse("Sender account number is required", 400);
     }
-    const amountNum = Number(amount);
-    if (!amount || isNaN(amountNum) || amountNum <= 0) {
-      return errorResponse("Amount is required and must be greater than zero", 400);
-    }
+    if (!planId || typeof planId !== "string") return errorResponse("Select a subscription plan", 400);
     if (!referenceNumber || typeof referenceNumber !== "string" || !referenceNumber.trim()) {
       return errorResponse("Reference number is required", 400);
     }
@@ -86,6 +83,11 @@ export async function POST(request: NextRequest) {
     if (!method || !method.isActive) {
       return errorResponse("Payment method not found or inactive", 404);
     }
+    const [plan] = await db.select().from(subscriptionPlans).where(eq(subscriptionPlans.id, planId)).limit(1);
+    if (!plan || !plan.isActive) return errorResponse("Subscription plan is unavailable", 404);
+    const discountActive = plan.discountAmount > 0 && (!plan.discountUntil || Date.parse(plan.discountUntil) >= Date.now());
+    const amountNum = Math.max(0, plan.price - (discountActive ? plan.discountAmount : 0));
+    if (amountNum <= 0) return errorResponse("This plan does not require a manual payment", 400);
 
     const now = new Date().toISOString();
     await db.insert(paymentSubmissions).values({
@@ -95,6 +97,7 @@ export async function POST(request: NextRequest) {
       senderName: senderName.trim(),
       senderAccountNumber: senderAccountNumber.trim(),
       amount: Math.round(amountNum * 100) / 100,
+      planId: plan.id,
       referenceNumber: referenceNumber.trim(),
       receiptPath,
       status: "pending",

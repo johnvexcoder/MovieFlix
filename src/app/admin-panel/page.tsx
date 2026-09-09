@@ -24,6 +24,7 @@ import {
   Lock,
   Megaphone,
   MapPin,
+  Eye,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -59,6 +60,12 @@ interface Account {
   profileCount: number;
   isActive: boolean;
   lastIp: string | null;
+  email: string | null;
+  fullName: string | null;
+  dateOfBirth: string | null;
+  contactNumber: string | null;
+  registrationStatus: string;
+  lastLoginAt: string | null;
 }
 
 function formatRemaining(expiresAt: string | null, now: number): string {
@@ -139,6 +146,7 @@ export default function AdminPage() {
   const [resetAccount, setResetAccount] = useState<Account | null>(null);
   const [resetPassword, setResetPassword] = useState("");
   const [resetting, setResetting] = useState(false);
+  const [viewAccount, setViewAccount] = useState<Account | null>(null);
 
   // Send message form
   const [messageDialog, setMessageDialog] = useState<{
@@ -680,6 +688,7 @@ export default function AdminPage() {
 
                       {/* Action Controls */}
                       <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto sm:flex-shrink-0 justify-start sm:justify-end">
+                        <Button variant="outline" size="sm" className="h-8 rounded-xl border-cyan-300/20 bg-cyan-300/5 px-3 text-[10px]" onClick={()=>setViewAccount(account)}><Eye className="mr-1 h-3 w-3 text-cyan-300"/>Details</Button>
                         <Button
                           variant="outline"
                           size="sm"
@@ -977,6 +986,17 @@ export default function AdminPage() {
               Extend Time
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Modal */}
+      <Dialog open={!!viewAccount} onOpenChange={(open)=>!open&&setViewAccount(null)}>
+        <DialogContent className="glass-panel max-h-[90dvh] overflow-y-auto rounded-2xl border-white/15 p-4 sm:max-w-lg sm:rounded-3xl sm:p-6">
+          <DialogHeader><DialogTitle className="text-xl font-bold text-white">Account information</DialogTitle><DialogDescription className="text-neutral-400">Registration, access, and contact details for {viewAccount?.username}.</DialogDescription></DialogHeader>
+          <div className="grid grid-cols-1 gap-2 py-3 min-[390px]:grid-cols-2">{viewAccount&&[
+            ["Username",viewAccount.username],["Full name",viewAccount.fullName||"Not provided"],["Email",viewAccount.email||"Not provided"],["Contact",viewAccount.contactNumber||"Not provided"],["Date of birth",viewAccount.dateOfBirth||"Not provided"],["Registration",viewAccount.registrationStatus],["Access",viewAccount.isLocked?"Locked":"Allowed"],["Expires",viewAccount.expiresAt?new Date(viewAccount.expiresAt).toLocaleString():"Lifetime"],["Last IP",viewAccount.lastIp||"Unknown"],["Last login",viewAccount.lastLoginAt?new Date(viewAccount.lastLoginAt).toLocaleString():"Never"],
+          ].map(([label,value])=><div key={label} className="min-w-0 rounded-xl border border-white/10 bg-white/5 p-3"><p className="text-[9px] font-bold uppercase tracking-wider text-neutral-500">{label}</p><p className="mt-1 break-words text-xs font-semibold text-white">{value}</p></div>)}</div>
+          <Button className="btn-brand w-full" onClick={()=>setViewAccount(null)}>Close</Button>
         </DialogContent>
       </Dialog>
 

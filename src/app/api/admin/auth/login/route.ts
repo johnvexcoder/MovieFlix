@@ -4,7 +4,10 @@ import { admins } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { comparePassword, generateAccessToken, generateRefreshToken, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import { setRateLimit, getTokenVersion } from "@/lib/redis";
+import { setRateLimit, getTokenVersion, setSession } from "@/lib/redis";
+import { randomBytes } from "crypto";
+import { sendEmail } from "@/lib/email";
+import { adminCodeEmail, generateEmailCode, securityHash } from "@/lib/admin-two-factor";
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +41,18 @@ export async function POST(request: NextRequest) {
     const isValid = await comparePassword(password, admin.passwordHash);
     if (!isValid) {
       return errorResponse("Invalid admin username or password", 401);
+    }
+
+    if (admin.twoFactorEnabled) {
+      if (!admin.email) return errorResponse("Two-step verification requires an administrator email. Contact another administrator.", 403);
+      const challengeToken = randomBytes(32).toString("hex");
+      const code = generateEmailCode();
+      await setSession(`admin-2fa:${challengeToken}`, { adminId: admin.id, codeHash: securityHash(code), attempts: 0 }, 10 * 60);
+      const delivered = await sendEmail({ to: admin.email, subject: "Your MovieFlix admin verification code", html: adminCodeEmail(code) });
+      if (!delivered) return errorResponse("Verification email could not be delivered. Check the SMTP configuration.", 503);
+      const [local, domain = ""] = admin.email.split("@");
+      const maskedEmail = `${local.slice(0, 2)}${"*".repeat(Math.max(1, local.length - 2))}@${domain}`;
+      return successResponse({ requiresTwoFactor: true, challengeToken, maskedEmail });
     }
 
     // Generate admin token

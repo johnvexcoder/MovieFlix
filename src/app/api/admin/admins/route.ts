@@ -26,6 +26,8 @@ export async function GET(request: NextRequest) {
       .select({
         id: admins.id,
         username: admins.username,
+        email: admins.email,
+        twoFactorEnabled: admins.twoFactorEnabled,
         createdAt: admins.createdAt,
       })
       .from(admins)
@@ -49,16 +51,20 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, password } = body;
+    const { username, password, email } = body;
 
     if (!username || typeof username !== "string" || !username.trim()) {
       return errorResponse("Username is required", 400);
+    }
+    if (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email.trim())) {
+      return errorResponse("A valid administrator email is required", 400);
     }
     if (!password || typeof password !== "string" || password.length < 12) {
       return errorResponse("Password must be at least 12 characters", 400);
     }
 
     const cleanUsername = username.trim();
+    const cleanEmail = email.trim().toLowerCase();
 
     const existing = await db
       .select({ id: admins.id })
@@ -77,6 +83,7 @@ export async function POST(request: NextRequest) {
     await db.insert(admins).values({
       id: adminId,
       username: cleanUsername,
+      email: cleanEmail,
       passwordHash,
       createdAt: now,
     });
@@ -85,6 +92,7 @@ export async function POST(request: NextRequest) {
       admin: {
         id: adminId,
         username: cleanUsername,
+        email: cleanEmail,
         createdAt: now,
       },
     });

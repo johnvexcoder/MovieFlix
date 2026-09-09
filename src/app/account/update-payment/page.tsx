@@ -15,6 +15,7 @@ interface PaymentMethod {
   iconUrl: string | null;
   qrUrl: string | null;
 }
+interface Plan { id:string; name:string; durationHours:number|null; isLifetime:boolean; price:number; finalPrice:number; percentOff:number }
 
 interface MySubmission {
   id: string;
@@ -27,6 +28,8 @@ interface MySubmission {
 
 export default function UpdatePaymentPage() {
   const [methods, setMethods] = useState<PaymentMethod[]>([]);
+  const [plans, setPlans] = useState<Plan[]>([]);
+  const [planId, setPlanId] = useState("");
   const [loading, setLoading] = useState(true);
   const [selectedMethod, setSelectedMethod] = useState<PaymentMethod | null>(null);
   const [copied, setCopied] = useState(false);
@@ -45,14 +48,17 @@ export default function UpdatePaymentPage() {
   useEffect(() => {
     (async () => {
       try {
-        const [mRes, sRes] = await Promise.all([
+        const [mRes, sRes, pRes] = await Promise.all([
           fetch("/api/payment-methods", { cache: "no-store" }),
           fetch("/api/payments", { cache: "no-store" }),
+          fetch("/api/plans", { cache: "no-store" }),
         ]);
         const mData = await mRes.json();
         const sData = await sRes.json();
+        const pData = await pRes.json();
         if (mData.success) setMethods(mData.data.methods);
         if (sData.success) setSubmissions(sData.data.submissions);
+        if (pData.success) { setPlans(pData.data.plans); setPlanId(pData.data.plans[0]?.id || ""); setAmount(String(pData.data.plans[0]?.finalPrice || "")); }
       } catch {
       } finally {
         setLoading(false);
@@ -61,7 +67,7 @@ export default function UpdatePaymentPage() {
   }, []);
 
   async function copyAccountNumber() {
-    if (!selectedMethod) return;
+    if (!selectedMethod || !planId) return;
     let ok = false;
     try { await navigator.clipboard?.writeText(selectedMethod.accountNumber); ok = Boolean(navigator.clipboard); } catch {}
     if (!ok) {
@@ -106,9 +112,9 @@ export default function UpdatePaymentPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentMethodId: selectedMethod.id,
+          planId,
           senderName: name.trim(),
           senderAccountNumber: accountNumber.trim(),
-          amount: Number(amount),
           referenceNumber: reference.trim(),
           receiptPath: decodeURIComponent(receiptUrl.split("file=")[1] || ""),
         }),
@@ -145,6 +151,12 @@ export default function UpdatePaymentPage() {
 
   return (
     <AccountSettingsShell heading="Payment / Renew" subheading="Renew your subscription by choosing a payment method below. Payments are normally processed within 2 hours.">
+      <section className="mb-4 rounded-2xl border border-white/10 bg-white/[.04] p-3 sm:rounded-3xl sm:p-5">
+        <h2 className="text-sm font-bold text-white">Choose your renewal or upgrade plan</h2>
+        <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {plans.map((plan)=><button key={plan.id} type="button" onClick={()=>{setPlanId(plan.id);setAmount(String(plan.finalPrice));}} className={`rounded-xl border p-2.5 text-left ${planId===plan.id?"border-cyan-300 bg-cyan-300/10":"border-white/10 bg-black/20"}`}><p className="truncate text-xs font-bold text-white">{plan.name}</p><p className="mt-1 text-sm font-black text-cyan-300">₱{plan.finalPrice.toFixed(2)}</p></button>)}
+        </div>
+      </section>
       {methods.length === 0 ? (
         <div className="glass-panel rounded-3xl border border-white/10 p-10 text-center">
           <CreditCard className="mx-auto mb-3 h-10 w-10 text-neutral-600" />
@@ -303,7 +315,7 @@ export default function UpdatePaymentPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Amount</Label>
-                    <Input type="number" min={0} step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="mt-0 h-10 rounded-xl border-white/10 bg-white/5 text-white" />
+                    <Input type="number" value={amount} readOnly aria-label="Selected plan price" className="mt-0 h-10 rounded-xl border-white/10 bg-white/5 text-white" />
                   </div>
                   <div>
                     <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Reference Number</Label>

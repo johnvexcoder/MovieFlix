@@ -469,7 +469,7 @@ export default function ProfilesPage() {
   }
 
   return (
-    <div className="cinematic-bg relative flex min-h-screen flex-col items-center justify-center px-4 py-12 select-none">
+    <div className="cinematic-bg relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-6 sm:px-4 sm:py-12 select-none">
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/3 left-1/2 h-[550px] w-[550px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/12 blur-[160px]" />
@@ -479,14 +479,14 @@ export default function ProfilesPage() {
         initial={{ opacity: 0, scale: 0.96 }}
         animate={{ opacity: 1, scale: 1 }}
         transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
-        className="relative z-10 w-full max-w-5xl"
+        className="relative z-10 w-full min-w-0 max-w-5xl"
       >
         {/* Header */}
-        <div className="mb-12 text-center flex flex-col items-center">
+        <div className="mb-5 flex min-w-0 flex-col items-center text-center sm:mb-12">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10">
             <MovieFlixLogo className="h-12 w-12" size={48} />
           </div>
-          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white">
+          <h1 className="max-w-full break-words text-2xl font-black tracking-tight text-white min-[390px]:text-3xl sm:text-5xl md:text-6xl">
             Who&apos;s Watching?
           </h1>
           <p className="mt-2.5 text-base sm:text-lg text-neutral-400">
@@ -517,17 +517,17 @@ export default function ProfilesPage() {
         </AnimatePresence>
 
         {/* Profiles Grid */}
-        <div className="flex flex-wrap items-center justify-center gap-6 sm:gap-8 md:gap-10">
+        <div className="mx-auto grid w-full max-w-md grid-cols-2 place-items-start justify-items-center gap-x-3 gap-y-5 sm:max-w-3xl sm:grid-cols-3 sm:gap-8 md:max-w-5xl md:grid-cols-4 md:gap-10">
           {profiles.map((profile, index) => (
             <motion.div
               key={profile.id}
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.08, duration: 0.4 }}
-              className="group relative flex flex-col items-center"
+              className="group relative flex min-w-0 flex-col items-center"
             >
               <div
-                className="relative h-32 w-32 sm:h-36 sm:w-36 md:h-44 md:w-44 cursor-pointer overflow-hidden rounded-2xl border-2 border-transparent transition-all duration-300 group-hover:scale-105 group-hover:border-white/80 group-hover:shadow-[0_0_30px_rgba(0,210,245,0.5)] active:scale-95"
+                className="relative h-24 w-24 min-[390px]:h-28 min-[390px]:w-28 sm:h-32 sm:w-32 md:h-40 md:w-40 cursor-pointer overflow-hidden rounded-2xl border-2 border-transparent transition-all duration-300 group-hover:scale-105 group-hover:border-white/80 group-hover:shadow-[0_0_30px_rgba(0,210,245,0.5)] active:scale-95"
                 onClick={() => handleSelectProfile(profile)}
               >
                 <ProfileAvatar
@@ -577,12 +577,12 @@ export default function ProfilesPage() {
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: profiles.length * 0.08, duration: 0.4 }}
-              className="group flex flex-col items-center"
+              className="group flex min-w-0 flex-col items-center"
             >
               <button
                 type="button"
                 onClick={openAddModal}
-                className="flex h-32 w-32 sm:h-36 sm:w-36 md:h-44 md:w-44 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-white/20 bg-white/5 transition-all duration-300 hover:border-white/60 hover:bg-white/10 hover:scale-105 active:scale-95"
+                className="flex h-24 w-24 min-[390px]:h-28 min-[390px]:w-28 sm:h-32 sm:w-32 md:h-40 md:w-40 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-white/20 bg-white/5 transition-all duration-300 hover:border-white/60 hover:bg-white/10 hover:scale-105 active:scale-95"
               >
                 <Plus className="h-12 w-12 text-white/40 transition-colors duration-200 group-hover:text-white" />
               </button>
@@ -594,10 +594,10 @@ export default function ProfilesPage() {
         </div>
 
         {/* Action Controls (Manage Profiles / Sign Out) */}
-        <div className="mt-14 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-7 grid w-full grid-cols-2 items-center justify-center gap-2 sm:mt-14 sm:flex sm:gap-4">
           <Button
             variant="outline"
-            className="rounded-xl border-white/20 bg-white/5 px-6 py-2.5 text-sm font-semibold tracking-wider uppercase text-neutral-300 backdrop-blur-md transition-all hover:border-white/50 hover:bg-white/15 hover:text-white"
+            className="min-w-0 rounded-xl border-white/20 bg-white/5 px-2 py-2.5 sm:px-6 text-sm font-semibold tracking-wider uppercase text-neutral-300 backdrop-blur-md transition-all hover:border-white/50 hover:bg-white/15 hover:text-white"
             onClick={() => setManageMode(!manageMode)}
           >
             {manageMode ? "Done Managing" : "Manage Profiles"}
@@ -605,7 +605,7 @@ export default function ProfilesPage() {
 
           <Button
             variant="ghost"
-            className="rounded-xl px-5 py-2.5 text-sm font-medium text-neutral-400 hover:bg-white/5 hover:text-white"
+            className="min-w-0 rounded-xl px-2 py-2.5 text-sm sm:px-5 font-medium text-neutral-400 hover:bg-white/5 hover:text-white"
             onClick={handleLogout}
           >
             <LogOut className="mr-2 h-4 w-4" />

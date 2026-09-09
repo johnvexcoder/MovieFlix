@@ -143,6 +143,7 @@ export default function WatchPage() {
   const [preparingQuality, setPreparingQuality] = useState(false);
   const preparingAbortRef = useRef<AbortController | null>(null);
   const preparingQualityRef = useRef(false);
+  const requestedQualityRef = useRef<number | null>(null);
   const hlsRef = useRef<Hls | null>(null);
   // Latest values for the error-recovery handler: keeps the <video> listener
   // effect's dependency list stable while still avoiding stale closures.
@@ -785,10 +786,11 @@ export default function WatchPage() {
     // The user explicitly asked to retry: re-enable autoplay for the reload.
     userPausedRef.current = false;
     desiredPlayingRef.current = true;
-    if (typeof activeQuality === "number") {
+    const retryQuality = requestedQualityRef.current ?? activeQuality;
+    if (typeof retryQuality === "number") {
       hlsRef.current?.destroy();
       hlsRef.current = null;
-      void actionRefs.current?.switchQuality(activeQuality);
+      void actionRefs.current?.switchQuality(retryQuality);
       return;
     }
     // Bump key to force a clean re-init of the <video> element
@@ -826,6 +828,9 @@ export default function WatchPage() {
       if (!video) return;
       const keepPos = video.currentTime || lastPositionRef.current || 0;
 
+      preparingAbortRef.current?.abort();
+      requestedQualityRef.current = height;
+      setStreamError(null);
       setPreparingQuality(true);
       preparingQualityRef.current = true;
       setShowQualityMenu(false);
@@ -843,7 +848,9 @@ export default function WatchPage() {
           if (res.status === 401 && i === 0) {
             // Stale access token mid-session: refresh once, keep polling.
             await refreshSession();
+            continue;
           }
+          if (abort.signal.aborted) return;
           if (res.ok) {
             lastPositionRef.current = keepPos;
             initialSeekDoneRef.current = false;
@@ -894,8 +901,9 @@ export default function WatchPage() {
             return;
           }
           if (res.status !== 503) {
-            const reason = (await res.text()).trim();
-            throw new Error(reason || `Compatibility stream failed (${res.status})`);
+            throw new Error(res.status === 404
+              ? "The video file is unavailable on the server. Please contact support."
+              : "Could not prepare a compatible stream. Tap to retry.");
           }
           await new Promise((r) => setTimeout(r, 1500));
         }
@@ -903,11 +911,14 @@ export default function WatchPage() {
         setPreparingQuality(false);
         preparingQualityRef.current = false;
         setStreamError("The compatible stream is still being prepared. Tap retry in a moment.");
-      } catch {
+      } catch (error) {
+        if (abort.signal.aborted) return;
         setBuffering(false);
         setPreparingQuality(false);
         preparingQualityRef.current = false;
-        if (!abort.signal.aborted) setStreamError("Could not prepare a compatible stream. Tap to retry.");
+        setStreamError(error instanceof Error && error.message === "The video file is unavailable on the server. Please contact support."
+          ? error.message
+          : "Could not prepare a compatible stream. Tap to retry.");
       }
     },
     [transcodeBase, episodeParam, refreshSession]
@@ -915,6 +926,7 @@ export default function WatchPage() {
 
   // Switch back to the source stream (native range streaming)
   const switchToSource = useCallback(() => {
+    requestedQualityRef.current = null;
     if (preparingAbortRef.current) preparingAbortRef.current.abort();
     preparingQualityRef.current = false;
     hlsRef.current?.destroy();

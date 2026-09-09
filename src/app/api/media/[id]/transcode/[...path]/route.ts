@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import {
   transcodeKey,
+  touchTranscode,
   availableHeights,
   isRenditionReady,
   ensureTranscode,
@@ -95,6 +96,8 @@ export async function GET(
     if (assetName !== "index.m3u8" && !/^segment-\d{5}\.ts$/.test(assetName)) {
       return new NextResponse("Not found", { status: 404 });
     }
+
+    touchTranscode(key, height);
 
     // Ensure transcode is playable (kicks off on first request; cached after)
     if (assetName === "index.m3u8") {

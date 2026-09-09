@@ -34,10 +34,13 @@ import { PaymentMethodsManager } from "@/components/admin/payment-methods-manage
 import { PlanPromoManager } from "@/components/admin/plan-promo-manager";
 import { AdminNavigation } from "@/components/admin/admin-navigation";
 import { AboutTeamManager } from "@/components/admin/about-team-manager";
+import { AdminSecurityPanel } from "@/components/admin/admin-security-panel";
 
 interface AdminUser {
   id: string;
   username: string;
+  email: string | null;
+  twoFactorEnabled: boolean;
   createdAt: string;
 }
 
@@ -53,13 +56,17 @@ export default function AdminSettingsPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [adminActionLoading, setAdminActionLoading] = useState(false);
 
   // Change own password
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPasswordSelf, setNewPasswordSelf] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState<{ ok: boolean; text: string } | null>(null);
+  const [passwordMessage, setPasswordMessage] = useState<{
+    ok: boolean;
+    text: string;
+  } | null>(null);
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -84,7 +91,9 @@ export default function AdminSettingsPage() {
 
   // Reminder Settings
   const [reminderDays, setReminderDays] = useState(3);
-  const [reminderMessage, setReminderMessage] = useState("Your subscription is expiring soon. Please renew your account to continue watching.");
+  const [reminderMessage, setReminderMessage] = useState(
+    "Your subscription is expiring soon. Please renew your account to continue watching.",
+  );
 
   useEffect(() => {
     checkAuth();
@@ -114,8 +123,11 @@ export default function AdminSettingsPage() {
   }
 
   async function handleCreateAdmin() {
-    if (!newUsername.trim() || newPassword.length < 12) {
-      setPasswordMessage({ ok: false, text: "Username is required and password must be at least 12 characters." });
+    if (!newUsername.trim() || !newEmail.trim() || newPassword.length < 12) {
+      setPasswordMessage({
+        ok: false,
+        text: "Username, a valid email, and a password of at least 12 characters are required.",
+      });
       return;
     }
     setAdminActionLoading(true);
@@ -124,16 +136,24 @@ export default function AdminSettingsPage() {
       const response = await fetch("/api/admin/admins", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: newUsername.trim(), password: newPassword }),
+        body: JSON.stringify({
+          username: newUsername.trim(),
+          email: newEmail.trim(),
+          password: newPassword,
+        }),
       });
       const data = await response.json();
       if (data.success) {
         setCreateOpen(false);
         setNewUsername("");
+        setNewEmail("");
         setNewPassword("");
         await loadAdmins();
       } else {
-        setPasswordMessage({ ok: false, text: data.error || "Failed to create admin" });
+        setPasswordMessage({
+          ok: false,
+          text: data.error || "Failed to create admin",
+        });
       }
     } catch {
       setPasswordMessage({ ok: false, text: "Failed to create admin" });
@@ -146,7 +166,9 @@ export default function AdminSettingsPage() {
     if (!confirm(`Remove administrator "${username}"?`)) return;
     setAdminActionLoading(true);
     try {
-      const response = await fetch(`/api/admin/admins/${id}`, { method: "DELETE" });
+      const response = await fetch(`/api/admin/admins/${id}`, {
+        method: "DELETE",
+      });
       const data = await response.json();
       if (data.success) {
         await loadAdmins();
@@ -162,7 +184,10 @@ export default function AdminSettingsPage() {
 
   async function handleChangePassword() {
     if (!currentPassword || newPasswordSelf.length < 12) {
-      setPasswordMessage({ ok: false, text: "Enter current password and a new password (min 12 chars)." });
+      setPasswordMessage({
+        ok: false,
+        text: "Enter current password and a new password (min 12 chars).",
+      });
       return;
     }
     if (newPasswordSelf !== confirmPassword) {
@@ -182,9 +207,15 @@ export default function AdminSettingsPage() {
         setCurrentPassword("");
         setNewPasswordSelf("");
         setConfirmPassword("");
-        setPasswordMessage({ ok: true, text: "Password updated successfully." });
+        setPasswordMessage({
+          ok: true,
+          text: "Password updated successfully.",
+        });
       } else {
-        setPasswordMessage({ ok: false, text: data.error || "Failed to change password" });
+        setPasswordMessage({
+          ok: false,
+          text: data.error || "Failed to change password",
+        });
       }
     } catch {
       setPasswordMessage({ ok: false, text: "Failed to change password" });
@@ -239,7 +270,7 @@ export default function AdminSettingsPage() {
             max_sessions: maxSessions.toString(),
             session_timeout: sessionTimeout.toString(),
             app_public_url: appPublicUrl,
-          }
+          },
         }),
       });
     } catch (e) {
@@ -271,13 +302,22 @@ export default function AdminSettingsPage() {
                 Platform Settings
               </h1>
               <p className="text-xs text-neutral-400">
-                Configure TMDB metadata provider, scanner intervals, session security, and administrators
+                Configure TMDB metadata provider, scanner intervals, session
+                security, and administrators
               </p>
             </div>
           </div>
 
-          <Button onClick={handleSave} disabled={saving} className="btn-brand rounded-xl text-xs font-bold">
-            {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />}
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="btn-brand rounded-xl text-xs font-bold"
+          >
+            {saving ? (
+              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-1.5 h-4 w-4" />
+            )}
             Save Configuration
           </Button>
         </div>
@@ -299,7 +339,9 @@ export default function AdminSettingsPage() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2.5">
                 <Key className="h-5 w-5 text-[var(--brand)]" />
-                <h2 className="text-lg font-bold text-white">TMDB Metadata Integration</h2>
+                <h2 className="text-lg font-bold text-white">
+                  TMDB Metadata Integration
+                </h2>
               </div>
               <a
                 href="https://www.themoviedb.org/settings/api"
@@ -313,7 +355,9 @@ export default function AdminSettingsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">TMDB API Key (v3 auth)</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                TMDB API Key (v3 auth)
+              </Label>
               <Input
                 type="password"
                 value={tmdbApiKey}
@@ -322,7 +366,8 @@ export default function AdminSettingsPage() {
                 className="h-11 rounded-xl border-white/10 bg-white/5 text-white font-mono"
               />
               <p className="text-[11px] text-neutral-400">
-                Used to fetch movie artwork, high-resolution backdrops, plot summaries, and episode stills.
+                Used to fetch movie artwork, high-resolution backdrops, plot
+                summaries, and episode stills.
               </p>
             </div>
           </div>
@@ -333,16 +378,22 @@ export default function AdminSettingsPage() {
             <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
               <div className="mb-4 flex items-center gap-2.5">
                 <Database className="h-5 w-5 text-purple-400" />
-                <h2 className="text-lg font-bold text-white">Filesystem Scanner</h2>
+                <h2 className="text-lg font-bold text-white">
+                  Filesystem Scanner
+                </h2>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Periodic Interval (Minutes)</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                  Periodic Interval (Minutes)
+                </Label>
                 <Input
                   type="number"
                   min={1}
                   max={1440}
                   value={scanInterval}
-                  onChange={(e) => setScanInterval(parseInt(e.target.value) || 10)}
+                  onChange={(e) =>
+                    setScanInterval(parseInt(e.target.value) || 10)
+                  }
                   className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
                 />
                 <p className="text-[11px] text-neutral-400">
@@ -355,28 +406,39 @@ export default function AdminSettingsPage() {
             <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
               <div className="mb-4 flex items-center gap-2.5">
                 <Shield className="h-5 w-5 text-emerald-400" />
-                <h2 className="text-lg font-bold text-white">Session Security</h2>
+                <h2 className="text-lg font-bold text-white">
+                  Session Security
+                </h2>
               </div>
               <div className="space-y-2">
-                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Max Concurrent Streams</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                  Max Concurrent Streams
+                </Label>
                 <Input
                   type="number"
                   min={1}
                   max={10}
                   value={maxSessions}
-                  onChange={(e) => setMaxSessions(parseInt(e.target.value) || 3)}
+                  onChange={(e) =>
+                    setMaxSessions(parseInt(e.target.value) || 3)
+                  }
                   className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
                 />
                 <p className="text-[11px] text-neutral-400">
-                  Maximum simultaneous video streams permitted per account (Session Security).
+                  Maximum simultaneous video streams permitted per account
+                  (Session Security).
                 </p>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300 mt-4 block">Session Idle Timeout (Minutes)</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300 mt-4 block">
+                  Session Idle Timeout (Minutes)
+                </Label>
                 <Input
                   type="number"
                   min={5}
                   max={1440}
                   value={sessionTimeout}
-                  onChange={(e) => setSessionTimeout(parseInt(e.target.value) || 30)}
+                  onChange={(e) =>
+                    setSessionTimeout(parseInt(e.target.value) || 30)
+                  }
                   className="h-11 rounded-xl border-white/10 bg-white/5 text-white"
                 />
                 <p className="text-[11px] text-neutral-400">
@@ -391,11 +453,15 @@ export default function AdminSettingsPage() {
             <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
               <div className="mb-4 flex items-center gap-2.5">
                 <Database className="h-5 w-5 text-blue-400" />
-                <h2 className="text-lg font-bold text-white">SMTP Email Settings</h2>
+                <h2 className="text-lg font-bold text-white">
+                  SMTP Email Settings
+                </h2>
               </div>
               <div className="space-y-4">
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Public URL (links inside emails)</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    Public URL (links inside emails)
+                  </Label>
                   <Input
                     type="text"
                     value={appPublicUrl}
@@ -404,13 +470,20 @@ export default function AdminSettingsPage() {
                     className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white font-mono"
                   />
                   <p className="mt-1 text-[11px] text-neutral-400">
-                    Base URL used for the &ldquo;Log In&rdquo; button and password-reset links in emails. Set this to your public
-                    domain (e.g. <code className="text-neutral-300">https://movieflix.example.com</code>) so recipients
-                    are redirected to the correct login page. Falls back to the APP_PUBLIC_URL env var if blank.
+                    Base URL used for the &ldquo;Log In&rdquo; button and
+                    password-reset links in emails. Set this to your public
+                    domain (e.g.{" "}
+                    <code className="text-neutral-300">
+                      https://movieflix.example.com
+                    </code>
+                    ) so recipients are redirected to the correct login page.
+                    Falls back to the APP_PUBLIC_URL env var if blank.
                   </p>
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Host</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    SMTP Host
+                  </Label>
                   <Input
                     type="text"
                     value={smtpHost}
@@ -421,7 +494,9 @@ export default function AdminSettingsPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Port</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                      SMTP Port
+                    </Label>
                     <Input
                       type="text"
                       value={smtpPort}
@@ -431,7 +506,9 @@ export default function AdminSettingsPage() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Sender Email (From)</Label>
+                    <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                      Sender Email (From)
+                    </Label>
                     <Input
                       type="email"
                       value={smtpFrom}
@@ -442,7 +519,9 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Username</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    SMTP Username
+                  </Label>
                   <Input
                     type="text"
                     value={smtpUser}
@@ -452,7 +531,9 @@ export default function AdminSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">SMTP Password</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    SMTP Password
+                  </Label>
                   <Input
                     type="password"
                     value={smtpPass}
@@ -468,17 +549,23 @@ export default function AdminSettingsPage() {
             <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
               <div className="mb-4 flex items-center gap-2.5">
                 <Sparkles className="h-5 w-5 text-amber-400" />
-                <h2 className="text-lg font-bold text-white">Expiration Reminder</h2>
+                <h2 className="text-lg font-bold text-white">
+                  Expiration Reminder
+                </h2>
               </div>
               <div className="space-y-4">
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Show Reminder Before (Days)</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    Show Reminder Before (Days)
+                  </Label>
                   <Input
                     type="number"
                     min={1}
                     max={30}
                     value={reminderDays}
-                    onChange={(e) => setReminderDays(parseInt(e.target.value) || 3)}
+                    onChange={(e) =>
+                      setReminderDays(parseInt(e.target.value) || 3)
+                    }
                     className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
                   />
                   <p className="mt-1 text-[11px] text-neutral-400">
@@ -486,7 +573,9 @@ export default function AdminSettingsPage() {
                   </p>
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Custom Reminder Message</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    Custom Reminder Message
+                  </Label>
                   <textarea
                     value={reminderMessage}
                     onChange={(e) => setReminderMessage(e.target.value)}
@@ -506,14 +595,22 @@ export default function AdminSettingsPage() {
 
           <AboutTeamManager />
 
+          <AdminSecurityPanel />
+
           {/* Administrators Roster */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2.5">
                 <Users className="h-5 w-5 text-blue-400" />
-                <h2 className="text-lg font-bold text-white">Administrators Roster</h2>
+                <h2 className="text-lg font-bold text-white">
+                  Administrators Roster
+                </h2>
               </div>
-              <Button size="sm" onClick={() => setCreateOpen(true)} className="btn-brand h-9 rounded-xl text-xs font-bold">
+              <Button
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+                className="btn-brand h-9 rounded-xl text-xs font-bold"
+              >
                 <Plus className="mr-1.5 h-4 w-4" />
                 Add Admin
               </Button>
@@ -521,7 +618,9 @@ export default function AdminSettingsPage() {
 
             <div className="space-y-2.5">
               {admins.length === 0 ? (
-                <p className="text-xs text-neutral-400">No additional administrators found.</p>
+                <p className="text-xs text-neutral-400">
+                  No additional administrators found.
+                </p>
               ) : (
                 admins.map((adm) => (
                   <div
@@ -533,9 +632,16 @@ export default function AdminSettingsPage() {
                         {adm.username.charAt(0).toUpperCase()}
                       </div>
                       <div>
-                        <p className="text-sm font-bold text-white">{adm.username}</p>
+                        <p className="text-sm font-bold text-white">
+                          {adm.username}
+                        </p>
+                        <p className="break-all text-[11px] text-cyan-200">
+                          {adm.email || "Email setup required"}
+                        </p>
                         <p className="text-[11px] text-neutral-400">
-                          {adm.id === meId ? "Current Active Session" : `Created ${new Date(adm.createdAt).toLocaleDateString()}`}
+                          {adm.id === meId
+                            ? "Current Active Session"
+                            : `Created ${new Date(adm.createdAt).toLocaleDateString()}`}
                         </p>
                       </div>
                     </div>
@@ -561,12 +667,16 @@ export default function AdminSettingsPage() {
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex items-center gap-2.5">
               <Lock className="h-5 w-5 text-amber-400" />
-              <h2 className="text-lg font-bold text-white">Update Administrator Password</h2>
+              <h2 className="text-lg font-bold text-white">
+                Update Administrator Password
+              </h2>
             </div>
 
             <div className="space-y-4">
               <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Current Password</Label>
+                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                  Current Password
+                </Label>
                 <Input
                   type="password"
                   value={currentPassword}
@@ -578,7 +688,9 @@ export default function AdminSettingsPage() {
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">New Password</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    New Password
+                  </Label>
                   <Input
                     type="password"
                     value={newPasswordSelf}
@@ -588,7 +700,9 @@ export default function AdminSettingsPage() {
                   />
                 </div>
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Confirm New Password</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    Confirm New Password
+                  </Label>
                   <Input
                     type="password"
                     value={confirmPassword}
@@ -617,7 +731,11 @@ export default function AdminSettingsPage() {
                   disabled={adminActionLoading}
                   className="btn-brand rounded-xl text-xs font-bold"
                 >
-                  {adminActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Lock className="mr-1.5 h-4 w-4" />}
+                  {adminActionLoading ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Lock className="mr-1.5 h-4 w-4" />
+                  )}
                   Change Password
                 </Button>
               </div>
@@ -642,7 +760,11 @@ export default function AdminSettingsPage() {
               className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-white/5 px-3 py-1.5 font-semibold text-white transition-all hover:border-white/30 hover:bg-white/10"
             >
               <svg className="h-4 w-4 fill-current" viewBox="0 0 24 24">
-                <path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" />
+                <path
+                  fillRule="evenodd"
+                  clipRule="evenodd"
+                  d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z"
+                />
               </svg>
               <span>GitHub</span>
             </a>
@@ -664,7 +786,9 @@ export default function AdminSettingsPage() {
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
         <DialogContent className="glass-panel border-white/15 sm:max-w-md rounded-3xl p-6">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">Create Administrator</DialogTitle>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Create Administrator
+            </DialogTitle>
             <DialogDescription className="text-neutral-400">
               Grant admin privileges for panel & library configuration.
             </DialogDescription>
@@ -672,7 +796,9 @@ export default function AdminSettingsPage() {
 
           <div className="space-y-4 py-3">
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Admin Username</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                Admin Username
+              </Label>
               <Input
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
@@ -682,7 +808,21 @@ export default function AdminSettingsPage() {
               />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Admin Password</Label>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                Admin Recovery Email
+              </Label>
+              <Input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="admin@example.com"
+                className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+              />
+            </div>
+            <div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                Admin Password
+              </Label>
               <Input
                 type="password"
                 value={newPassword}
@@ -694,11 +834,23 @@ export default function AdminSettingsPage() {
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button variant="outline" className="rounded-xl border-white/10" onClick={() => setCreateOpen(false)}>
+            <Button
+              variant="outline"
+              className="rounded-xl border-white/10"
+              onClick={() => setCreateOpen(false)}
+            >
               Cancel
             </Button>
-            <Button onClick={handleCreateAdmin} disabled={adminActionLoading} className="btn-brand rounded-xl">
-              {adminActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Plus className="mr-1.5 h-4 w-4" />}
+            <Button
+              onClick={handleCreateAdmin}
+              disabled={adminActionLoading}
+              className="btn-brand rounded-xl"
+            >
+              {adminActionLoading ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <Plus className="mr-1.5 h-4 w-4" />
+              )}
               Create Admin
             </Button>
           </div>

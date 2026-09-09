@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Loader2, ShieldCheck, Lock, User, KeyRound, Sparkles, Eye, EyeOff } from "lucide-react";
+import { Loader2, ShieldCheck, Lock, User, KeyRound, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -17,6 +17,9 @@ export default function AdminLoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [restoring, setRestoring] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
+  const [challengeToken, setChallengeToken] = useState("");
+  const [maskedEmail, setMaskedEmail] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -56,7 +59,11 @@ export default function AdminLoginPage() {
         return;
       }
 
-      if (data.success) {
+      if (data.success && data.data?.requiresTwoFactor) {
+        setChallengeToken(data.data.challengeToken);
+        setMaskedEmail(data.data.maskedEmail);
+        setVerificationCode("");
+      } else if (data.success) {
         router.push("/admin-panel");
       } else {
         setError(data.error || "Authentication failed");
@@ -66,6 +73,15 @@ export default function AdminLoginPage() {
     } finally {
       setLoading(false);
     }
+  }
+
+  async function handleVerification(e: React.FormEvent) {
+    e.preventDefault(); setLoading(true); setError(null);
+    try {
+      const response = await fetch("/api/admin/auth/verify-2fa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ challengeToken, code: verificationCode }) });
+      const data = await response.json();
+      if (data.success) router.push("/admin-panel"); else setError(data.error || "Verification failed");
+    } catch { setError("Could not verify the code"); } finally { setLoading(false); }
   }
 
   return (
@@ -107,7 +123,13 @@ export default function AdminLoginPage() {
             </div>
 
             {/* Login Form */}
-            <form onSubmit={handleLogin} className="space-y-4">
+            {challengeToken ? <form onSubmit={handleVerification} className="space-y-4">
+              <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-3 text-center text-sm text-slate-300">Enter the six-digit code sent to <b className="text-cyan-200">{maskedEmail}</b>, or use one unused recovery code.</div>
+              <div><Label htmlFor="verification-code" className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Verification or recovery code</Label><Input id="verification-code" value={verificationCode} onChange={(e)=>setVerificationCode(e.target.value.toUpperCase())} inputMode="numeric" autoComplete="one-time-code" autoFocus className="mt-1.5 h-12 rounded-xl border-white/10 bg-white/5 text-center font-mono text-xl tracking-[.25em] text-white" required /></div>
+              {error&&<div role="alert" className="rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-center text-xs text-red-300">{error}</div>}
+              <Button type="submit" className="btn-brand h-12 w-full" disabled={loading||verificationCode.trim().length<6}>{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<KeyRound className="h-4 w-4"/>} Verify administrator</Button>
+              <button type="button" onClick={()=>{setChallengeToken("");setVerificationCode("");setError(null)}} className="w-full text-sm text-slate-400 hover:text-white">Back to password</button>
+            </form> : <form onSubmit={handleLogin} className="space-y-4">
               <div className="space-y-1.5">
                 <Label htmlFor="username" className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
                   Administrator Username
@@ -174,7 +196,7 @@ export default function AdminLoginPage() {
                   </>
                 )}
               </Button>
-            </form>
+            </form>}
           </div>
         )}
       </motion.div>

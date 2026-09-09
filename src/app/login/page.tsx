@@ -59,7 +59,10 @@ export default function LoginPage() {
       }
 
       if (data.success) {
-        router.push("/profiles");
+        if (data.data?.requiresPayment && data.data?.signupToken) {
+          sessionStorage.setItem("movieflix_signup_token", data.data.signupToken);
+          router.push("/register/payment");
+        } else router.push("/profiles");
       } else {
         setError(data.error || "Invalid username or password");
       }

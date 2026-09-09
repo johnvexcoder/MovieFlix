@@ -325,6 +325,9 @@ export function setupDatabase() {
   // Ensure accounts table has email, full_name, is_locked, and must_change_password columns.
   // NOTE: SQLite forbids ADD COLUMN with a UNIQUE constraint, so we add a plain
   // TEXT column and enforce uniqueness with a partial index (NULLs stay unique-free).
+  ensureColumn("admins", "email", "TEXT");
+  ensureColumn("admins", "two_factor_enabled", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("admins", "recovery_codes_hash", "TEXT");
   ensureColumn("accounts", "email", "TEXT");
   ensureColumn("accounts", "full_name", "TEXT");
   ensureColumn("accounts", "date_of_birth", "TEXT");
@@ -340,7 +343,8 @@ export function setupDatabase() {
   ensureColumn("payment_methods", "account_name", "TEXT");
   ensureColumn("signup_sessions", "receipt_path", "TEXT");
   try {
-    _sqlite.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;");
+    _sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admins_email ON admins(email) WHERE email IS NOT NULL;
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;`);
   } catch (e) {
     console.error("Migrate accounts.email index error:", e);
   }

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { v4 as uuidv4 } from "uuid";
+import crypto from "crypto";
 import { db } from "@/db";
-import { accounts, profiles } from "@/db/schema";
+import { accounts, profiles, signupSessions } from "@/db/schema";
 import { eq, or } from "drizzle-orm";
 import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
@@ -13,6 +14,7 @@ import {
   getAccountActiveSessions,
 } from "@/lib/redis";
 import { getDeviceId, getMaxSessions, getSessionIdleTimeoutSeconds } from "@/lib/app-settings";
+import { hashSignupToken } from "@/lib/registration";
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,22 +52,24 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid username or password", 401);
     }
 
-    // Check if account is locked
-    if (account.isLocked) {
-      if (account.registrationStatus === "awaiting_payment_approval") {
-        return errorResponse("Your registration is awaiting payment approval. We will email you when access is active.", 403);
-      }
-      if (account.registrationStatus === "pending") {
-        return errorResponse("Complete plan selection and payment before signing in.", 403);
-      }
-      return errorResponse("This account has been locked. Please contact support.", 403);
-    }
-
     // Verify password
     const isValid = await comparePassword(password, account.passwordHash);
     if (!isValid) {
       return errorResponse("Invalid username or password", 401);
     }
+
+    if (account.registrationStatus === "pending") {
+      const signupToken = crypto.randomBytes(32).toString("base64url");
+      await db.insert(signupSessions).values({
+        id: uuidv4(), accountId: account.id, tokenHash: hashSignupToken(signupToken),
+        expiresAt: new Date(Date.now() + 86_400_000).toISOString(), createdAt: new Date().toISOString(),
+      });
+      return successResponse({ requiresPayment: true, signupToken, registrationStatus: "pending" });
+    }
+    if (account.registrationStatus === "awaiting_payment_approval") {
+      return errorResponse("Your payment is awaiting administrator approval. We will email you when access is active.", 403);
+    }
+    if (account.isLocked) return errorResponse("This account has been locked. Please contact support.", 403);
 
     // Check if account is expired
     if (account.expiresAt) {

@@ -333,3 +333,8 @@ select {
   .admin-shell .glass-panel { border-radius: 18px; padding: 18px; }
   .admin-shell input, .admin-shell select, .admin-shell textarea { font-size: 16px; }
 }
+
+/* Keep every application shell within the visual viewport, including iOS and TV browsers. */
+html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+main, #__next { min-width: 0; max-width: 100%; }
+@supports (overflow: clip) { html, body { overflow-x: clip; } }

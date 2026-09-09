@@ -93,6 +93,7 @@ function isProfileSelectionPath(pathname: string): boolean {
 
 const ADMIN_AUTH_PATHS = [
   "/api/admin/auth/login",
+  "/api/admin/auth/verify-2fa",
   "/api/admin/auth/refresh",
   "/admin-panel/login",
 ];

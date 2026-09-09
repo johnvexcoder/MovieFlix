@@ -1,20 +1,8 @@
 import ffmpeg from "fluent-ffmpeg";
-import ffmpegStatic from "ffmpeg-static";
+import { configureFfmpeg } from "@/lib/ffmpeg-runtime";
 import path from "path";
 import fs from "fs/promises";
 import { isSafeFfmpegInput } from "@/lib/ffmpeg-security";
-
-let ffmpegConfigured = false;
-function ensureFfmpeg() {
-  if (!ffmpegConfigured) {
-    if (ffmpegStatic) {
-      try {
-        ffmpeg.setFfmpegPath(ffmpegStatic);
-      } catch {}
-    }
-    ffmpegConfigured = true;
-  }
-}
 
 export interface ProbeResult {
   duration: number;
@@ -33,7 +21,7 @@ export async function probeFile(filePath: string): Promise<ProbeResult | null> {
       console.error(`Refusing to probe unsafe input path: ${filePath}`);
       return null;
     }
-    ensureFfmpeg();
+    configureFfmpeg();
     await fs.access(filePath);
 
     return new Promise((resolve) => {
@@ -93,7 +81,7 @@ export async function generateThumbnail(
       console.error(`Refusing to generate thumbnail for unsafe input path: ${filePath}`);
       return false;
     }
-    ensureFfmpeg();
+    configureFfmpeg();
     const dir = path.dirname(outputPath);
     await fs.mkdir(dir, { recursive: true });
 

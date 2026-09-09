@@ -11,6 +11,9 @@ import {
 export const admins = sqliteTable("admins", {
   id: text("id").primaryKey(),
   username: text("username").notNull().unique(),
+  email: text("email").unique(),
+  twoFactorEnabled: integer("two_factor_enabled", { mode: "boolean" }).notNull().default(false),
+  recoveryCodesHash: text("recovery_codes_hash"),
   passwordHash: text("password_hash").notNull(),
   createdAt: text("created_at").notNull().default(""),
 });

@@ -40,9 +40,9 @@ export function AccountSettingsShell({ heading, subheading, children }: AccountS
   }
 
   return (
-    <div className="min-h-screen bg-[#070709] px-4 py-8 sm:px-8 select-none">
+    <div className="min-h-screen overflow-x-hidden bg-[#070709] px-2.5 py-4 sm:px-8 sm:py-8 select-none">
       <div className="mx-auto max-w-3xl">
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-3 flex items-center justify-between sm:mb-6">
           <button
             type="button"
             onClick={() => router.back()}
@@ -52,9 +52,9 @@ export function AccountSettingsShell({ heading, subheading, children }: AccountS
           </button>
           <MovieFlixLogo className="h-8 w-8" size={32} />
         </div>
-        <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-white">{heading}</h1>
-        <p className="mt-1 text-sm text-neutral-400">{subheading}</p>
-        <div className="mt-6">{children}</div>
+        <h1 className="text-xl sm:text-3xl font-black tracking-tight text-white">{heading}</h1>
+        <p className="mt-1 text-xs leading-5 text-neutral-400 sm:text-sm">{subheading}</p>
+        <div className="mt-4 sm:mt-6">{children}</div>
       </div>
     </div>
   );

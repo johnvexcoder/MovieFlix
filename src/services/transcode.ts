@@ -1,13 +1,12 @@
 import ffmpeg from "fluent-ffmpeg";
-import ffmpegStatic from "ffmpeg-static";
+import { configureFfmpeg } from "@/lib/ffmpeg-runtime";
 import fs from "fs";
 import path from "path";
 import crypto from "crypto";
 import { getEnv } from "@/lib/env";
 import { isSafeFfmpegInput } from "@/lib/ffmpeg-security";
 
-const ffmpegExecutable = process.env.FFMPEG_PATH || ffmpegStatic || "ffmpeg";
-ffmpeg.setFfmpegPath(ffmpegExecutable);
+configureFfmpeg();
 
 // Quality ladder (heights), ordered high -> low
 export const QUALITY_LADDER = [2160, 1440, 1080, 720, 480, 360];
@@ -181,6 +180,7 @@ export async function ensureTranscode(
     return { status: "failed" };
   }
   const key = transcodeKey(filePath);
+  touchTranscode(key, height);
   if (isRenditionReady(key, height)) {
     return { status: "ready" };
   }
@@ -201,6 +201,7 @@ export async function ensureTranscode(
     return { status: "failed" };
   }
 
+  recentFailures.delete(jobKey);
   const started = Date.now();
   startSingleJob(key, height, filePath, options).catch(() => {});
 
@@ -212,6 +213,7 @@ export async function ensureTranscode(
     await new Promise((r) => setTimeout(r, 800));
   }
 
+  if (recentFailures.has(jobKey)) return { status: "failed" };
   return isRenditionReady(key, height) ? { status: "ready" } : { status: "running" };
 }
 
@@ -227,6 +229,11 @@ const idleJobTimer = setInterval(() => {
   }
 }, 15_000);
 idleJobTimer.unref?.();
+
+export function touchTranscode(key: string, height: number): void {
+  const job = activeJobs.get(`${key}:${height}`);
+  if (job) job.lastRequestedAt = Date.now();
+}
 
 export function cancelTranscodes(key: string): void {
   for (const [jobKey, job] of activeJobs) {
