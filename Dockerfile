@@ -12,13 +12,16 @@ RUN apk add --no-cache python3 make g++
 WORKDIR /app
 
 # Bound the heap so the compiler does not balloon into swap and stall the host
+# Official Node images already include matching C/C++ headers in /usr/local.
+# Point node-gyp there so native modules never need unofficial-builds.nodejs.org.
 ENV NODE_OPTIONS=--max-old-space-size=1024 \
     NEXT_TELEMETRY_DISABLED=1 \
-    NEXT_BUILD_PARALLEL=1
+    NEXT_BUILD_PARALLEL=1 \
+    npm_config_nodedir=/usr/local
 
 # Install dependencies from the lockfile
 COPY package*.json ./
-RUN npm ci
+RUN npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
 # Copy source (data/thumbs etc. are git-ignored / injected at runtime)
 COPY . .
