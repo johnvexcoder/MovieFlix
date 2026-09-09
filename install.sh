@@ -105,6 +105,11 @@ ADMIN_INITIAL_PASSWORD=${admin_p}
 # e.g. http://SERVER_IP:9000  or  https://movieflix.example.com
 APP_PUBLIC_URL=http://localhost:9000
 
+# PayMongo automated billing (use test keys first)
+PAYMONGO_SECRET_KEY=
+PAYMONGO_PUBLIC_KEY=
+PAYMONGO_WEBHOOK_SECRET=
+
 # TMDB metadata (optional). Free key: https://www.themoviedb.org/settings/api
 TMDB_API_KEY=
 TMDB_BASE_URL=https://api.themoviedb.org/3

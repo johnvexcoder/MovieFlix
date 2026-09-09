@@ -37,6 +37,10 @@ services:
       - ADMIN_INITIAL_PASSWORD=${ADMIN_INITIAL_PASSWORD:-}
       # Public URL (used for links inside emails)
       - APP_PUBLIC_URL=${APP_PUBLIC_URL:-http://localhost:9000}
+      # PayMongo (server-side keys; configure test keys before enabling live mode)
+      - PAYMONGO_SECRET_KEY=${PAYMONGO_SECRET_KEY:-}
+      - PAYMONGO_PUBLIC_KEY=${PAYMONGO_PUBLIC_KEY:-}
+      - PAYMONGO_WEBHOOK_SECRET=${PAYMONGO_WEBHOOK_SECRET:-}
       # SMTP - if empty the app still runs but emails are skipped
       - SMTP_HOST=${SMTP_HOST:-}
       - SMTP_PORT=${SMTP_PORT:-587}

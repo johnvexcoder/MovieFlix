@@ -21,6 +21,7 @@ const PUBLIC_PATHS = [
   "/api/register",
   "/api/plans",
   "/api/payment-methods",
+  "/api/billing",
   "/api/upload",
   "/api/files",
 ];

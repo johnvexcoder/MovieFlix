@@ -140,7 +140,72 @@ export const promoCodes = sqliteTable("promo_codes", {
   birthdayMonthOnly: integer("birthday_month_only", { mode: "boolean" }).notNull().default(false),
   maxUses: integer("max_uses"), uses: integer("uses").notNull().default(0), startsAt: text("starts_at"), expiresAt: text("expires_at"),
   isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+  discountType: text("discount_type").notNull().default("fixed"),
+  percentOff: integer("percent_off").notNull().default(0),
+  perAccountLimit: integer("per_account_limit").notNull().default(1),
+  minimumPurchaseMinor: integer("minimum_purchase_minor").notNull().default(0),
+  maximumDiscountMinor: integer("maximum_discount_minor"),
+  discountDuration: text("discount_duration").notNull().default("one_time"),
+  reservedUses: integer("reserved_uses").notNull().default(0),
   createdAt: text("created_at").notNull().default(""), updatedAt: text("updated_at").notNull().default(""),
+});
+
+// Immutable provider-backed billing records. The legacy payment_submissions
+// table remains available for historical receipt audits only.
+export const billingOrders = sqliteTable("billing_orders", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull().references(() => accounts.id),
+  subscriptionId: text("subscription_id"),
+  planId: text("plan_id").notNull().references(() => subscriptionPlans.id),
+  planNameSnapshot: text("plan_name_snapshot").notNull(),
+  planDurationHoursSnapshot: integer("plan_duration_hours_snapshot"),
+  planLifetimeSnapshot: integer("plan_lifetime_snapshot", { mode: "boolean" }).notNull().default(false),
+  originalAmountMinor: integer("original_amount_minor").notNull(),
+  discountAmountMinor: integer("discount_amount_minor").notNull().default(0),
+  finalAmountMinor: integer("final_amount_minor").notNull(),
+  currency: text("currency").notNull().default("PHP"),
+  promoId: text("promo_id").references(() => promoCodes.id),
+  promoCodeSnapshot: text("promo_code_snapshot"),
+  promoDiscountTypeSnapshot: text("promo_discount_type_snapshot"),
+  promoDiscountValueSnapshot: integer("promo_discount_value_snapshot"),
+  promoBonusHoursSnapshot: integer("promo_bonus_hours_snapshot").notNull().default(0),
+  promoReserved: integer("promo_reserved", { mode: "boolean" }).notNull().default(false),
+  provider: text("provider").notNull().default("paymongo"),
+  providerPaymentId: text("provider_payment_id"),
+  providerIntentId: text("provider_intent_id").unique(),
+  providerPaymentMethodId: text("provider_payment_method_id"),
+  paymentMethod: text("payment_method").notNull().default("qrph"),
+  qrImage: text("qr_image"),
+  status: text("status").notNull().default("CREATED"),
+  paidAt: text("paid_at"),
+  expiresAt: text("expires_at"),
+  entitlementStart: text("entitlement_start"),
+  entitlementEnd: text("entitlement_end"),
+  createdAt: text("created_at").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const subscriptions = sqliteTable("subscriptions", {
+  id: text("id").primaryKey(), accountId: text("account_id").notNull().unique().references(() => accounts.id),
+  planId: text("plan_id").references(() => subscriptionPlans.id), status: text("status").notNull().default("ACTIVE"),
+  currentPeriodStart: text("current_period_start"), currentPeriodEnd: text("current_period_end"),
+  isLifetime: integer("is_lifetime", { mode: "boolean" }).notNull().default(false),
+  autoRenew: integer("auto_renew", { mode: "boolean" }).notNull().default(false),
+  cancelAtPeriodEnd: integer("cancel_at_period_end", { mode: "boolean" }).notNull().default(false),
+  provider: text("provider"), providerSubscriptionId: text("provider_subscription_id"),
+  createdAt: text("created_at").notNull().default(""), updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const billingEvents = sqliteTable("billing_events", {
+  id: text("id").primaryKey(), provider: text("provider").notNull(), providerEventId: text("provider_event_id").notNull().unique(),
+  eventType: text("event_type").notNull(), orderId: text("order_id").references(() => billingOrders.id),
+  status: text("status").notNull(), receivedAt: text("received_at").notNull(), processedAt: text("processed_at"), error: text("error"),
+});
+
+export const promoRedemptions = sqliteTable("promo_redemptions", {
+  id: text("id").primaryKey(), promoId: text("promo_id").notNull().references(() => promoCodes.id),
+  accountId: text("account_id").notNull().references(() => accounts.id), orderId: text("order_id").notNull().unique().references(() => billingOrders.id),
+  redeemedAt: text("redeemed_at").notNull(),
 });
 
 export const signupSessions = sqliteTable("signup_sessions", {

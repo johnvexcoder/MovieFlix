@@ -58,16 +58,14 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid username or password", 401);
     }
 
-    if (account.registrationStatus === "pending") {
+    if (account.registrationStatus === "pending" || account.registrationStatus === "awaiting_payment_approval") {
+      if (account.registrationStatus !== "pending") await db.update(accounts).set({ registrationStatus: "pending", updatedAt: new Date().toISOString() }).where(eq(accounts.id, account.id));
       const signupToken = crypto.randomBytes(32).toString("base64url");
       await db.insert(signupSessions).values({
         id: uuidv4(), accountId: account.id, tokenHash: hashSignupToken(signupToken),
         expiresAt: new Date(Date.now() + 86_400_000).toISOString(), createdAt: new Date().toISOString(),
       });
       return successResponse({ requiresPayment: true, signupToken, registrationStatus: "pending" });
-    }
-    if (account.registrationStatus === "awaiting_payment_approval") {
-      return errorResponse("Your payment is awaiting administrator approval. We will email you when access is active.", 403);
     }
     if (account.isLocked) return errorResponse("This account has been locked. Please contact support.", 403);
 

@@ -30,7 +30,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { checkAdminSession } from "@/lib/client-auth";
-import { PaymentMethodsManager } from "@/components/admin/payment-methods-manager";
 import { PlanPromoManager } from "@/components/admin/plan-promo-manager";
 import { AdminNavigation } from "@/components/admin/admin-navigation";
 import { AboutTeamManager } from "@/components/admin/about-team-manager";
@@ -591,7 +590,6 @@ export default function AdminSettingsPage() {
           {/* Payment Methods */}
           <PlanPromoManager />
 
-          <PaymentMethodsManager />
 
           <AboutTeamManager />
 

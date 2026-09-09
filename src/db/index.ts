@@ -320,6 +320,34 @@ export function setupDatabase() {
       expires_at TEXT NOT NULL, completed_at TEXT, receipt_path TEXT, created_at TEXT NOT NULL DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_signup_token ON signup_sessions(token_hash);
+    CREATE TABLE IF NOT EXISTS subscriptions (
+      id TEXT PRIMARY KEY, account_id TEXT NOT NULL UNIQUE REFERENCES accounts(id), plan_id TEXT REFERENCES subscription_plans(id),
+      status TEXT NOT NULL DEFAULT 'ACTIVE', current_period_start TEXT, current_period_end TEXT, is_lifetime INTEGER NOT NULL DEFAULT 0,
+      auto_renew INTEGER NOT NULL DEFAULT 0, cancel_at_period_end INTEGER NOT NULL DEFAULT 0, provider TEXT, provider_subscription_id TEXT,
+      created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS billing_orders (
+      id TEXT PRIMARY KEY, account_id TEXT NOT NULL REFERENCES accounts(id), subscription_id TEXT, plan_id TEXT NOT NULL REFERENCES subscription_plans(id),
+      plan_name_snapshot TEXT NOT NULL, plan_duration_hours_snapshot INTEGER, plan_lifetime_snapshot INTEGER NOT NULL DEFAULT 0,
+      original_amount_minor INTEGER NOT NULL, discount_amount_minor INTEGER NOT NULL DEFAULT 0, final_amount_minor INTEGER NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'PHP', promo_id TEXT REFERENCES promo_codes(id), promo_code_snapshot TEXT,
+      promo_discount_type_snapshot TEXT, promo_discount_value_snapshot INTEGER, promo_bonus_hours_snapshot INTEGER NOT NULL DEFAULT 0,
+      promo_reserved INTEGER NOT NULL DEFAULT 0, provider TEXT NOT NULL DEFAULT 'paymongo', provider_payment_id TEXT,
+      provider_intent_id TEXT UNIQUE, provider_payment_method_id TEXT, payment_method TEXT NOT NULL DEFAULT 'qrph', qr_image TEXT,
+      status TEXT NOT NULL DEFAULT 'CREATED', paid_at TEXT, expires_at TEXT, entitlement_start TEXT, entitlement_end TEXT,
+      created_at TEXT NOT NULL DEFAULT '', updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE TABLE IF NOT EXISTS billing_events (
+      id TEXT PRIMARY KEY, provider TEXT NOT NULL, provider_event_id TEXT NOT NULL UNIQUE, event_type TEXT NOT NULL,
+      order_id TEXT REFERENCES billing_orders(id), status TEXT NOT NULL, received_at TEXT NOT NULL, processed_at TEXT, error TEXT
+    );
+    CREATE TABLE IF NOT EXISTS promo_redemptions (
+      id TEXT PRIMARY KEY, promo_id TEXT NOT NULL REFERENCES promo_codes(id), account_id TEXT NOT NULL REFERENCES accounts(id),
+      order_id TEXT NOT NULL UNIQUE REFERENCES billing_orders(id), redeemed_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_billing_orders_account ON billing_orders(account_id, created_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_billing_orders_status ON billing_orders(status, expires_at);
+    CREATE INDEX IF NOT EXISTS idx_promo_redemptions_account ON promo_redemptions(promo_id, account_id);
   `);
 
   // Ensure accounts table has email, full_name, is_locked, and must_change_password columns.
@@ -340,6 +368,13 @@ export function setupDatabase() {
   ensureColumn("payment_submissions", "plan_id", "TEXT");
   ensureColumn("payment_submissions", "promo_code_id", "TEXT");
   ensureColumn("promo_codes", "birthday_month_only", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("promo_codes", "discount_type", "TEXT NOT NULL DEFAULT 'fixed'");
+  ensureColumn("promo_codes", "percent_off", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("promo_codes", "per_account_limit", "INTEGER NOT NULL DEFAULT 1");
+  ensureColumn("promo_codes", "minimum_purchase_minor", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("promo_codes", "maximum_discount_minor", "INTEGER");
+  ensureColumn("promo_codes", "discount_duration", "TEXT NOT NULL DEFAULT 'one_time'");
+  ensureColumn("promo_codes", "reserved_uses", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("payment_methods", "account_name", "TEXT");
   ensureColumn("signup_sessions", "receipt_path", "TEXT");
   try {
