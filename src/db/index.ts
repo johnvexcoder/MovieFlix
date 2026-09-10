@@ -406,8 +406,8 @@ export function setupDatabase() {
     if (adminCount.count === 0) {
       const username = process.env.ADMIN_USERNAME?.trim() || "admin";
       const configuredPassword = process.env.ADMIN_INITIAL_PASSWORD;
-      if (process.env.NODE_ENV === "production" && (!configuredPassword || configuredPassword.length < 12)) {
-        throw new Error("ADMIN_INITIAL_PASSWORD must contain at least 12 characters for the first production startup");
+      if (process.env.NODE_ENV === "production" && (!configuredPassword || configuredPassword.length < 8)) {
+        throw new Error("ADMIN_INITIAL_PASSWORD must contain at least 8 characters for the first production startup");
       }
       const initialPassword = configuredPassword || "admin123";
       const adminPasswordHash = bcrypt.hashSync(initialPassword, 12);

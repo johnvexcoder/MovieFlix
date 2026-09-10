@@ -25,19 +25,18 @@ export function ContactSubmissionsAdmin() {
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    const load = async () => {
       try {
         const res = await fetch("/api/admin/contact", { cache: "no-store" });
         const data = await res.json();
         if (data.success && mounted) setItems(data.data.submissions);
-      } catch {
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
+      } catch {} finally { if (mounted) setLoading(false); }
     };
+    void load();
+    const interval = window.setInterval(load, 30000);
+    const visible = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { mounted = false; window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
   }, []);
 
   const iconFor = (type: string) =>
@@ -69,7 +68,7 @@ export function ContactSubmissionsAdmin() {
           <p className="text-xs text-neutral-400">No reports, feedback, or suggestions yet.</p>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="max-h-[480px] space-y-2.5 overflow-y-auto overscroll-contain pr-1">
           {items.map((item) => {
             const meta = TYPE_META[item.type] || TYPE_META.feedback;
             return (

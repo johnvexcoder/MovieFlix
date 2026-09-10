@@ -20,19 +20,18 @@ export function MessageHistory() {
 
   useEffect(() => {
     let mounted = true;
-    (async () => {
+    const load = async () => {
       try {
         const res = await fetch("/api/admin/messages", { cache: "no-store" });
         const data = await res.json();
         if (data.success && mounted) setMessages(data.data.messages);
-      } catch {
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => {
-      mounted = false;
+      } catch {} finally { if (mounted) setLoading(false); }
     };
+    void load();
+    const interval = window.setInterval(load, 30000);
+    const visible = () => { if (document.visibilityState === "visible") void load(); };
+    document.addEventListener("visibilitychange", visible);
+    return () => { mounted = false; window.clearInterval(interval); document.removeEventListener("visibilitychange", visible); };
   }, []);
 
   async function handleDelete(id: string) {
@@ -70,7 +69,7 @@ export function MessageHistory() {
           <p className="text-xs text-neutral-400">No messages sent yet.</p>
         </div>
       ) : (
-        <div className="space-y-2.5">
+        <div className="max-h-[480px] space-y-2.5 overflow-y-auto overscroll-contain pr-1">
           {messages.map((m) => (
             <div key={m.id} className="flex items-start justify-between gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
               <div className="min-w-0">

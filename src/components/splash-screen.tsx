@@ -18,10 +18,10 @@ export function SplashScreen({ onComplete, brandName = "MOVIEFLIX", tagline = "S
   }, [onComplete]);
 
   useEffect(() => {
-    const preference = window.matchMedia("(prefers-reduced-motion: reduce)");
-    let timer = window.setTimeout(finish, preference.matches ? 450 : 4400);
+    const preference = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
+    let timer = window.setTimeout(finish, preference?.matches ? 450 : 4400);
     const onPreference = () => {
-      if (preference.matches) {
+      if (preference?.matches) {
         window.clearTimeout(timer);
         timer = window.setTimeout(finish, 150);
       }
@@ -29,11 +29,13 @@ export function SplashScreen({ onComplete, brandName = "MOVIEFLIX", tagline = "S
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") finish();
     };
-    preference.addEventListener("change", onPreference);
+    if (typeof preference?.addEventListener === "function") preference.addEventListener("change", onPreference);
+    else if (typeof preference?.addListener === "function") preference.addListener(onPreference);
     window.addEventListener("keydown", onKey);
     return () => {
       window.clearTimeout(timer);
-      preference.removeEventListener("change", onPreference);
+      if (typeof preference?.removeEventListener === "function") preference.removeEventListener("change", onPreference);
+      else if (typeof preference?.removeListener === "function") preference.removeListener(onPreference);
       window.removeEventListener("keydown", onKey);
     };
   }, [finish]);

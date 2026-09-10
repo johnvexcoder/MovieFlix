@@ -346,3 +346,6 @@ main, #__next { min-width: 0; max-width: 100%; }
   .admin-shell h2 { font-size: 1rem; line-height: 1.35rem; }
   .admin-shell button, .admin-shell a, .admin-shell input, .admin-shell select { min-height: 42px; }
 }
+
+/* Remove the historical 300ms touch delay on interactive controls. */
+button, a, [role="button"], input, select { touch-action: manipulation; -ms-touch-action: manipulation; }

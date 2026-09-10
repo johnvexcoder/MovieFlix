@@ -5,6 +5,7 @@ import { accounts, billingOrders, promoCodes, promoRedemptions, signupSessions, 
 import { hashSignupToken } from "../src/lib/registration";
 import { createOrder, fulfillOrder, releaseExpiredReservations } from "../src/services/billing/service";
 import { deleteAccountCompletely } from "../src/services/delete-account";
+import { cleanupExpiredAccounts } from "../src/services/account-cleanup";
 
 async function main() {
   setupDatabase();
@@ -37,6 +38,14 @@ async function main() {
   if (await releaseExpiredReservations() < 1) throw new Error("Expired payment was not reconciled");
   const [expired] = await db.select().from(billingOrders).where(eq(billingOrders.id, abandonedOrderId));
   if (expired.status !== "EXPIRED") throw new Error("Abandoned payment did not become EXPIRED");
+
+  // An expired historical signup session must never delete a paid account,
+  // including when automatic cleanup is explicitly enabled for trial accounts.
+  process.env.TRIAL_AUTO_DELETE_EXPIRED = "true";
+  await db.update(signupSessions).set({ expiresAt: new Date(Date.now() - 60_000).toISOString() }).where(eq(signupSessions.accountId, accountId));
+  await cleanupExpiredAccounts();
+  const paidAccountStillExists = await db.select().from(accounts).where(eq(accounts.id, accountId));
+  if (paidAccountStillExists.length !== 1) throw new Error("Paid account was deleted because an old signup session expired");
 
   // Admin deletion must remove both completed and abandoned billing graphs.
   await deleteAccountCompletely(accountId);

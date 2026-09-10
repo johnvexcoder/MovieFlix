@@ -1,6 +1,6 @@
 import { db } from "@/db";
-import { accounts, signupSessions } from "@/db/schema";
-import { eq, lt, or } from "drizzle-orm";
+import { accounts } from "@/db/schema";
+import { and, eq, lt } from "drizzle-orm";
 import { deleteAccountCompletely } from "./delete-account";
 import { releaseExpiredReservations } from "./billing/service";
 
@@ -16,16 +16,19 @@ export async function cleanupExpiredAccounts(): Promise<{
     const expiredPayments = await releaseExpiredReservations();
     if (expiredPayments > 0) console.log(`Expired ${expiredPayments} abandoned payment order(s)`);
 
-    // Find expired accounts
+    // Account data is preserved by default. Older versions deleted an account
+    // when any historical signup session expired, which could erase an active
+    // paid customer after a restart. Only explicitly temporary, already-expired
+    // trial accounts are eligible, and only when the operator opts in.
+    if (process.env.TRIAL_AUTO_DELETE_EXPIRED !== "true") {
+      return { deletedAccounts: 0, deletedProfiles: 0 };
+    }
     const expiredAccounts = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .leftJoin(signupSessions, eq(signupSessions.accountId, accounts.id))
-      .where(or(lt(accounts.expiresAt, now), lt(signupSessions.expiresAt, now)));
+      .where(and(eq(accounts.isTemp, true), eq(accounts.registrationStatus, "active"), lt(accounts.expiresAt, now)));
 
-    if (expiredAccounts.length === 0) {
-      return { deletedAccounts: 0, deletedProfiles: 0 };
-    }
+    if (expiredAccounts.length === 0) return { deletedAccounts: 0, deletedProfiles: 0 };
 
     // Delete each account with all of its dependent rows inside one
     // transaction. Reuses the exact same routine as the admin delete endpoint

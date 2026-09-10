@@ -32,7 +32,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <head>
-        <link rel="stylesheet" href="/tv-compat.css?v=1" />
+        <link rel="stylesheet" href="/tv-compat.css?v=2" />
+        {/* Compatibility polyfills must execute before the application bundle on older TV browsers. */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/legacy-polyfills.js?v=1" />
         <link rel="icon" href="/logo.svg?v=2" type="image/svg+xml" />
         <link rel="shortcut icon" href="/logo.svg?v=2" type="image/svg+xml" />
         <link rel="apple-touch-icon" href="/logo.svg?v=2" />

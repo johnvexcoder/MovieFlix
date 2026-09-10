@@ -629,9 +629,6 @@ export default function WatchPage() {
     // makes video.paused report stale until then. If a play is in flight, treat
     // it as "playing intent" rather than firing a duplicate play() or a pause
     // that immediately cancels it.
-    const hasPendingPlay = playPromiseRef.current != null;
-    if (hasPendingPlay) return;
-
     if (video.paused || video.ended) {
       // Guard against overlapping play() calls being cancelled by a later one.
       desiredPlayingRef.current = true;
@@ -641,7 +638,7 @@ export default function WatchPage() {
       request.catch(() => {
         setShowControls(true);
       }).finally(() => {
-        playPromiseRef.current = null;
+        if (playPromiseRef.current === request) playPromiseRef.current = null;
       });
       triggerCenterIcon("play");
     } else {

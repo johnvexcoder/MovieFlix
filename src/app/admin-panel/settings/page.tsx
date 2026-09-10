@@ -125,10 +125,10 @@ export default function AdminSettingsPage() {
   }
 
   async function handleCreateAdmin() {
-    if (!newUsername.trim() || !newEmail.trim() || newPassword.length < 12) {
+    if (!newUsername.trim() || !newEmail.trim() || newPassword.length < 8) {
       setPasswordMessage({
         ok: false,
-        text: "Username, a valid email, and a password of at least 12 characters are required.",
+        text: "Username, a valid email, and a password of at least 8 characters are required.",
       });
       return;
     }
@@ -185,10 +185,10 @@ export default function AdminSettingsPage() {
   }
 
   async function handleChangePassword() {
-    if (!currentPassword || newPasswordSelf.length < 12) {
+    if (!currentPassword || newPasswordSelf.length < 8) {
       setPasswordMessage({
         ok: false,
-        text: "Enter current password and a new password (min 12 chars).",
+        text: "Enter current password and a new password (min 8 chars).",
       });
       return;
     }
@@ -257,7 +257,7 @@ export default function AdminSettingsPage() {
       // Don't send the masked placeholder back; the backend preserves the stored
       // password when smtp_pass is empty. Only a fresh value is saved.
       const smtpPassToSend = smtpPass === "••••••••••" ? "" : smtpPass;
-      await fetch("/api/admin/settings", {
+      const response = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -275,12 +275,14 @@ export default function AdminSettingsPage() {
           },
         }),
       });
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error(data.error || "Settings could not be saved");
+      setSaveToast("Settings saved successfully.");
     } catch (e) {
       console.error("Failed to save settings", e);
+      setSaveToast(e instanceof Error ? e.message : "Settings could not be saved");
     }
-    await new Promise((resolve) => setTimeout(resolve, 800));
     setSaving(false);
-    setSaveToast("Settings saved successfully.");
     setTimeout(() => setSaveToast(null), 4000);
   }
 
@@ -336,6 +338,7 @@ export default function AdminSettingsPage() {
         )}
 
         <div className="grid items-start gap-5 xl:grid-cols-2 [&>.grid]:contents">
+          <div className="xl:col-span-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Section 1</p><h2 className="mt-1 text-lg font-black">Platform and delivery</h2><p className="text-xs text-slate-400">TMDB, filesystem scanner, session security, and SMTP.</p></div>
           {/* TMDB API Integration */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
@@ -547,6 +550,9 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
+          </div>
+
+          <div className="xl:col-span-2 mt-3 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-300">Section 2</p><h2 className="mt-1 text-lg font-black">Membership and promotions</h2><p className="text-xs text-slate-400">Expiration reminders, subscription plans, and promo or redeem codes.</p></div>
             {/* Expiry Reminder */}
             <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
               <div className="mb-4 flex items-center gap-2.5">
@@ -588,12 +594,12 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
             </div>
-          </div>
 
           {/* Payment Methods */}
           <PlanPromoManager />
 
 
+          <div className="xl:col-span-2 mt-3 rounded-2xl border border-orange-300/15 bg-orange-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-300">Section 3</p><h2 className="mt-1 text-lg font-black">Identity and administration</h2><p className="text-xs text-slate-400">About team, administrator roster, email verification, and password security.</p></div>
           <AboutTeamManager />
 
           <AdminSecurityPanel />
@@ -696,7 +702,7 @@ export default function AdminSettingsPage() {
                     type="password"
                     value={newPasswordSelf}
                     onChange={(e) => setNewPasswordSelf(e.target.value)}
-                    placeholder="Min 12 characters"
+                    placeholder="Min 8 characters"
                     className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
                   />
                 </div>
@@ -832,7 +838,7 @@ export default function AdminSettingsPage() {
                   type={showCreatePassword ? "text" : "password"}
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
-                  placeholder="Min 12 characters"
+                  placeholder="Min 8 characters"
                   className="h-11 rounded-xl border-white/10 bg-white/5 pr-12 text-white"
                 />
                 <button

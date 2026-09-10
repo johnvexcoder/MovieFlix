@@ -31,7 +31,7 @@ const envSchema = z.object({
   TRIAL_CHECK_INTERVAL_MINUTES: z.coerce.number().default(5),
   TRIAL_MAX_DURATION_HOURS: z.coerce.number().default(168),
   TRIAL_DEFAULT_DURATION_HOURS: z.coerce.number().default(72),
-  TRIAL_AUTO_DELETE_EXPIRED: z.coerce.boolean().default(true),
+  TRIAL_AUTO_DELETE_EXPIRED: z.coerce.boolean().default(false),
   TRIAL_WARN_BEFORE_EXPIRY_HOURS: z.coerce.number().default(24),
 
   MAX_CONCURRENT_SESSIONS: z.coerce.number().default(3),

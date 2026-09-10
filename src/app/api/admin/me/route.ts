@@ -21,8 +21,8 @@ export async function PATCH(request: NextRequest) {
     if (!currentPassword || typeof currentPassword !== "string") {
       return errorResponse("Current password is required", 400);
     }
-    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 12) {
-      return errorResponse("New password must be at least 12 characters", 400);
+    if (!newPassword || typeof newPassword !== "string" || newPassword.length < 8) {
+      return errorResponse("New password must be at least 8 characters", 400);
     }
 
     const [admin] = await db

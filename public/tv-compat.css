@@ -13,6 +13,7 @@ body{display:block;background-color:#020611!important;color:#fff!important}
 .movieflix-skip{position:absolute;right:24px;bottom:24px;min-height:44px;padding:10px 20px;border:1px solid #58728f;border-radius:22px;background:#101b31;color:#fff}
 .glass-panel{background:#0b1629;border:1px solid #243955}
 button,input,select,textarea{font:inherit}
+button,a,[role="button"]{touch-action:manipulation;-ms-touch-action:manipulation}
 img,svg,video{max-width:100%}
 video{background:#000}
 @media(max-width:700px){.movieflix-lockup{height:220px}.movieflix-brand-name{font-size:48px;letter-spacing:-3px}.movieflix-tagline{font-size:13px;letter-spacing:3px}}

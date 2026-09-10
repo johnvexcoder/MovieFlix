@@ -59,8 +59,8 @@ export async function POST(request: NextRequest) {
     if (typeof email !== "string" || !/^\S+@\S+\.\S+$/.test(email.trim())) {
       return errorResponse("A valid administrator email is required", 400);
     }
-    if (!password || typeof password !== "string" || password.length < 12) {
-      return errorResponse("Password must be at least 12 characters", 400);
+    if (!password || typeof password !== "string" || password.length < 8) {
+      return errorResponse("Password must be at least 8 characters", 400);
     }
 
     const cleanUsername = username.trim().toLowerCase();

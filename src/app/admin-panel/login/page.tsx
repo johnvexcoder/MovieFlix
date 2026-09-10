@@ -125,7 +125,7 @@ export default function AdminLoginPage() {
 
             {/* Login Form */}
             {challengeToken ? <form onSubmit={handleVerification} className="space-y-4">
-              <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-3 text-center text-sm text-slate-300">Enter the six-digit code sent to <b className="text-cyan-200">{maskedEmail}</b>, or use one unused recovery code.</div>
+              <div className="rounded-xl border border-cyan-300/20 bg-cyan-300/5 p-3 text-center text-sm text-slate-300">Enter the six-digit code sent to <b className="text-cyan-200">{maskedEmail}</b>, or paste one of the ten one-time recovery codes you saved during setup.</div>
               <div><Label htmlFor="verification-code" className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Verification or recovery code</Label><Input id="verification-code" value={verificationCode} onChange={(e)=>setVerificationCode(e.target.value.toUpperCase())} autoComplete="one-time-code" autoCapitalize="characters" autoCorrect="off" spellCheck={false} autoFocus className="mt-1.5 h-12 rounded-xl border-white/10 bg-white/5 text-center font-mono text-xl tracking-[.25em] text-white" required /></div>
               {error&&<div role="alert" className="rounded-xl border border-red-500/30 bg-red-950/40 p-3 text-center text-xs text-red-300">{error}</div>}
               <Button type="submit" className="btn-brand h-12 w-full" disabled={loading||verificationCode.trim().length<6}>{loading?<Loader2 className="h-4 w-4 animate-spin"/>:<KeyRound className="h-4 w-4"/>} Verify administrator</Button>

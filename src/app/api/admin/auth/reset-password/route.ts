@@ -12,7 +12,7 @@ export async function POST(request: NextRequest) {
     const ip = getClientIp(request);
     if (!(await setRateLimit(`admin-password-reset:${ip}`, 15 * 60 * 1000, 8)).allowed) return errorResponse("Too many reset attempts. Try again later.", 429);
     const { token, identifier, verificationCode, newPassword } = await request.json();
-    if (typeof newPassword !== "string" || newPassword.length < 12) return errorResponse("Administrator password must contain at least 12 characters", 400);
+    if (typeof newPassword !== "string" || newPassword.length < 8) return errorResponse("Administrator password must contain at least 8 characters", 400);
 
     let adminId = "";
     let resetId = "";
