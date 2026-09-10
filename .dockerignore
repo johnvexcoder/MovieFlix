@@ -12,6 +12,8 @@ yarn-error.log*
 # transcode caches are mounted into the container. Never copy them into an
 # image or send them to the Docker daemon during an update.
 data/
+data.backup*/
+data-backup*/
 README.md
 PROJECT.md
 CLAUDE.md
