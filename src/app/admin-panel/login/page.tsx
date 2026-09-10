@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { motion } from "framer-motion";
 import { Loader2, ShieldCheck, Lock, User, KeyRound, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -196,6 +197,7 @@ export default function AdminLoginPage() {
                   </>
                 )}
               </Button>
+              <Link href="/admin-panel/forgot-password" className="block min-h-11 py-3 text-center text-sm font-semibold text-cyan-300 hover:text-cyan-200 hover:underline">Forgot administrator password?</Link>
             </form>}
           </div>
         )}

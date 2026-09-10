@@ -4,7 +4,15 @@ import path from "path";
 import { eq, and, or } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { db } from "@/db";
-import { paymentSubmissions, paymentMethods } from "@/db/schema";
+import { appSettings, paymentSubmissions, paymentMethods } from "@/db/schema";
+
+async function isPublishedAboutImage(fileParam: string): Promise<boolean> {
+  const [setting] = await db.select({ value: appSettings.value }).from(appSettings).where(eq(appSettings.key, "about_team")).limit(1);
+  try {
+    const team = JSON.parse(setting?.value || "[]") as Array<{ imageUrl?: unknown }>;
+    return team.some((member) => typeof member.imageUrl === "string" && member.imageUrl === `/api/files?file=${encodeURIComponent(fileParam)}`);
+  } catch { return false; }
+}
 
 export const dynamic = "force-dynamic";
 
@@ -42,7 +50,7 @@ export async function GET(request: NextRequest) {
     const payload = token ? await verifyToken(token) : null;
     if (!payload) {
       const [publicMethodAsset] = await db.select({id:paymentMethods.id}).from(paymentMethods).where(and(eq(paymentMethods.isActive,true),or(eq(paymentMethods.iconPath,fileParam),eq(paymentMethods.qrPath,fileParam)))).limit(1);
-      if (!publicMethodAsset) return new NextResponse("Unauthorized", { status: 401 });
+      if (!publicMethodAsset && !(await isPublishedAboutImage(fileParam))) return new NextResponse("Unauthorized", { status: 401 });
     } else if (!payload.isAdmin) {
       const [ownReceipt] = await db
         .select({ id: paymentSubmissions.id })
@@ -70,7 +78,7 @@ export async function GET(request: NextRequest) {
           )
           .limit(1);
 
-        if (!activeMethod) {
+        if (!activeMethod && !(await isPublishedAboutImage(fileParam))) {
           return new NextResponse("Forbidden", { status: 403 });
         }
       }
@@ -99,7 +107,7 @@ export async function GET(request: NextRequest) {
     return new NextResponse(new Uint8Array(buf), {
       headers: {
         "Content-Type": MIME[ext],
-        "Cache-Control": "private, max-age=86400",
+        "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
         "X-Content-Type-Options": "nosniff",
       },
     });

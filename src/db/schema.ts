@@ -54,6 +54,17 @@ export const passwordResetTokens = sqliteTable("password_reset_tokens", {
   createdAt: text("created_at").notNull().default(""),
 });
 
+export const adminPasswordResetTokens = sqliteTable("admin_password_reset_tokens", {
+  id: text("id").primaryKey(),
+  adminId: text("admin_id").notNull().references(() => admins.id),
+  tokenHash: text("token_hash").notNull().unique(),
+  codeHash: text("code_hash").notNull(),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  attempts: integer("attempts").notNull().default(0),
+  createdAt: text("created_at").notNull().default(""),
+});
+
 // ===========================================
 // ADMIN MESSAGES TABLE (targeted or broadcast)
 // ===========================================
