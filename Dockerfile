@@ -11,10 +11,13 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app
 
-# Bound the heap so the compiler does not balloon into swap and stall the host
+# Bound the heap so the compiler does not balloon into swap and stall the host.
+# 1536 MB gives the webpack TypeScript checker enough headroom (its peak during
+# a cold build comes within ~10 MB of the old 1024 MB cap) while still fitting
+# comfortably on hosts with >= 3 GB of ram+swap (see install.sh swap_check).
 # Official Node images already include matching C/C++ headers in /usr/local.
 # Point node-gyp there so native modules never need unofficial-builds.nodejs.org.
-ENV NODE_OPTIONS=--max-old-space-size=1024 \
+ENV NODE_OPTIONS=--max-old-space-size=1536 \
     NEXT_TELEMETRY_DISABLED=1 \
     NEXT_BUILD_PARALLEL=1 \
     npm_config_nodedir=/usr/local
