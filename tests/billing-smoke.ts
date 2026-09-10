@@ -3,7 +3,8 @@ import { eq, sql } from "drizzle-orm";
 import { setupDatabase, db } from "../src/db";
 import { accounts, billingOrders, promoCodes, promoRedemptions, signupSessions, subscriptionPlans } from "../src/db/schema";
 import { hashSignupToken } from "../src/lib/registration";
-import { createOrder, fulfillOrder } from "../src/services/billing/service";
+import { createOrder, fulfillOrder, releaseExpiredReservations } from "../src/services/billing/service";
+import { deleteAccountCompletely } from "../src/services/delete-account";
 
 async function main() {
   setupDatabase();
@@ -28,6 +29,21 @@ async function main() {
   const [{ count }] = await db.select({ count: sql<number>`count(*)` }).from(promoRedemptions);
   const [saved] = await db.select().from(billingOrders).where(eq(billingOrders.id, order.id));
   if (promo.uses !== 1 || promo.reservedUses !== 0 || count !== 1 || saved.status !== "PAID") throw new Error("Idempotency or redemption accounting failed");
+
+  // A missed PayMongo expiry webhook must not leave a QR payment pending.
+  const abandonedAccountId = randomUUID(), abandonedOrderId = randomUUID();
+  await db.insert(accounts).values({ id: abandonedAccountId, username: `abandoned-${abandonedAccountId}`, passwordHash: "unused", registrationStatus: "pending", isLocked: true, createdAt: now, updatedAt: now });
+  await db.insert(billingOrders).values({ id: abandonedOrderId, accountId: abandonedAccountId, planId, planNameSnapshot: "1 Month", planDurationHoursSnapshot: 720, planLifetimeSnapshot: false, originalAmountMinor: 10000, discountAmountMinor: 0, finalAmountMinor: 10000, currency: "PHP", provider: "paymongo", status: "PENDING", expiresAt: new Date(Date.now() - 60_000).toISOString(), createdAt: now, updatedAt: now });
+  if (await releaseExpiredReservations() < 1) throw new Error("Expired payment was not reconciled");
+  const [expired] = await db.select().from(billingOrders).where(eq(billingOrders.id, abandonedOrderId));
+  if (expired.status !== "EXPIRED") throw new Error("Abandoned payment did not become EXPIRED");
+
+  // Admin deletion must remove both completed and abandoned billing graphs.
+  await deleteAccountCompletely(accountId);
+  await deleteAccountCompletely(abandonedAccountId);
+  const deletedAccounts = await db.select().from(accounts).where(eq(accounts.id, accountId));
+  const deletedOrders = await db.select().from(billingOrders).where(eq(billingOrders.accountId, abandonedAccountId));
+  if (deletedAccounts.length || deletedOrders.length) throw new Error("Safe account deletion left dependent records behind");
   console.log("Billing smoke test passed");
 }
 main().catch((error) => { console.error(error); process.exit(1); });

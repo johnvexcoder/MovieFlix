@@ -15,9 +15,19 @@ export async function resolveCustomer(request:Request,signupToken?:string):Promi
  const cookie=request.headers.get("cookie")||"";const token=cookie.match(/(?:^|;\s*)access_token=([^;]+)/)?.[1];const payload=token?await verifyToken(decodeURIComponent(token)):null;if(!payload?.accountId||payload.accountId==="admin")return null;
  const [account]=await db.select().from(accounts).where(eq(accounts.id,payload.accountId)).limit(1);return account?{account,signupSessionId:null}:null;
 }
-export async function releaseExpiredReservations(){
- const now=new Date().toISOString();const expired=await db.select().from(billingOrders).where(and(eq(billingOrders.promoReserved,true),inArray(billingOrders.status,["CREATED","PENDING"]),lt(billingOrders.expiresAt,now)));
- for(const order of expired)db.transaction(tx=>{tx.update(billingOrders).set({status:"EXPIRED",promoReserved:false,updatedAt:now}).where(and(eq(billingOrders.id,order.id),eq(billingOrders.promoReserved,true))).run();if(order.promoId)tx.update(promoCodes).set({reservedUses:sql`max(0, ${promoCodes.reservedUses} - 1)`}).where(eq(promoCodes.id,order.promoId)).run()});
+export async function releaseExpiredReservations(): Promise<number> {
+ const now = new Date().toISOString();
+ const expired = await db.select().from(billingOrders).where(and(inArray(billingOrders.status,["CREATED","PENDING"]),lt(billingOrders.expiresAt,now)));
+ let released = 0;
+ for (const order of expired) {
+  db.transaction(tx=>{
+   const updated=tx.update(billingOrders).set({status:"EXPIRED",promoReserved:false,qrImage:null,updatedAt:now}).where(and(eq(billingOrders.id,order.id),inArray(billingOrders.status,["CREATED","PENDING"]),lt(billingOrders.expiresAt,now))).run();
+   if(updated.changes!==1)return;
+   released += 1;
+   if(order.promoId&&order.promoReserved)tx.update(promoCodes).set({reservedUses:sql`max(0, ${promoCodes.reservedUses} - 1)`,updatedAt:now}).where(eq(promoCodes.id,order.promoId)).run();
+  });
+ }
+ return released;
 }
 export async function quote(customer:BillingCustomer,planId:string,rawCode?:string){
  await releaseExpiredReservations();const [plan]=await db.select().from(subscriptionPlans).where(and(eq(subscriptionPlans.id,planId),eq(subscriptionPlans.isActive,true))).limit(1);if(!plan)throw new Error("Selected plan is unavailable");

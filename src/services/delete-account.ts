@@ -12,8 +12,13 @@ import {
   passwordResetTokens,
   myList,
   signupSessions,
+  billingEvents,
+  billingOrders,
+  promoCodes,
+  promoRedemptions,
+  subscriptions,
 } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray, sql } from "drizzle-orm";
 
 /**
  * Deletes every row that references an account (directly or through its
@@ -40,30 +45,50 @@ export async function deleteAccountCompletely(accountId: string): Promise<{
           .from(profiles)
           .where(eq(profiles.accountId, accountId))
           .all();
+        const profileIds = accountProfiles.map((profile) => profile.id);
 
-        for (const profile of accountProfiles) {
-          tx.delete(myList).where(eq(myList.profileId, profile.id)).run();
-          tx.delete(watchHistory).where(eq(watchHistory.profileId, profile.id)).run();
-          tx.delete(sessions).where(eq(sessions.profileId, profile.id)).run();
-          tx.delete(profileSettings).where(eq(profileSettings.profileId, profile.id)).run();
-          tx.delete(profiles).where(eq(profiles.id, profile.id)).run();
+        // Release promo capacity held by abandoned QR orders before removing
+        // immutable billing history for this deliberately deleted account.
+        const accountOrders = tx
+          .select({ id: billingOrders.id, promoId: billingOrders.promoId, promoReserved: billingOrders.promoReserved })
+          .from(billingOrders)
+          .where(eq(billingOrders.accountId, accountId))
+          .all();
+        for (const order of accountOrders) {
+          if (order.promoId && order.promoReserved) {
+            tx.update(promoCodes)
+              .set({ reservedUses: sql`max(0, ${promoCodes.reservedUses} - 1)` })
+              .where(eq(promoCodes.id, order.promoId))
+              .run();
+          }
+          tx.delete(billingEvents).where(eq(billingEvents.orderId, order.id)).run();
+          tx.delete(promoRedemptions).where(eq(promoRedemptions.orderId, order.id)).run();
+        }
+        tx.delete(billingOrders).where(eq(billingOrders.accountId, accountId)).run();
+        tx.delete(promoRedemptions).where(eq(promoRedemptions.accountId, accountId)).run();
+        tx.delete(subscriptions).where(eq(subscriptions.accountId, accountId)).run();
+
+        // Rows that can reference both an account and a profile must be removed
+        // before profiles, otherwise SQLite correctly blocks the deletion.
+        tx.delete(contactSubmissions).where(eq(contactSubmissions.accountId, accountId)).run();
+        tx.delete(sessions).where(eq(sessions.accountId, accountId)).run();
+        if (profileIds.length > 0) {
+          tx.delete(contactSubmissions).where(inArray(contactSubmissions.profileId, profileIds)).run();
+          tx.delete(myList).where(inArray(myList.profileId, profileIds)).run();
+          tx.delete(watchHistory).where(inArray(watchHistory.profileId, profileIds)).run();
+          tx.delete(sessions).where(inArray(sessions.profileId, profileIds)).run();
+          tx.delete(profileSettings).where(inArray(profileSettings.profileId, profileIds)).run();
+          tx.delete(profiles).where(inArray(profiles.id, profileIds)).run();
         }
 
-        // sessions also FK directly to accounts.account_id, so clear any that
-        // were created for the account even if their profile is already gone.
-        tx.delete(sessions).where(eq(sessions.accountId, accountId)).run();
-
-        // Clear message views FIRST: they FK to both adminMessages.messageId and
-        // accounts.accountId (no ON DELETE CASCADE), so deleting either parent
-        // fails whenever a view row exists. This removes the account's views of
-        // targeted AND broadcast messages, unblocking both parent deletions.
+        // Remove account-scoped communication and legacy checkout records.
         tx.delete(messageViews).where(eq(messageViews.accountId, accountId)).run();
-
+        const targetedMessages = tx.select({ id: adminMessages.id }).from(adminMessages).where(eq(adminMessages.accountId, accountId)).all();
+        if (targetedMessages.length > 0) {
+          tx.delete(messageViews).where(inArray(messageViews.messageId, targetedMessages.map((message) => message.id))).run();
+        }
         tx.delete(adminMessages).where(eq(adminMessages.accountId, accountId)).run();
-        tx.delete(contactSubmissions).where(eq(contactSubmissions.accountId, accountId)).run();
         tx.delete(paymentSubmissions).where(eq(paymentSubmissions.accountId, accountId)).run();
-
-        // Password reset tokens FK to accounts.account_id (no cascade).
         tx.delete(passwordResetTokens).where(eq(passwordResetTokens.accountId, accountId)).run();
         tx.delete(signupSessions).where(eq(signupSessions.accountId, accountId)).run();
 

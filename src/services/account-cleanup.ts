@@ -2,6 +2,7 @@ import { db } from "@/db";
 import { accounts, signupSessions } from "@/db/schema";
 import { eq, lt, or } from "drizzle-orm";
 import { deleteAccountCompletely } from "./delete-account";
+import { releaseExpiredReservations } from "./billing/service";
 
 export async function cleanupExpiredAccounts(): Promise<{
   deletedAccounts: number;
@@ -9,6 +10,11 @@ export async function cleanupExpiredAccounts(): Promise<{
 }> {
   try {
     const now = new Date().toISOString();
+
+    // Reconcile abandoned QR payments even if PayMongo's expiry webhook was
+    // delayed or missed. This also releases any temporarily reserved promo use.
+    const expiredPayments = await releaseExpiredReservations();
+    if (expiredPayments > 0) console.log(`Expired ${expiredPayments} abandoned payment order(s)`);
 
     // Find expired accounts
     const expiredAccounts = await db
