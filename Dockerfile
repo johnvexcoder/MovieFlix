@@ -6,8 +6,14 @@
 # ----------  Builder ----------
 FROM node:22-alpine AS builder
 
-# Python + build tools are required to compile better-sqlite3 (node-gyp)
-RUN apk add --no-cache python3 make g++
+# Python + build tools are required to compile better-sqlite3 (node-gyp).
+# The Alpine mirror index fetch occasionally fails with a transient DNS error
+# on home-lab hosts; retry a few times before giving up so a single blip does
+# not abort the entire update.
+RUN i=1; until apk add --no-cache python3 make g++; do \
+      if [ "$i" -ge 5 ]; then echo "apk add failed after 5 attempts" >&2; exit 1; fi; \
+      echo "apk add attempt $i failed, retrying..."; sleep 6; i=$((i+1)); \
+    done
 
 WORKDIR /app
 
@@ -46,7 +52,10 @@ ENV NODE_ENV=production \
     PORT=9000 \
     NODE_OPTIONS=--max-old-space-size=512
 
-RUN apk add --no-cache su-exec ffmpeg
+RUN i=1; until apk add --no-cache su-exec ffmpeg; do \
+      if [ "$i" -ge 5 ]; then echo "apk add failed after 5 attempts" >&2; exit 1; fi; \
+      echo "apk add attempt $i failed, retrying..."; sleep 6; i=$((i+1)); \
+    done
 
 # Copy the standalone server (includes a bundled subset of node_modules,
 # including better-sqlite3's prebuilt linux-musl binary)
