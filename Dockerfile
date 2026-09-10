@@ -28,7 +28,14 @@ ENV NODE_OPTIONS=--max-old-space-size=1536 \
     NEXT_BUILD_PARALLEL=1 \
     npm_config_nodedir=/usr/local
 
-# Install dependencies from the lockfile
+# Install dependencies from the lockfile.
+# ffmpeg-static runs a postinstall that downloads a ~30 MB ffmpeg binary from
+# GitHub with a fixed 30s timeout. Production never uses it (native ffmpeg is
+# installed in the runner stage and FFMPEG_PATH=/usr/bin/ffmpeg is always set),
+# so point FFMPEG_BIN at an existing empty file to make the postinstall skip
+# the download. The binary is also not copied into the standalone output.
+ENV FFMPEG_BIN=/usr/local/bin/ffmpeg
+RUN touch /usr/local/bin/ffmpeg
 COPY package*.json ./
 RUN npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtimeout=120000
 
