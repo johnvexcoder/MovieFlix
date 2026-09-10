@@ -84,7 +84,7 @@ export function ContentRow({
             }
             className="text-xs font-semibold text-neutral-400 hover:text-white transition-colors"
           >
-            Explore All >
+            Explore All &gt;
           </button>
         )}
       </div>
