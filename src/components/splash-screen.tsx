@@ -52,7 +52,7 @@ export function SplashScreen({ onComplete, brandName = "MOVIEFLIX", tagline = "S
           </div>
         </div>
       </div>
-      <button type="button" className="movieflix-skip" onClick={finish}>Skip intro <span aria-hidden="true">→</span></button>
+      <button type="button" className="movieflix-skip" onClick={finish}>Skip intro <span aria-hidden="true">></span></button>
     </section>
   );
 }
