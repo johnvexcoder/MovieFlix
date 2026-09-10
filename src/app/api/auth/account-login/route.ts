@@ -15,6 +15,7 @@ import {
 } from "@/lib/redis";
 import { getDeviceId, getMaxSessions, getSessionIdleTimeoutSeconds } from "@/lib/app-settings";
 import { hashSignupToken } from "@/lib/registration";
+import { reconcilePayMongoOrders } from "@/services/billing/service";
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Find account by username or email
-    const [account] = await db
+    let [account] = await db
       .select()
       .from(accounts)
       .where(
@@ -58,6 +59,9 @@ export async function POST(request: NextRequest) {
     if (!isValid) {
       return errorResponse("Invalid username or password", 401);
     }
+
+    await reconcilePayMongoOrders(account.id);
+    [account] = await db.select().from(accounts).where(eq(accounts.id, account.id)).limit(1);
 
     if (account.registrationStatus === "pending" || account.registrationStatus === "awaiting_payment_approval") {
       if (account.registrationStatus !== "pending") await db.update(accounts).set({ registrationStatus: "pending", updatedAt: new Date().toISOString() }).where(eq(accounts.id, account.id));

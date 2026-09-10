@@ -1,5 +1,5 @@
 import { randomUUID } from "crypto";
-import { and, eq, gt, inArray, isNull, lt, or, sql } from "drizzle-orm";
+import { and, eq, gt, inArray, isNotNull, isNull, lt, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { accounts,billingEvents,billingOrders,profiles,profileSettings,promoCodes,promoRedemptions,signupSessions,subscriptions,subscriptionPlans } from "@/db/schema";
 import { verifyToken } from "@/lib/auth";
@@ -7,9 +7,11 @@ import { sendEmail } from "@/lib/email";
 import { emailLayout, escapeHtml, greeting } from "@/lib/email-templates";
 import { getSignupAccount } from "@/lib/registration";
 import { paymentProvider } from "./provider";
+import { retrievePaymentIntent } from "./paymongo";
 import { pesosToMinor } from "./money";
 
 export type BillingCustomer={account:typeof accounts.$inferSelect;signupSessionId:string|null};
+const reconciliationAttempts=new Map<string,number>();
 export async function resolveCustomer(request:Request,signupToken?:string):Promise<BillingCustomer|null>{
  if(signupToken){const signup=await getSignupAccount(signupToken);if(signup)return{account:signup.account,signupSessionId:signup.session.id}}
  const cookie=request.headers.get("cookie")||"";const token=cookie.match(/(?:^|;\s*)access_token=([^;]+)/)?.[1];const payload=token?await verifyToken(decodeURIComponent(token)):null;if(!payload?.accountId||payload.accountId==="admin")return null;
@@ -28,6 +30,24 @@ export async function releaseExpiredReservations(): Promise<number> {
   });
  }
  return released;
+}
+export async function reconcilePayMongoOrders(accountId?:string,orderId?:string):Promise<number>{
+ const cutoff=new Date(Date.now()-7*24*60*60*1000).toISOString();
+ const pending=await db.select().from(billingOrders).where(and(eq(billingOrders.provider,"paymongo"),isNotNull(billingOrders.providerIntentId),inArray(billingOrders.status,["CREATED","PENDING","EXPIRED"]),gt(billingOrders.createdAt,cutoff),accountId?eq(billingOrders.accountId,accountId):undefined,orderId?eq(billingOrders.id,orderId):undefined)).limit(100);
+ let reconciled=0;
+ for(const order of pending){
+  const lastAttempt=reconciliationAttempts.get(order.providerIntentId!);
+  if(lastAttempt&&Date.now()-lastAttempt<60_000)continue;
+  reconciliationAttempts.set(order.providerIntentId!,Date.now());
+  try{
+   const payment=await retrievePaymentIntent(order.providerIntentId!);
+   if(payment.status!=="succeeded")continue;
+   await fulfillOrder({orderId:order.id,providerEventId:`reconcile:\${payment.intentId}:\${payment.paymentId||"succeeded"}`,eventType:"payment.reconciled",providerPaymentId:payment.paymentId||payment.intentId,amountMinor:payment.amountMinor,currency:payment.currency});
+   reconciled+=1;
+  }catch(error){console.error("billing.reconcile_failed",{orderId:order.id,error:error instanceof Error?error.message:String(error)})}
+  if(reconciliationAttempts.size>1_000)for(const [intentId,attemptedAt] of reconciliationAttempts)if(Date.now()-attemptedAt>60_000)reconciliationAttempts.delete(intentId);
+ }
+ return reconciled;
 }
 export async function quote(customer:BillingCustomer,planId:string,rawCode?:string){
  await releaseExpiredReservations();const [plan]=await db.select().from(subscriptionPlans).where(and(eq(subscriptionPlans.id,planId),eq(subscriptionPlans.isActive,true))).limit(1);if(!plan)throw new Error("Selected plan is unavailable");
