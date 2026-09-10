@@ -26,8 +26,10 @@ RUN npm ci --fetch-retries=5 --fetch-retry-mintimeout=20000 --fetch-retry-maxtim
 # Copy source (data/thumbs etc. are git-ignored / injected at runtime)
 COPY . .
 
-# Build the Next.js standalone output
-RUN npm run build \
+# Build the Next.js standalone output. Webpack uses substantially less memory
+# for this filesystem-heavy server than Turbopack, which traces media paths and
+# can exhaust the 1 GB builder heap on small production VMs.
+RUN npm run build -- --webpack \
     # Ensure /app/data dirs exist inside the image so the runtime mounts cleanly
     && mkdir -p /app/data/thumbnails /app/data/artwork /app/data/transcode-temp
 

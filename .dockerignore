@@ -2,14 +2,16 @@ node_modules
 .next
 .git
 .gitignore
-.env*.local
+.env
+.env.*
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-data/*.sqlite*
-data/thumbnails/*
-data/artwork/*
+# Runtime databases, backups, uploaded receipts/team images, artwork, and
+# transcode caches are mounted into the container. Never copy them into an
+# image or send them to the Docker daemon during an update.
+data/
 README.md
 PROJECT.md
 CLAUDE.md
