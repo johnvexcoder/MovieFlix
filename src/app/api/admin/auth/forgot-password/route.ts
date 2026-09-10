@@ -1,6 +1,6 @@
 import crypto from "crypto";
 import { NextRequest } from "next/server";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "@/db";
 import { adminPasswordResetTokens, admins } from "@/db/schema";
@@ -18,8 +18,8 @@ export async function POST(request: NextRequest) {
     const { identifier } = await request.json();
     if (typeof identifier !== "string" || !identifier.trim()) return errorResponse("Administrator username or email is required", 400);
     const generic = "If the administrator account exists and has a recovery email, reset instructions have been sent.";
-    const value = identifier.trim();
-    const [admin] = await db.select().from(admins).where(or(eq(admins.username, value), eq(admins.email, value))).limit(1);
+    const value = identifier.trim().toLowerCase();
+    const [admin] = await db.select().from(admins).where(or(sql`lower(${admins.username}) = ${value}`, eq(admins.email, value))).limit(1);
     if (!admin?.email) return successResponse({ message: generic });
 
     const token = crypto.randomBytes(32).toString("base64url");

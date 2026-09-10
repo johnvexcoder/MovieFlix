@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
       return errorResponse("Password must be at least 12 characters", 400);
     }
 
-    const cleanUsername = username.trim();
+    const cleanUsername = username.trim().toLowerCase();
     const cleanEmail = email.trim().toLowerCase();
 
     const existing = await db

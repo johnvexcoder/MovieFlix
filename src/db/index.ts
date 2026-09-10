@@ -251,8 +251,10 @@ export function setupDatabase() {
       id TEXT PRIMARY KEY,
       account_id TEXT NOT NULL REFERENCES accounts(id),
       token_hash TEXT NOT NULL,
+      code_hash TEXT,
       expires_at TEXT NOT NULL,
       used_at TEXT,
+      attempts INTEGER NOT NULL DEFAULT 0,
       created_at TEXT NOT NULL DEFAULT ''
     );
     CREATE TABLE IF NOT EXISTS admin_password_reset_tokens (
@@ -367,6 +369,8 @@ export function setupDatabase() {
   ensureColumn("admins", "email", "TEXT");
   ensureColumn("admins", "two_factor_enabled", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("admins", "recovery_codes_hash", "TEXT");
+  ensureColumn("password_reset_tokens", "code_hash", "TEXT");
+  ensureColumn("password_reset_tokens", "attempts", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "email", "TEXT");
   ensureColumn("accounts", "full_name", "TEXT");
   ensureColumn("accounts", "date_of_birth", "TEXT");

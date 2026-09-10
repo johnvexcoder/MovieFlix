@@ -118,12 +118,13 @@ export function passwordResetEmail({ username, password }: { username: string; p
 /**
  * The forgot-password (reset link) email.
  */
-export function forgotPasswordEmail({ username, resetLink }: { username: string; resetLink: string }): string {
+export function forgotPasswordEmail({ username, resetLink, code }: { username: string; resetLink: string; code: string }): string {
   return emailLayout({
     title: "Reset your MovieFlix password",
     bodyHtml: `
       ${greeting(username)}
-      <p>We received a request to reset your ${BRAND_NAME} password. The link below is valid for 1 hour:</p>
+      <p>We received a request to reset your ${BRAND_NAME} password. Use this six-digit code or the secure link below. Both are valid for 1 hour:</p>
+      <p style="font-size:32px;font-weight:800;letter-spacing:8px;color:#00d2f5;padding:18px;background:#0e162b;border-radius:12px;text-align:center;">${code}</p>
       <p>
         <a href="${resetLink}" style="display:inline-block; background:${BRAND_COLOR}; color:#ffffff; text-decoration:none; padding:12px 24px; border-radius:8px; font-weight:bold;">
           Reset Password

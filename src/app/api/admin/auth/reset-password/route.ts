@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { and, desc, eq, isNull, or } from "drizzle-orm";
+import { and, desc, eq, isNull, or, sql } from "drizzle-orm";
 import { db } from "@/db";
 import { adminPasswordResetTokens, admins } from "@/db/schema";
 import { errorResponse, successResponse } from "@/lib/api-response";
@@ -24,8 +24,8 @@ export async function POST(request: NextRequest) {
       adminId = reset.adminId; resetId = reset.id;
     } else {
       if (typeof identifier !== "string" || typeof verificationCode !== "string") return errorResponse("Username and verification code are required", 400);
-      const identity = identifier.trim();
-      const [admin] = await db.select().from(admins).where(or(eq(admins.username, identity), eq(admins.email, identity))).limit(1);
+      const identity = identifier.trim().toLowerCase();
+      const [admin] = await db.select().from(admins).where(or(sql`lower(${admins.username}) = ${identity}`, eq(admins.email, identity))).limit(1);
       if (!admin) return errorResponse("Invalid or expired verification code", 400);
       const submittedHash = securityHash(verificationCode);
       try { recoveryHashes = JSON.parse(admin.recoveryCodesHash || "[]"); } catch { recoveryHashes = []; }

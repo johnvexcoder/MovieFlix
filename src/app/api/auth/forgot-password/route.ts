@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import crypto from "crypto";
 import { db } from "@/db";
 import { accounts, passwordResetTokens } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { setRateLimit } from "@/lib/redis";
@@ -10,6 +10,7 @@ import { sendEmail, getSmtpSettings } from "@/lib/email";
 import { forgotPasswordEmail } from "@/lib/email-templates";
 import { getAppPublicUrl } from "@/lib/app-settings";
 import { v4 as uuidv4 } from "uuid";
+import { generateEmailCode, securityHash } from "@/lib/admin-two-factor";
 
 export const dynamic = "force-dynamic";
 
@@ -22,16 +23,16 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username } = body;
+    const username = typeof body.username === "string" ? body.username.trim().toLowerCase() : "";
 
-    if (!username || typeof username !== "string") {
+    if (!username) {
       return errorResponse("Username or email is required", 400);
     }
 
     const [account] = await db
       .select()
       .from(accounts)
-      .where(or(eq(accounts.username, username), eq(accounts.email, username)))
+      .where(or(sql`lower(${accounts.username}) = ${username}`, eq(accounts.email, username)))
       .limit(1);
 
     // Always return the same message to avoid account enumeration.
@@ -44,11 +45,13 @@ export async function POST(request: NextRequest) {
     // Generate a one-time token, store only its hash.
     const token = crypto.randomBytes(32).toString("base64url");
     const tokenHash = crypto.createHash("sha256").update(token).digest("hex");
+    const code = generateEmailCode();
 
     await db.insert(passwordResetTokens).values({
       id: uuidv4(),
       accountId: account.id,
       tokenHash,
+      codeHash: securityHash(code),
       expiresAt: new Date(Date.now() + 60 * 60 * 1000).toISOString(), // 1 hour
       createdAt: new Date().toISOString(),
     });
@@ -60,7 +63,7 @@ export async function POST(request: NextRequest) {
     const delivered = await sendEmail({
       to: account.email,
       subject: "Reset your MovieFlix password",
-      html: forgotPasswordEmail({ username: account.username, resetLink }),
+      html: forgotPasswordEmail({ username: account.username, resetLink, code }),
     });
 
     if (!delivered && (!smtp.host || !smtp.user || !smtp.pass)) {

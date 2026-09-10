@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import crypto from "crypto";
 import { db } from "@/db";
 import { accounts, profiles, signupSessions } from "@/db/schema";
-import { eq, or } from "drizzle-orm";
+import { eq, or, sql } from "drizzle-orm";
 import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import {
@@ -19,7 +19,8 @@ import { hashSignupToken } from "@/lib/registration";
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { username, password } = body;
+    const username = String(body.username || "").trim().toLowerCase();
+    const password = String(body.password || "");
 
     if (!username || !password) {
       return errorResponse("Username and password are required", 400);
@@ -42,7 +43,7 @@ export async function POST(request: NextRequest) {
       .from(accounts)
       .where(
         or(
-          eq(accounts.username, username),
+          sql`lower(${accounts.username}) = ${username}`,
           eq(accounts.email, username)
         )
       )

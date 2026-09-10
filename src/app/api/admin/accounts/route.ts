@@ -88,7 +88,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, email, fullName, password, durationHours } = body;
+    const { email, fullName, password, durationHours } = body;
+    const username = String(body.username || "").trim().toLowerCase();
 
     if (!username || !password) {
       return errorResponse("Username and password are required", 400);

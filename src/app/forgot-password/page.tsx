@@ -70,6 +70,7 @@ export default function ForgotPasswordPage() {
                 If that account exists, a password reset link has been sent to its registered email. The link is valid
                 for 1 hour.
               </p>
+              <Link href={`/reset-password?identifier=${encodeURIComponent(username.trim())}`} className="btn-brand mt-5 flex h-11 w-full">Enter six-digit code</Link>
               <Link
                 href="/login"
                 className="mt-6 inline-flex items-center justify-center rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-bold text-white hover:bg-white/10"
@@ -88,10 +89,13 @@ export default function ForgotPasswordPage() {
                   <Input
                     type="text"
                     value={username}
-                    onChange={(e) => setUsername(e.target.value)}
+                    onChange={(e) => setUsername(e.target.value.toLowerCase())}
                     placeholder="Enter your username or email"
                     className="h-12 rounded-xl border-white/10 bg-white/5 pl-10 text-white placeholder:text-neutral-500"
                     autoFocus
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    spellCheck={false}
                     required
                   />
                 </div>

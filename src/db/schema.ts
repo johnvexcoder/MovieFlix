@@ -49,8 +49,10 @@ export const passwordResetTokens = sqliteTable("password_reset_tokens", {
   id: text("id").primaryKey(),
   accountId: text("account_id").notNull().references(() => accounts.id),
   tokenHash: text("token_hash").notNull(),
+  codeHash: text("code_hash"),
   expiresAt: text("expires_at").notNull(),
   usedAt: text("used_at"),
+  attempts: integer("attempts").notNull().default(0),
   createdAt: text("created_at").notNull().default(""),
 });
 

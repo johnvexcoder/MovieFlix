@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { admins } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { comparePassword, generateAccessToken, generateRefreshToken, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { setRateLimit, getTokenVersion, setSession } from "@/lib/redis";
@@ -20,7 +20,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { username, password } = body;
+    const username = String(body.username || "").trim().toLowerCase();
+    const password = String(body.password || "");
 
     if (!username || !password) {
       return errorResponse("Username and password are required", 400);
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     const [admin] = await db
       .select()
       .from(admins)
-      .where(eq(admins.username, username))
+      .where(sql`lower(${admins.username}) = ${username}`)
       .limit(1);
 
     if (!admin) {
