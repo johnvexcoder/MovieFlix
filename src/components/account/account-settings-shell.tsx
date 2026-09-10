@@ -10,9 +10,10 @@ interface AccountSettingsShellProps {
   heading: string;
   subheading: string;
   children: React.ReactNode;
+  wide?: boolean;
 }
 
-export function AccountSettingsShell({ heading, subheading, children }: AccountSettingsShellProps) {
+export function AccountSettingsShell({ heading, subheading, children, wide = false }: AccountSettingsShellProps) {
   const router = useRouter();
   const [checking, setChecking] = useState(true);
 
@@ -41,7 +42,7 @@ export function AccountSettingsShell({ heading, subheading, children }: AccountS
 
   return (
     <div className="min-h-screen overflow-x-hidden bg-[#070709] px-2.5 py-4 sm:px-8 sm:py-8 select-none">
-      <div className="mx-auto max-w-3xl">
+      <div className={`mx-auto w-full min-w-0 ${wide ? "max-w-5xl" : "max-w-3xl"}`}>
         <div className="mb-3 flex items-center justify-between sm:mb-6">
           <button
             type="button"

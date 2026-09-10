@@ -25,6 +25,7 @@ import {
   Megaphone,
   MapPin,
   Eye,
+  EyeOff,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -130,6 +131,7 @@ export default function AdminPage() {
   const [addModalOpen, setAddModalOpen] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [showNewPassword, setShowNewPassword] = useState(false);
   const [newEmail, setNewEmail] = useState("");
   const [newFullName, setNewFullName] = useState("");
   const [weeks, setWeeks] = useState<number | null>(null);
@@ -811,7 +813,7 @@ export default function AdminPage() {
 
       {/* Create Account Modal */}
       <Dialog open={addModalOpen} onOpenChange={setAddModalOpen}>
-        <DialogContent className="glass-panel border-white/15 sm:max-w-md rounded-3xl p-6">
+        <DialogContent className="glass-panel max-h-[calc(100dvh-1rem)] overflow-y-auto border-white/15 p-4 sm:max-w-md sm:rounded-3xl sm:p-6">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">Create User Account</DialogTitle>
             <DialogDescription className="text-neutral-400">
@@ -824,7 +826,10 @@ export default function AdminPage() {
               <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Username</Label>
               <Input
                 value={newUsername}
-                onChange={(e) => setNewUsername(e.target.value)}
+                onChange={(e) => setNewUsername(e.target.value.toLowerCase())}
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
                 placeholder="e.g. john"
                 className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
                 autoFocus
@@ -854,13 +859,24 @@ export default function AdminPage() {
 
             <div>
               <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Password</Label>
-              <Input
-                type="password"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Min 6 characters"
-                className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
-              />
+              <div className="relative mt-1.5">
+                <Input
+                  type={showNewPassword ? "text" : "password"}
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="Min 6 characters"
+                  className="h-11 rounded-xl border-white/10 bg-white/5 pr-12 text-white"
+                />
+                <button
+                  type="button"
+                  aria-label={showNewPassword ? "Hide password" : "Show password"}
+                  aria-pressed={showNewPassword}
+                  onClick={() => setShowNewPassword((visible) => !visible)}
+                  className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-neutral-400 hover:text-white"
+                >
+                  {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
 
             <div>

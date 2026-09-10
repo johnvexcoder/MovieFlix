@@ -338,3 +338,11 @@ select {
 html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
 main, #__next { min-width: 0; max-width: 100%; }
 @supports (overflow: clip) { html, body { overflow-x: clip; } }
+
+/* Compact administration workspace for phone-sized screens. */
+@media (max-width: 640px) {
+  .admin-shell .glass-panel { border-radius: 14px; padding: 12px; }
+  .admin-shell h1 { font-size: 1.25rem; line-height: 1.6rem; }
+  .admin-shell h2 { font-size: 1rem; line-height: 1.35rem; }
+  .admin-shell button, .admin-shell a, .admin-shell input, .admin-shell select { min-height: 42px; }
+}
