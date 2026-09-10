@@ -254,8 +254,15 @@ do_update() {
   ensure_env
   tune_media_env
 
+  info "Stopping the running stack to free RAM for the build (runtime container limits are up to ~1.7GB)."
+  $DC stop 2>/dev/null || true
+
   info "Rebuilding the Docker image (this takes a while on low-RAM hosts)."
-  $DC build
+  if ! $DC build; then
+    warn "Build failed — restarting the previous stack so the service stays up."
+    $DC up -d --force-recreate 2>/dev/null || true
+    die "docker compose build failed. See the error above."
+  fi
 
   info "Starting / restarting the stack."
   $DC up -d --force-recreate
