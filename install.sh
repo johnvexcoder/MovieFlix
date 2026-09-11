@@ -161,6 +161,126 @@ ensure_env() {
   fi
 }
 
+env_value() {
+  awk -F= -v key="$1" '$1==key{sub(/^[^=]*=/,""); print; exit}' .env
+}
+
+write_env_value_securely() {
+  local key="$1" value="$2" tmp line found=0
+  tmp=$(mktemp "${TMPDIR:-/tmp}/movieflix-env.XXXXXX") || return 1
+  chmod 600 "$tmp"
+  while IFS= read -r line || [ -n "$line" ]; do
+    if [[ "$line" == "${key}="* ]]; then
+      printf '%s=%s\n' "$key" "$value" >> "$tmp"
+      found=1
+    else
+      printf '%s\n' "$line" >> "$tmp"
+    fi
+  done < .env
+  [ "$found" = "1" ] || printf '\n%s=%s\n' "$key" "$value" >> "$tmp"
+  cat "$tmp" > .env
+  chmod 600 .env
+  rm -f "$tmp"
+}
+
+provision_paymongo_webhook() {
+  local secret_key public_key webhook_secret key_mode public_mode public_url webhook_url
+  local curl_config response_file payload_file http_code webhook_record webhook_id webhook_status
+
+  secret_key=$(env_value PAYMONGO_SECRET_KEY)
+  public_key=$(env_value PAYMONGO_PUBLIC_KEY)
+  webhook_secret=$(env_value PAYMONGO_WEBHOOK_SECRET)
+
+  if [ -z "$secret_key" ] || [ -z "$public_key" ]; then
+    info "PayMongo keys are not configured; automatic webhook setup skipped."
+    return 0
+  fi
+  case "$secret_key" in sk_live_*) key_mode="live" ;; sk_test_*) key_mode="test" ;; *) warn "PAYMONGO_SECRET_KEY has an invalid format; webhook setup skipped."; return 0 ;; esac
+  case "$public_key" in pk_live_*) public_mode="live" ;; pk_test_*) public_mode="test" ;; *) warn "PAYMONGO_PUBLIC_KEY has an invalid format; webhook setup skipped."; return 0 ;; esac
+  if [ "$key_mode" != "$public_mode" ]; then
+    warn "PayMongo secret/public keys use different modes; webhook setup skipped."
+    return 0
+  fi
+  case "$webhook_secret" in whsk_*) ok "PayMongo webhook signing secret is already configured; keeping it unchanged."; return 0 ;; esac
+
+  command -v curl >/dev/null 2>&1 || { warn "curl is unavailable; automatic PayMongo webhook setup skipped."; return 0; }
+  command -v python3 >/dev/null 2>&1 || { warn "python3 is unavailable; automatic PayMongo webhook setup skipped."; return 0; }
+
+  curl_config=$(mktemp "${TMPDIR:-/tmp}/movieflix-paymongo-curl.XXXXXX") || return 0
+  response_file=$(mktemp "${TMPDIR:-/tmp}/movieflix-paymongo-response.XXXXXX") || { rm -f "$curl_config"; return 0; }
+  payload_file=$(mktemp "${TMPDIR:-/tmp}/movieflix-paymongo-payload.XXXXXX") || { rm -f "$curl_config" "$response_file"; return 0; }
+  chmod 600 "$curl_config" "$response_file" "$payload_file"
+  printf 'user = "%s:"\nsilent\nshow-error\n' "$secret_key" > "$curl_config"
+
+  info "Checking PayMongo for an existing MovieFlix webhook (${key_mode} mode)."
+  http_code=$(curl --config "$curl_config" --request GET --url https://api.paymongo.com/v1/webhooks --output "$response_file" --write-out '%{http_code}' 2>/dev/null || true)
+  if [ "$http_code" != "200" ]; then
+    warn "PayMongo webhook lookup failed (HTTP ${http_code:-network error}); existing configuration was left unchanged."
+    rm -f "$curl_config" "$response_file" "$payload_file"
+    return 0
+  fi
+
+  webhook_record=$(python3 - "$response_file" "$key_mode" <<'PY'
+import json, sys
+try:
+    payload = json.load(open(sys.argv[1], encoding="utf-8"))
+    live = sys.argv[2] == "live"
+    for item in payload.get("data", []):
+        attrs = item.get("attributes", {})
+        if attrs.get("livemode") == live and "/api/billing/webhook/paymongo" in attrs.get("url", ""):
+            print("|".join((str(item.get("id", "")), str(attrs.get("secret_key", "")), str(attrs.get("status", "")), str(attrs.get("url", "")))))
+            break
+except Exception:
+    pass
+PY
+  )
+
+  if [ -n "$webhook_record" ]; then
+    IFS='|' read -r webhook_id webhook_secret webhook_status webhook_url <<< "$webhook_record"
+    if [ "$webhook_status" = "disabled" ] && [ -n "$webhook_id" ]; then
+      http_code=$(curl --config "$curl_config" --request POST --url "https://api.paymongo.com/v1/webhooks/${webhook_id}/enable" --output "$response_file" --write-out '%{http_code}' 2>/dev/null || true)
+      [ "$http_code" = "200" ] || warn "Existing PayMongo webhook could not be re-enabled (HTTP ${http_code:-network error})."
+    fi
+  else
+    public_url=$(env_value APP_PUBLIC_URL)
+    if [[ ! "$public_url" =~ ^https:// ]]; then
+      warn "No existing webhook was found and APP_PUBLIC_URL is not a public HTTPS address; webhook setup skipped."
+      rm -f "$curl_config" "$response_file" "$payload_file"
+      return 0
+    fi
+    webhook_url="${public_url%/}/api/billing/webhook/paymongo"
+    MOVIEFLIX_WEBHOOK_URL="$webhook_url" python3 - <<'PY' > "$payload_file"
+import json, os
+print(json.dumps({"data":{"attributes":{"url":os.environ["MOVIEFLIX_WEBHOOK_URL"],"events":["payment.paid","payment.failed"]}}}))
+PY
+    info "Creating the MovieFlix PayMongo webhook (${key_mode} mode)."
+    http_code=$(curl --config "$curl_config" --request POST --url https://api.paymongo.com/v1/webhooks --header 'Content-Type: application/json' --data-binary "@$payload_file" --output "$response_file" --write-out '%{http_code}' 2>/dev/null || true)
+    if [ "$http_code" != "200" ] && [ "$http_code" != "201" ]; then
+      warn "PayMongo webhook creation failed (HTTP ${http_code:-network error}); no secret was written."
+      rm -f "$curl_config" "$response_file" "$payload_file"
+      return 0
+    fi
+    webhook_secret=$(python3 - "$response_file" <<'PY'
+import json, sys
+try: print(json.load(open(sys.argv[1], encoding="utf-8"))["data"]["attributes"]["secret_key"])
+except Exception: pass
+PY
+    )
+  fi
+
+  if [[ "$webhook_secret" == whsk_* ]]; then
+    if write_env_value_securely PAYMONGO_WEBHOOK_SECRET "$webhook_secret"; then
+      ok "PayMongo webhook signing secret was installed securely in .env."
+    else
+      warn "The webhook exists, but its signing secret could not be written to .env."
+    fi
+  else
+    warn "PayMongo did not return a valid webhook signing secret; .env was not changed."
+  fi
+  rm -f "$curl_config" "$response_file" "$payload_file"
+  unset secret_key public_key webhook_secret
+}
+
 rotate_secrets_in_env() {
   # Rewrite ONLY the JWT secrets inside an existing .env, keeping every other
   # setting the user configured (media paths, APP_PUBLIC_URL, TMDB, SMTP, ...).
@@ -261,6 +381,7 @@ do_update() {
   swap_check
   ensure_env
   tune_media_env
+  provision_paymongo_webhook
 
   info "Stopping the running stack to free RAM for the build (runtime container limits are up to ~1.7GB)."
   $DC stop 2>/dev/null || true
@@ -321,6 +442,7 @@ do_wipeout() {
   swap_check
   reset_env
   tune_media_env
+  provision_paymongo_webhook
 
   info "Building the fresh image (this takes a while on low-RAM hosts)."
   $DC build
