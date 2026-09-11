@@ -105,7 +105,9 @@ ADMIN_INITIAL_PASSWORD=${admin_p}
 # e.g. http://SERVER_IP:9000  or  https://movieflix.example.com
 APP_PUBLIC_URL=http://localhost:9000
 
-# PayMongo automated billing (use test keys first)
+# PayMongo automated billing (use test keys first).
+# Configure APP_PUBLIC_URL/api/billing/webhook/paymongo in PayMongo.
+# The webhook secret below must be the signing secret (whsk_...), not that URL.
 PAYMONGO_SECRET_KEY=
 PAYMONGO_PUBLIC_KEY=
 PAYMONGO_WEBHOOK_SECRET=
@@ -150,6 +152,12 @@ ensure_env() {
       chmod 600 .env
       ok "Generated the missing initial administrator credential."
     fi
+  fi
+  local paymongo_webhook_secret
+  paymongo_webhook_secret=$(awk -F= '$1=="PAYMONGO_WEBHOOK_SECRET"{sub(/^[^=]*=/,""); print; exit}' .env)
+  if [[ "$paymongo_webhook_secret" =~ ^https?:// ]]; then
+    warn "PAYMONGO_WEBHOOK_SECRET contains a URL, so paid accounts cannot activate."
+    warn "Replace it with the PayMongo webhook signing secret (whsk_...)."
   fi
 }
 

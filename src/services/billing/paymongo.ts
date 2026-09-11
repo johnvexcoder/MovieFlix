@@ -21,7 +21,18 @@ export async function retrievePaymentIntent(intentId:string):Promise<ProviderPay
  const attrs=intent?.attributes||{};
  const payments=Array.isArray(attrs.payments)?attrs.payments:[];
  const paid=payments.find((payment:{attributes?:{status?:string}})=>payment?.attributes?.status==="paid")||payments[0];
- return {intentId:String(intent?.id||intentId),status:String(attrs.status||""),amountMinor:Number(paid?.attributes?.amount??attrs.amount),currency:String(paid?.attributes?.currency??attrs.currency??"").toUpperCase(),paymentId:paid?.id?String(paid.id):null};
+ const status=paid?.attributes?.status==="paid"?"succeeded":String(attrs.status||"");
+ return {intentId:String(intent?.id||intentId),status,amountMinor:Number(paid?.attributes?.amount??attrs.amount),currency:String(paid?.attributes?.currency??attrs.currency??"").toUpperCase(),paymentId:paid?.id?String(paid.id):null};
+}
+export function getPayMongoConfigurationIssue():string|null{
+ const secret=process.env.PAYMONGO_SECRET_KEY?.trim()||"",publicKey=process.env.PAYMONGO_PUBLIC_KEY?.trim()||"",webhookSecret=process.env.PAYMONGO_WEBHOOK_SECRET?.trim()||"";
+ if(!secret||!publicKey)return "PayMongo API keys are not configured.";
+ if(!/^sk_(test|live)_/.test(secret)||!/^pk_(test|live)_/.test(publicKey))return "PayMongo API keys have an invalid format.";
+ if(secret.slice(3,7)!==publicKey.slice(3,7))return "PayMongo secret and public keys use different modes (test/live).";
+ if(!webhookSecret)return "PayMongo webhook signing secret is missing.";
+ if(/^https?:\/\//i.test(webhookSecret))return "PAYMONGO_WEBHOOK_SECRET contains a URL. Replace it with the signing secret from the PayMongo webhook (whsk_…).";
+ if(!/^whsk_/.test(webhookSecret))return "PAYMONGO_WEBHOOK_SECRET does not look like a PayMongo signing secret (whsk_…).";
+ return null;
 }
 export function verifyPayMongoSignature(raw:string,header:string|null){
  const secret=process.env.PAYMONGO_WEBHOOK_SECRET?.trim(); if(!secret||!header)return false;

@@ -37,7 +37,7 @@ async function main() {
   const reconcileAccountId = randomUUID(), reconcileOrderId = randomUUID();
   await db.insert(accounts).values({ id: reconcileAccountId, username: `reconcile-${reconcileAccountId}`, passwordHash: "unused", registrationStatus: "pending", isLocked: true, createdAt: now, updatedAt: now });
   await db.insert(billingOrders).values({ id: reconcileOrderId, accountId: reconcileAccountId, planId, planNameSnapshot: "1 Month", planDurationHoursSnapshot: 720, planLifetimeSnapshot: false, originalAmountMinor: 1000, discountAmountMinor: 0, finalAmountMinor: 1000, currency: "PHP", provider: "paymongo", providerIntentId: "pi_reconcile", status: "PENDING", expiresAt: new Date(Date.now() + 60_000).toISOString(), createdAt: now, updatedAt: now });
-  globalThis.fetch = (async () => new Response(JSON.stringify({ data: { id: "pi_reconcile", attributes: { status: "succeeded", amount: 1000, currency: "PHP", payments: [{ id: "pay_reconcile", attributes: { status: "paid", amount: 1000, currency: "PHP" } }] } } }))) as typeof fetch;
+  globalThis.fetch = (async () => new Response(JSON.stringify({ data: { id: "pi_reconcile", attributes: { status: "awaiting_next_action", amount: 1000, currency: "PHP", payments: [{ id: "pay_reconcile", attributes: { status: "paid", amount: 1000, currency: "PHP" } }] } } }))) as typeof fetch;
   if (await reconcilePayMongoOrders(reconcileAccountId, reconcileOrderId) !== 1) throw new Error("Paid Payment Intent was not reconciled");
   const [reconciledAccount] = await db.select().from(accounts).where(eq(accounts.id, reconcileAccountId));
   const [reconciledOrder] = await db.select().from(billingOrders).where(eq(billingOrders.id, reconcileOrderId));
