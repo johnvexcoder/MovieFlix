@@ -4,6 +4,11 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* TV (10-foot) utility variant. Only applies while <html class="tv-mode"> is
+   present (set by src/lib/tv-detect.ts + components/tv-mode.tsx), so desktop
+   and mobile layouts are never affected by `tv:` prefixed utilities. */
+@custom-variant tv (&:where(.tv-mode, .tv-mode *));
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);

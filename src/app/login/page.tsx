@@ -10,9 +10,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { MovieFlixLogo } from "@/components/movieflix-logo";
 import { checkUserSession } from "@/lib/client-auth";
+import { useTvMode } from "@/hooks/use-tv-mode";
 
 export default function LoginPage() {
   const router = useRouter();
+  const isTv = useTvMode();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,9 +27,13 @@ export default function LoginPage() {
     async function restore() {
       const authed = await checkUserSession();
       if (!cancelled) {
-        setRestoring(false);
         if (authed) {
           router.replace("/profiles");
+        } else if (isTv) {
+          // Smart TVs get the QR sign-in experience.
+          router.replace("/tv/login");
+        } else {
+          setRestoring(false);
         }
       }
     }
@@ -35,7 +41,7 @@ export default function LoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [router]);
+  }, [router, isTv]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();

@@ -28,6 +28,13 @@ const PUBLIC_PATHS = [
   "/api/billing",
   "/api/upload",
   "/api/files",
+  // Smart TV QR login: the page is shown before authentication, the QR/status/
+  // claim endpoints are pre-auth, and the approve endpoint verifies its own
+  // access token (it must pass the proxy unauthenticated because the phone may
+  // not have refreshed its session yet).
+  "/tv/login",
+  "/login/approve",
+  "/api/auth/tv",
 ];
 
 // Paths a user may still visit while required to change their password. These

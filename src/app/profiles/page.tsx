@@ -35,6 +35,8 @@ import {
 import { ProfileAvatar } from "@/components/profile-avatar";
 import { MovieFlixLogo } from "@/components/movieflix-logo";
 import { refreshUserSession } from "@/lib/client-auth";
+import { useTvMode } from "@/hooks/use-tv-mode";
+import { useTvBack } from "@/hooks/use-tv-navigation";
 
 interface ProfileWithPin extends Profile {
   hasPin: boolean;
@@ -94,11 +96,11 @@ function AvatarBrowser({
   return (
     <div>
       {/* Category Pills */}
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-2 tv:gap-3">
         <button
           type="button"
           onClick={() => setCategory(null)}
-          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+          className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all tv:px-6 tv:py-3 tv:text-base ${
             category === null
               ? "bg-primary text-primary-foreground shadow-md shadow-cyan-950/50"
               : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
@@ -111,7 +113,7 @@ function AvatarBrowser({
             key={cat}
             type="button"
             onClick={() => setCategory(cat)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all ${
+            className={`rounded-full px-3.5 py-1.5 text-xs font-semibold transition-all tv:px-6 tv:py-3 tv:text-base ${
               category === cat
                 ? "bg-primary text-primary-foreground shadow-md shadow-cyan-950/50"
                 : "bg-white/10 text-white/70 hover:bg-white/20 hover:text-white"
@@ -123,34 +125,34 @@ function AvatarBrowser({
       </div>
 
       {/* Search Input */}
-      <div className="relative mt-3">
-        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/40" />
+      <div className="relative mt-3 tv:mt-5">
+        <Search className="pointer-events-none absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-white/40 tv:left-5 tv:h-6 tv:w-6" />
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search icons…"
-          className="rounded-xl border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-neutral-500"
+          className="rounded-xl border-white/10 bg-white/5 pl-9 text-sm text-white placeholder:text-neutral-500 tv:h-16 tv:pl-14 tv:text-lg"
         />
       </div>
 
       {/* Grid */}
-      <div className="mt-4 max-h-[300px] space-y-4 overflow-y-auto pr-1">
+      <div className="mt-4 max-h-[300px] space-y-4 overflow-y-auto pr-1 tv:max-h-[45vh] tv:mt-6">
         {groups.map((group) =>
           group.items.length === 0 ? null : (
             <div key={group.label ?? "results"}>
               {group.label && (
-                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-neutral-400">
+                <p className="mb-2 text-xs font-bold uppercase tracking-wider text-neutral-400 tv:mb-3 tv:text-base">
                   {group.label}
                 </p>
               )}
-              <div className="grid grid-cols-6 gap-2.5 sm:grid-cols-8">
+              <div className="grid grid-cols-6 gap-2.5 sm:grid-cols-8 tv:grid-cols-10 tv:gap-4">
                 {group.items.map((option) => (
                   <button
                     key={option.id}
                     type="button"
                     title={option.label}
                     onClick={() => onSelect(option.id)}
-                    className={`aspect-square overflow-hidden rounded-xl transition-all duration-200 hover:scale-110 ${
+                    className={`aspect-square overflow-hidden rounded-xl transition-all duration-200 hover:scale-110 tv:rounded-2xl ${
                       value === option.id
                         ? "scale-105 ring-2 ring-[var(--brand)] ring-offset-2 ring-offset-card shadow-lg shadow-cyan-950/50"
                         : "opacity-75 hover:opacity-100"
@@ -162,7 +164,7 @@ function AvatarBrowser({
                         backgroundImage: `linear-gradient(135deg, ${option.from}, ${option.to})`,
                       }}
                     >
-                      <span className="text-2xl drop-shadow-md">{option.emoji}</span>
+                      <span className="text-2xl drop-shadow-md tv:text-4xl">{option.emoji}</span>
                     </div>
                   </button>
                 ))}
@@ -171,7 +173,7 @@ function AvatarBrowser({
           )
         )}
         {filtered.length === 0 && (
-          <p className="py-8 text-center text-sm text-neutral-500">
+          <p className="py-8 text-center text-sm text-neutral-500 tv:text-lg">
             No avatars found for “{query}”.
           </p>
         )}
@@ -181,7 +183,7 @@ function AvatarBrowser({
         <button
           type="button"
           onClick={() => onSelect(null)}
-          className="mt-3 text-xs font-medium text-neutral-400 transition-colors hover:text-white"
+          className="mt-3 text-xs font-medium text-neutral-400 transition-colors hover:text-white tv:mt-5 tv:text-base"
         >
           Remove icon (use initial letter)
         </button>
@@ -192,11 +194,26 @@ function AvatarBrowser({
 
 export default function ProfilesPage() {
   const router = useRouter();
+  const isTv = useTvMode();
 
   const [profiles, setProfiles] = useState<ProfileWithPin[]>([]);
   const [loading, setLoading] = useState(true);
   const [canCreateMore, setCanCreateMore] = useState(true);
   const [manageMode, setManageMode] = useState(false);
+
+  // D-pad "Back" on the TV remote: close whatever modal is topmost.
+  useTvBack(() => {
+    if (pinModal.open) {
+      setPinModal({ open: false, profile: null });
+      setPinDigits(["", "", "", ""]);
+      setPinError(null);
+    } else if (editProfile) {
+      setEditProfile(null);
+    } else if (addModalOpen) {
+      setAddModalOpen(false);
+      setAddStep("details");
+    }
+  });
 
   // Add profile state
   const [addModalOpen, setAddModalOpen] = useState(false);
@@ -483,13 +500,13 @@ export default function ProfilesPage() {
       >
         {/* Header */}
         <div className="mb-5 flex min-w-0 flex-col items-center text-center sm:mb-12">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10">
-            <MovieFlixLogo className="h-12 w-12" size={48} />
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10 tv:h-24 tv:w-24">
+            <MovieFlixLogo className="h-12 w-12 tv:h-20 tv:w-20" size={48} />
           </div>
-          <h1 className="max-w-full break-words text-2xl font-black tracking-tight text-white min-[390px]:text-3xl sm:text-5xl md:text-6xl">
+          <h1 className="max-w-full break-words text-2xl font-black tracking-tight text-white min-[390px]:text-3xl sm:text-5xl md:text-6xl tv:text-7xl">
             Who&apos;s Watching?
           </h1>
-          <p className="mt-2.5 text-base sm:text-lg text-neutral-400">
+          <p className="mt-2.5 text-base sm:text-lg text-neutral-400 tv:mt-5 tv:text-2xl">
             Select your profile or enter your secure PIN to continue.
           </p>
         </div>
@@ -517,7 +534,7 @@ export default function ProfilesPage() {
         </AnimatePresence>
 
         {/* Profiles Grid */}
-        <div className="mx-auto grid w-full max-w-md grid-cols-2 place-items-start justify-items-center gap-x-3 gap-y-5 sm:max-w-3xl sm:grid-cols-3 sm:gap-8 md:max-w-5xl md:grid-cols-4 md:gap-10">
+        <div className="mx-auto grid w-full max-w-md grid-cols-2 place-items-start justify-items-center gap-x-3 gap-y-5 sm:max-w-3xl sm:grid-cols-3 sm:gap-8 md:max-w-5xl md:grid-cols-4 md:gap-10 tv:max-w-7xl tv:grid-cols-5 tv:gap-14">
           {profiles.map((profile, index) => (
             <motion.div
               key={profile.id}
@@ -527,7 +544,16 @@ export default function ProfilesPage() {
               className="group relative flex min-w-0 flex-col items-center"
             >
               <div
-                className="relative h-24 w-24 min-[390px]:h-28 min-[390px]:w-28 sm:h-32 sm:w-32 md:h-40 md:w-40 cursor-pointer overflow-hidden rounded-2xl border-2 border-transparent transition-all duration-300 group-hover:scale-105 group-hover:border-white/80 group-hover:shadow-[0_0_30px_rgba(0,210,245,0.5)] active:scale-95"
+                role="button"
+                tabIndex={0}
+                aria-label={`Enter ${profile.name}${profile.hasPin ? " with PIN" : ""}`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    handleSelectProfile(profile);
+                  }
+                }}
+                className="relative h-24 w-24 min-[390px]:h-28 min-[390px]:w-28 sm:h-32 sm:w-32 md:h-40 md:w-40 cursor-pointer overflow-hidden rounded-2xl border-2 border-transparent transition-all duration-300 group-hover:scale-105 group-hover:border-white/80 group-hover:shadow-[0_0_30px_rgba(0,210,245,0.5)] active:scale-95 tv:h-48 tv:w-48 tv:rounded-3xl"
                 onClick={() => handleSelectProfile(profile)}
               >
                 <ProfileAvatar
@@ -560,12 +586,12 @@ export default function ProfilesPage() {
                   e.stopPropagation();
                   openEdit(profile);
                 }}
-                className="absolute -top-2 -right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-neutral-900/90 text-white shadow-xl backdrop-blur-md transition-all duration-200 hover:scale-115 hover:bg-primary hover:text-primary-foreground hover:border-transparent opacity-80 md:opacity-0 group-hover:opacity-100"
+                className="absolute -top-2 -right-2 z-20 flex h-9 w-9 items-center justify-center rounded-full border border-white/20 bg-neutral-900/90 text-white shadow-xl backdrop-blur-md transition-all duration-200 hover:scale-115 hover:bg-primary hover:text-primary-foreground hover:border-transparent opacity-80 md:opacity-0 group-hover:opacity-100 tv:h-12 tv:w-12 tv:opacity-100"
               >
-                <Pen className="h-4 w-4" />
+                <Pen className="h-4 w-4 tv:h-5 tv:w-5" />
               </button>
 
-              <p className="mt-3 text-center text-base sm:text-lg font-semibold tracking-wide text-neutral-300 transition-colors duration-200 group-hover:text-white">
+              <p className="mt-3 text-center text-base sm:text-lg font-semibold tracking-wide text-neutral-300 transition-colors duration-200 group-hover:text-white tv:mt-4 tv:text-2xl">
                 {profile.name}
               </p>
             </motion.div>
@@ -582,11 +608,11 @@ export default function ProfilesPage() {
               <button
                 type="button"
                 onClick={openAddModal}
-                className="flex h-24 w-24 min-[390px]:h-28 min-[390px]:w-28 sm:h-32 sm:w-32 md:h-40 md:w-40 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-white/20 bg-white/5 transition-all duration-300 hover:border-white/60 hover:bg-white/10 hover:scale-105 active:scale-95"
+                className="flex h-24 w-24 min-[390px]:h-28 min-[390px]:w-28 sm:h-32 sm:w-32 md:h-40 md:w-40 cursor-pointer items-center justify-center rounded-2xl border-2 border-dashed border-white/20 bg-white/5 transition-all duration-300 hover:border-white/60 hover:bg-white/10 hover:scale-105 active:scale-95 tv:h-48 tv:w-48 tv:rounded-3xl"
               >
-                <Plus className="h-12 w-12 text-white/40 transition-colors duration-200 group-hover:text-white" />
+                <Plus className="h-12 w-12 text-white/40 transition-colors duration-200 group-hover:text-white tv:h-16 tv:w-16" />
               </button>
-              <p className="mt-3 text-center text-base sm:text-lg font-semibold tracking-wide text-neutral-400 transition-colors duration-200 group-hover:text-white">
+              <p className="mt-3 text-center text-base sm:text-lg font-semibold tracking-wide text-neutral-400 transition-colors duration-200 group-hover:text-white tv:mt-4 tv:text-2xl">
                 Add Profile
               </p>
             </motion.div>
@@ -597,7 +623,7 @@ export default function ProfilesPage() {
         <div className="mt-7 grid w-full grid-cols-2 items-center justify-center gap-2 sm:mt-14 sm:flex sm:gap-4">
           <Button
             variant="outline"
-            className="min-w-0 rounded-xl border-white/20 bg-white/5 px-2 py-2.5 sm:px-6 text-sm font-semibold tracking-wider uppercase text-neutral-300 backdrop-blur-md transition-all hover:border-white/50 hover:bg-white/15 hover:text-white"
+            className="min-w-0 rounded-xl border-white/20 bg-white/5 px-2 py-2.5 sm:px-6 text-sm font-semibold tracking-wider uppercase text-neutral-300 backdrop-blur-md transition-all hover:border-white/50 hover:bg-white/15 hover:text-white tv:h-16 tv:px-12 tv:text-xl"
             onClick={() => setManageMode(!manageMode)}
           >
             {manageMode ? "Done Managing" : "Manage Profiles"}
@@ -605,10 +631,10 @@ export default function ProfilesPage() {
 
           <Button
             variant="ghost"
-            className="min-w-0 rounded-xl px-2 py-2.5 text-sm sm:px-5 font-medium text-neutral-400 hover:bg-white/5 hover:text-white"
+            className="min-w-0 rounded-xl px-2 py-2.5 text-sm sm:px-5 font-medium text-neutral-400 hover:bg-white/5 hover:text-white tv:h-16 tv:px-12 tv:text-xl"
             onClick={handleLogout}
           >
-            <LogOut className="mr-2 h-4 w-4" />
+            <LogOut className="mr-2 h-4 w-4 tv:h-6 tv:w-6" />
             Sign Out
           </Button>
         </div>
@@ -623,12 +649,12 @@ export default function ProfilesPage() {
           setPinError(null);
         }}
       >
-        <DialogContent className="glass-panel border-white/15 sm:max-w-md rounded-3xl p-8">
+        <DialogContent className="glass-panel border-white/15 sm:max-w-md rounded-3xl p-8 tv:max-w-3xl tv:p-12">
           <DialogHeader className="text-center">
-            <DialogTitle className="text-2xl font-bold text-white text-center">
+            <DialogTitle className="text-2xl font-bold text-white text-center tv:text-4xl">
               Profile Lock
             </DialogTitle>
-            <DialogDescription className="text-sm text-neutral-400 text-center">
+            <DialogDescription className="text-sm text-neutral-400 text-center tv:text-2xl">
               Enter your 4-digit PIN to access <strong className="text-white">{pinModal.profile?.name}</strong>.
             </DialogDescription>
           </DialogHeader>
@@ -638,13 +664,13 @@ export default function ProfilesPage() {
               <ProfileAvatar
                 avatarUrl={pinModal.profile?.avatarUrl}
                 name={pinModal.profile?.name ?? "Profile"}
-                className="h-20 w-20 rounded-2xl ring-2 ring-white/20 shadow-xl"
-                emojiClassName="text-4xl"
+                className="h-20 w-20 rounded-2xl ring-2 ring-white/20 shadow-xl tv:h-36 tv:w-36 tv:rounded-3xl"
+                emojiClassName="text-4xl tv:text-6xl"
               />
             </div>
 
             {/* 4 Digit PIN Inputs */}
-            <div className="flex justify-center gap-3">
+            <div className="flex justify-center gap-3 tv:gap-5">
               {[0, 1, 2, 3].map((idx) => (
                 <input
                   key={idx}
@@ -656,7 +682,7 @@ export default function ProfilesPage() {
                   onChange={(e) => handlePinDigitChange(idx, e.target.value)}
                   onKeyDown={(e) => handlePinKeyDown(idx, e)}
                   autoFocus={idx === 0}
-                  className="h-14 w-12 rounded-xl border border-white/20 bg-white/5 text-center text-2xl font-bold text-white focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/40 focus:outline-none transition-all"
+                  className="h-14 w-12 rounded-xl border border-white/20 bg-white/5 text-center text-2xl font-bold text-white focus:border-[var(--brand)] focus:ring-2 focus:ring-[var(--brand)]/40 focus:outline-none transition-all tv:h-24 tv:w-20 tv:rounded-2xl tv:text-5xl"
                 />
               ))}
             </div>
@@ -665,9 +691,9 @@ export default function ProfilesPage() {
               <motion.div
                 initial={{ opacity: 0, y: 4 }}
                 animate={{ opacity: 1, y: 0 }}
-                className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-red-400"
+                className="mt-4 flex items-center gap-1.5 text-xs font-semibold text-red-400 tv:mt-6 tv:text-lg"
               >
-                <ShieldAlert className="h-4 w-4" />
+                <ShieldAlert className="h-4 w-4 tv:h-6 tv:w-6" />
                 <span>{pinError}</span>
               </motion.div>
             )}
@@ -676,7 +702,7 @@ export default function ProfilesPage() {
           <div className="flex justify-end gap-3">
             <Button
               variant="outline"
-              className="rounded-xl border-white/10"
+              className="rounded-xl border-white/10 tv:h-16 tv:px-10 tv:text-lg"
               onClick={() => {
                 setPinModal({ open: false, profile: null });
                 setPinDigits(["", "", "", ""]);
@@ -686,7 +712,7 @@ export default function ProfilesPage() {
               Cancel
             </Button>
             <Button
-              className="btn-brand rounded-xl px-6"
+              className="btn-brand rounded-xl px-6 tv:h-16 tv:px-12 tv:text-lg"
               onClick={() => {
                 if (pinModal.profile) {
                   loginToProfile(pinModal.profile.id, pinDigits.join(""));
@@ -694,7 +720,7 @@ export default function ProfilesPage() {
               }}
               disabled={pinDigits.some((d) => d === "") || pinLoggingIn}
             >
-              {pinLoggingIn ? <Loader2 className="h-4 w-4 animate-spin" /> : "Unlock"}
+              {pinLoggingIn ? <Loader2 className="h-4 w-4 animate-spin tv:h-6 tv:w-6" /> : "Unlock"}
             </Button>
           </div>
         </DialogContent>
@@ -708,49 +734,49 @@ export default function ProfilesPage() {
           if (!open) setAddStep("details");
         }}
       >
-        <DialogContent className={addStep === "picture" ? "glass-panel border-white/15 sm:max-w-xl rounded-3xl p-6" : "glass-panel border-white/15 sm:max-w-md rounded-3xl p-6"}>
+        <DialogContent className={addStep === "picture" ? "glass-panel border-white/15 sm:max-w-xl rounded-3xl p-6 tv:max-w-5xl tv:p-12" : "glass-panel border-white/15 sm:max-w-md rounded-3xl p-6 tv:max-w-3xl tv:p-12"}>
           {addStep === "details" ? (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-white">Add Profile</DialogTitle>
-                <DialogDescription className="text-neutral-400">
+                <DialogTitle className="text-2xl font-bold text-white tv:text-4xl">Add Profile</DialogTitle>
+                <DialogDescription className="text-neutral-400 tv:text-xl">
                   Create a customized profile for this account.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="flex items-center justify-center py-4">
+              <div className="flex items-center justify-center py-4 tv:py-8">
                 <ProfileAvatar
                   avatarUrl={newAvatar}
                   name={newName.trim() || "New"}
-                  className="h-28 w-28 rounded-2xl ring-2 ring-white/20 shadow-2xl"
-                  emojiClassName="text-5xl"
+                  className="h-28 w-28 rounded-2xl ring-2 ring-white/20 shadow-2xl tv:h-44 tv:w-44 tv:rounded-3xl"
+                  emojiClassName="text-5xl tv:text-7xl"
                 />
               </div>
 
-              <div className="space-y-4 pb-4">
+              <div className="space-y-4 pb-4 tv:space-y-8 tv:pb-8">
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Profile Name</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300 tv:text-lg">Profile Name</Label>
                   <Input
                     value={newName}
                     onChange={(e) => setNewName(e.target.value)}
                     placeholder="Enter profile name"
-                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white tv:mt-3 tv:h-16 tv:rounded-2xl tv:text-2xl"
                     maxLength={30}
                     autoFocus
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">4-Digit PIN (Optional)</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300 tv:text-lg">4-Digit PIN (Optional)</Label>
                   <Input
                     type="password"
                     maxLength={4}
                     value={newPin}
                     onChange={(e) => setNewPin(e.target.value.replace(/\D/g, ""))}
                     placeholder="Require PIN on entry"
-                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white text-center font-mono tracking-widest text-lg"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white text-center font-mono tracking-widest text-lg tv:mt-3 tv:h-16 tv:rounded-2xl tv:text-3xl"
                   />
-                  <p className="mt-1.5 text-xs text-neutral-500">
+                  <p className="mt-1.5 text-xs text-neutral-500 tv:mt-3 tv:text-base">
                     Leave blank if you want anyone on the account to open this profile.
                   </p>
                 </div>
@@ -759,7 +785,7 @@ export default function ProfilesPage() {
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
-                  className="rounded-xl border-white/10"
+                  className="rounded-xl border-white/10 tv:h-16 tv:px-10 tv:text-lg"
                   onClick={() => setAddModalOpen(false)}
                   disabled={adding}
                 >
@@ -768,7 +794,7 @@ export default function ProfilesPage() {
                 <Button
                   onClick={() => setAddStep("picture")}
                   disabled={!newName.trim()}
-                  className="btn-brand rounded-xl"
+                  className="btn-brand rounded-xl tv:h-16 tv:px-12 tv:text-lg"
                 >
                   Choose Picture
                   <ChevronLeft className="ml-1 h-4 w-4 rotate-180" />
@@ -778,20 +804,20 @@ export default function ProfilesPage() {
           ) : (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-white">Choose Avatar Icon</DialogTitle>
-                <DialogDescription className="text-neutral-400">
+                <DialogTitle className="text-2xl font-bold text-white tv:text-4xl">Choose Avatar Icon</DialogTitle>
+                <DialogDescription className="text-neutral-400 tv:text-xl">
                   Pick a signature avatar for {newName.trim() || "the new profile"}.
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="py-4">
+              <div className="py-4 tv:py-6">
                 <AvatarBrowser value={newAvatar} onSelect={setNewAvatar} />
               </div>
 
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
-                  className="rounded-xl border-white/10"
+                  className="rounded-xl border-white/10 tv:h-16 tv:px-10 tv:text-lg"
                   onClick={() => setAddStep("details")}
                   disabled={adding}
                 >
@@ -801,12 +827,12 @@ export default function ProfilesPage() {
                 <Button
                   onClick={handleAddProfile}
                   disabled={adding || !newName.trim()}
-                  className="btn-brand rounded-xl"
+                  className="btn-brand rounded-xl tv:h-16 tv:px-12 tv:text-lg"
                 >
                   {adding ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <Loader2 className="h-4 w-4 animate-spin mr-2 tv:h-6 tv:w-6" />
                   ) : (
-                    <Check className="h-4 w-4 mr-2" />
+                    <Check className="h-4 w-4 mr-2 tv:h-6 tv:w-6" />
                   )}
                   Create Profile
                 </Button>
@@ -823,59 +849,59 @@ export default function ProfilesPage() {
           if (!open) setEditProfile(null);
         }}
       >
-        <DialogContent className="glass-panel border-white/15 sm:max-w-2xl rounded-3xl p-6">
+        <DialogContent className="glass-panel border-white/15 sm:max-w-2xl rounded-3xl p-6 tv:max-w-5xl tv:p-12">
           {editProfile && (
             <>
               <DialogHeader>
-                <DialogTitle className="text-2xl font-bold text-white">Edit Profile</DialogTitle>
-                <DialogDescription className="text-neutral-400">
+                <DialogTitle className="text-2xl font-bold text-white tv:text-4xl">Edit Profile</DialogTitle>
+                <DialogDescription className="text-neutral-400 tv:text-xl">
                   Customize avatar, display name, and security PIN for {editProfile.name}.
                 </DialogDescription>
               </DialogHeader>
 
               {/* Preview Banner */}
-              <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div className="flex items-center gap-4 rounded-2xl border border-white/10 bg-white/5 p-4 tv:gap-6 tv:rounded-3xl tv:p-6">
                 <ProfileAvatar
                   avatarUrl={editAvatar}
                   name={editName.trim() || editProfile.name}
-                  className="h-20 w-20 flex-shrink-0 rounded-2xl ring-2 ring-white/15 shadow-lg"
-                  emojiClassName="text-4xl"
+                  className="h-20 w-20 flex-shrink-0 rounded-2xl ring-2 ring-white/15 shadow-lg tv:h-32 tv:w-32 tv:rounded-3xl"
+                  emojiClassName="text-4xl tv:text-6xl"
                 />
                 <div className="min-w-0">
-                  <p className="truncate text-lg font-bold text-white">
+                  <p className="truncate text-lg font-bold text-white tv:text-3xl">
                     {editName.trim() || editProfile.name}
                   </p>
-                  <p className="text-xs text-neutral-400">
+                  <p className="text-xs text-neutral-400 tv:text-lg">
                     {editProfile.isMainProfile ? "Main Profile" : "Secondary Profile"} ·{" "}
                     {editAvatar ? "Custom Icon" : "Monogram"}
                   </p>
                 </div>
               </div>
 
-              <div className="space-y-5 py-4">
+              <div className="space-y-5 py-4 tv:space-y-8 tv:py-6">
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Name</Label>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300 tv:text-lg">Name</Label>
                   <Input
                     value={editName}
                     onChange={(e) => setEditName(e.target.value)}
                     placeholder="Profile name"
-                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white tv:mt-3 tv:h-16 tv:rounded-2xl tv:text-2xl"
                     maxLength={30}
                   />
                 </div>
 
                 <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Profile Icon</Label>
-                  <div className="mt-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300 tv:text-lg">Profile Icon</Label>
+                  <div className="mt-2 tv:mt-4">
                     <AvatarBrowser value={editAvatar} onSelect={setEditAvatar} />
                   </div>
                 </div>
 
-                <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+                <div className="rounded-2xl border border-white/10 bg-white/5 p-4 tv:rounded-3xl tv:p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-semibold text-white">Require PIN Protection</p>
-                      <p className="mt-0.5 text-xs text-neutral-400">
+                      <p className="text-sm font-semibold text-white tv:text-2xl">Require PIN Protection</p>
+                      <p className="mt-0.5 text-xs text-neutral-400 tv:mt-2 tv:text-lg">
                         {pinEnabled
                           ? "A 4-digit PIN is required to open this profile"
                           : "Anyone with account access can enter"}
@@ -885,7 +911,7 @@ export default function ProfilesPage() {
                   </div>
 
                   {pinEnabled && (
-                    <div className="mt-4">
+                    <div className="mt-4 tv:mt-6">
                       <Input
                         type="password"
                         maxLength={4}
@@ -897,9 +923,9 @@ export default function ProfilesPage() {
                         placeholder={
                           editProfile.hasPin ? "Enter new 4-digit PIN" : "Enter a 4-digit PIN"
                         }
-                        className="h-12 text-center text-xl font-mono tracking-widest rounded-xl border-white/15 bg-white/5 text-white"
+                        className="h-12 text-center text-xl font-mono tracking-widest rounded-xl border-white/15 bg-white/5 text-white tv:h-16 tv:text-3xl tv:rounded-2xl"
                       />
-                      <p className="mt-1.5 text-xs text-neutral-500">
+                      <p className="mt-1.5 text-xs text-neutral-500 tv:mt-3 tv:text-base">
                         {editProfile.hasPin
                           ? "Leave blank to keep current PIN."
                           : "Enter 4 numeric digits to enable lock."}
@@ -911,14 +937,14 @@ export default function ProfilesPage() {
                 {!editProfile.isMainProfile && (
                   <Button
                     variant="destructive"
-                    className="w-full rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20"
+                    className="w-full rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 tv:h-16 tv:text-xl"
                     onClick={handleDeleteProfile}
                     disabled={deleting || saving}
                   >
                     {deleting ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin tv:h-6 tv:w-6" />
                     ) : (
-                      <Trash2 className="mr-2 h-4 w-4" />
+                      <Trash2 className="mr-2 h-4 w-4 tv:h-6 tv:w-6" />
                     )}
                     Delete Profile
                   </Button>
@@ -928,7 +954,7 @@ export default function ProfilesPage() {
               <div className="flex justify-end gap-2">
                 <Button
                   variant="outline"
-                  className="rounded-xl border-white/10"
+                  className="rounded-xl border-white/10 tv:h-16 tv:px-10 tv:text-lg"
                   onClick={() => setEditProfile(null)}
                   disabled={saving}
                 >
@@ -941,12 +967,12 @@ export default function ProfilesPage() {
                     !editName.trim() ||
                     (pinEnabled && !editProfile.hasPin && editPin.length !== 4)
                   }
-                  className="btn-brand rounded-xl"
+                  className="btn-brand rounded-xl tv:h-16 tv:px-12 tv:text-lg"
                 >
                   {saving ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    <Loader2 className="h-4 w-4 animate-spin mr-2 tv:h-6 tv:w-6" />
                   ) : (
-                    <Check className="h-4 w-4 mr-2" />
+                    <Check className="h-4 w-4 mr-2 tv:h-6 tv:w-6" />
                   )}
                   Save Changes
                 </Button>

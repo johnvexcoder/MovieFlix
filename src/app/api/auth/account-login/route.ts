@@ -4,18 +4,12 @@ import crypto from "crypto";
 import { db } from "@/db";
 import { accounts, profiles, signupSessions } from "@/db/schema";
 import { eq, or, sql } from "drizzle-orm";
-import { comparePassword, generateAccessToken, generateRefreshToken, extractIpSubnet, getClientIp } from "@/lib/auth";
+import { comparePassword, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
-import {
-  setRateLimit,
-  getTokenVersion,
-  setActiveSession,
-  removeSessionsByDevice,
-  getAccountActiveSessions,
-} from "@/lib/redis";
-import { getDeviceId, getMaxSessions, getSessionIdleTimeoutSeconds } from "@/lib/app-settings";
+import { setRateLimit } from "@/lib/redis";
 import { hashSignupToken } from "@/lib/registration";
 import { reconcilePayMongoOrders } from "@/services/billing/service";
+import { establishAccountSession } from "@/lib/user-session";
 
 export async function POST(request: NextRequest) {
   try {
@@ -94,62 +88,20 @@ export async function POST(request: NextRequest) {
       return errorResponse("No profiles found for this account", 404);
     }
 
-    // Session enforcement for the account.
-    const maxSessions = await getMaxSessions();
-    const idleTimeout = await getSessionIdleTimeoutSeconds();
-    const isHttps = request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https";
-
-    let deviceId = getDeviceId(request);
-    if (!deviceId) deviceId = uuidv4();
-
-    const sessionId = uuidv4();
-    const sessionMeta = {
-      deviceId,
-      ip: getClientIp(request),
-      userAgent: request.headers.get("user-agent") || "",
-    };
-
-    const profileIds = accountProfiles.map((p) => p.id);
-
-    // This device replaces its own previous sessions (profile switching /
-    // re-login must not double-count against the account cap).
-    await removeSessionsByDevice(profileIds, deviceId, sessionId);
-
-    const accountSessions = await getAccountActiveSessions(profileIds);
-    // Only enforce the cap if Redis is reachable (accountSessions is always an
-    // array here; null entries were skipped) — we can't count otherwise.
-    if (accountSessions.length >= maxSessions) {
-      return errorResponse(
-        `Your account has reached the maximum of ${maxSessions} active sessions. End a session on another device, or contact support to raise the limit.`,
-        429
-      );
+    // Session enforcement + token minting (shared with the TV QR login flow so
+    // both obey identical active-session and per-device replacement rules).
+    const established = await establishAccountSession(request, account, accountProfiles);
+    if (!established.ok) {
+      if (established.reason === "max_sessions") {
+        return errorResponse(
+          `Your account has reached the maximum of ${established.maxSessions} active sessions. End a session on another device, or contact support to raise the limit.`,
+          429
+        );
+      }
+      return errorResponse("No profiles found for this account", 404);
     }
 
-    // Register an initial session on the main profile. If the user picks a
-    // different profile afterwards, profile-login replaces this session for the
-    // same device.
-    await setActiveSession(mainProfile.id, sessionId, sessionMeta, idleTimeout);
-
-    const accessToken = generateAccessToken({
-      profileId: mainProfile.id,
-      accountId: account.id,
-      isAdmin: false,
-      fingerprint: extractIpSubnet(ip),
-      sessionId,
-    });
-
-    // Remember the last client IP + login time so admins can see where an
-    // account is connecting from (works through Tailscale/reverse proxies via
-    // X-Forwarded-For).
-    await db
-      .update(accounts)
-      .set({ lastIp: ip, lastLoginAt: new Date().toISOString() })
-      .where(eq(accounts.id, account.id));
-
-    // Use the current token version so a subsequent logout/revocation correctly
-    // invalidates this refresh token (the old hard-coded value of 1 broke this).
-    const tokenVersion = await getTokenVersion(mainProfile.id);
-    const refreshToken = generateRefreshToken(mainProfile.id, tokenVersion, sessionId);
+    const { accessToken, refreshToken, sessionId, deviceId, isHttps } = established;
 
     const response = successResponse({
       account: {

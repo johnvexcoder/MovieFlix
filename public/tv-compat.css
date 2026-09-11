@@ -1,20 +1,78 @@
-/* Conservative fallback layer for older Chromium/WebKit Smart TV browsers. */
-html,body{margin:0;min-height:100%;background:#020611;color:#fff;font-family:Arial,Helvetica,sans-serif}
-body{display:block;background-color:#020611!important;color:#fff!important}
-*{box-sizing:border-box}
-.sr-only{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
-.cinematic-bg,.movieflix-page-bg{min-height:100vh;background:#020611;background-image:radial-gradient(circle at 25% 20%,#06334a 0,#020611 42%),radial-gradient(circle at 80% 80%,#251035 0,#020611 45%)}
-.movieflix-splash{position:fixed;z-index:9999;top:0;right:0;bottom:0;left:0;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#020611;color:#fff}
-.movieflix-lockup{position:relative;width:90%;max-width:1050px;height:330px}
-.movieflix-intro-mark{position:absolute;left:0;top:18%;width:31%;height:64%}
-.movieflix-wordmark-window{position:absolute;left:28%;right:0;top:20%;overflow:hidden;padding-top:5%;margin-top:-5%}
-.movieflix-brand-name{position:relative;display:block;width:auto;font-family:Arial Black,Arial,sans-serif;font-size:100px;font-weight:900;line-height:1.12;letter-spacing:-5px;color:#04dcff}
-.movieflix-tagline{text-align:center;margin-top:14px;font-size:24px;font-weight:700;letter-spacing:5px}
-.movieflix-skip{position:absolute;right:24px;bottom:24px;min-height:44px;padding:10px 20px;border:1px solid #58728f;border-radius:22px;background:#101b31;color:#fff}
-.glass-panel{background:#0b1629;border:1px solid #243955}
-button,input,select,textarea{font:inherit}
-button,a,[role="button"]{touch-action:manipulation;-ms-touch-action:manipulation}
-img,svg,video{max-width:100%}
-video{background:#000}
-@media(max-width:700px){.movieflix-lockup{height:220px}.movieflix-brand-name{font-size:48px;letter-spacing:-3px}.movieflix-tagline{font-size:13px;letter-spacing:3px}}
-@media(min-width:701px) and (max-width:1100px){.movieflix-brand-name{font-size:72px}.movieflix-tagline{font-size:18px}}
+/* Conservative fallback layer for older Chromium/WebKit Smart TV browsers.
+ *
+ * This file exists to keep the app structurally sound on engines that fail to
+ * parse modern CSS (custom properties, oklch colors, backdrop-filter, etc.)
+ * and to provide a 10-foot UI when the app detects a TV browser (html.tv-mode).
+ * It must stay dependency-free and mobile/desktop-safe: rules are either
+ * baseline fallbacks or scoped under `html.tv-mode`.
+ */
+html, body { margin: 0; min-height: 100%; background: #020611; color: #fff; font-family: Arial, Helvetica, sans-serif; }
+body { display: block; background-color: #020611 !important; color: #fff !important; }
+* { box-sizing: border-box; }
+
+.sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
+.cinematic-bg, .movieflix-page-bg { min-height: 100vh; background: #020611; background-image: radial-gradient(circle at 25% 20%, #06334a 0, #020611 42%), radial-gradient(circle at 80% 80%, #251035 0, #020611 45%); }
+.movieflix-splash { position: fixed; z-index: 9999; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #020611; color: #fff; }
+.movieflix-lockup { position: relative; width: 90%; max-width: 1050px; height: 330px; }
+.movieflix-intro-mark { position: absolute; left: 0; top: 18%; width: 31%; height: 64%; }
+.movieflix-wordmark-window { position: absolute; left: 28%; right: 0; top: 20%; overflow: hidden; padding-top: 5%; margin-top: -5%; }
+.movieflix-brand-name { position: relative; display: block; width: auto; font-family: "Arial Black", Arial, sans-serif; font-size: 100px; font-weight: 900; line-height: 1.12; letter-spacing: -5px; color: #04dcff; }
+.movieflix-tagline { text-align: center; margin-top: 14px; font-size: 24px; font-weight: 700; letter-spacing: 5px; }
+.movieflix-skip { position: absolute; right: 24px; bottom: 24px; min-height: 44px; padding: 10px 20px; border: 1px solid #58728f; border-radius: 22px; background: #101b31; color: #fff; }
+.glass-panel { background: #0b1629; border: 1px solid #243955; }
+button, input, select, textarea { font: inherit; }
+button, a, [role="button"] { touch-action: manipulation; -ms-touch-action: manipulation; }
+img, svg, video { max-width: 100%; }
+video { background: #000; }
+
+/* The app renders boxes in oklch / CSS variables. Older TV engines reject the
+   whole declaration when they meet an unknown value, so provide plain-color
+   fallbacks for the surfaces that matter most. */
+html:not(.tv-mode) body { background-color: #020611; }
+
+/* Keep every application shell inside the visual viewport. */
+html, body { width: 100%; max-width: 100%; overflow-x: hidden; }
+
+/* ============ TV (10-foot / D-pad) mode ============
+   Only enabled when <html class="tv-mode"> is present (see tv-detect.ts).
+   Desktop and mobile browsers never match these rules. */
+html.tv-mode { font-size: 20px; }
+html.tv-mode body { -webkit-tap-highlight-color: transparent; tap-highlight-color: transparent; -webkit-text-size-adjust: 100%; }
+
+/* Prominent focused state that reads from across the room. The app already
+   draws a :focus-visible outline; in TV mode we supersize it into a glow. */
+html.tv-mode :focus-visible {
+  outline: 3px solid #00d2f5 !important;
+  outline-offset: 8px !important;
+  box-shadow: 0 0 0 10px rgba(0, 210, 245, 0.28), 0 0 34px rgba(0, 210, 245, 0.55) !important;
+  border-radius: 6px;
+}
+html.tv-mode button, html.tv-mode a, html.tv-mode [role="button"], html.tv-mode [tabindex] { min-height: 44px; }
+
+/* Larger tap/activation regions for coarse pointers that arrived with a
+   remote (also useful on modern flagship TVs using Android TV's touchpad). */
+@media (pointer: coarse) {
+  html.tv-mode button, html.tv-mode a, html.tv-mode [role="button"] { min-height: 52px; }
+}
+
+/* TV grids and dialogs use explicitly larger sizing via `tv:` Tailwind
+   utilities, but a couple of base rules protect non-utility components. */
+html.tv-mode .glass-panel { border-color: rgba(0, 210, 245, 0.22); }
+html.tv-mode .movieflix-skip, html.tv-mode .movieflix-brand-name { font-size: clamp(24px, 6vw, 72px); }
+
+/* Scrollable regions: older WebKit needs the legacy touch momentum hint. */
+html.tv-mode * { -webkit-overflow-scrolling: touch; }
+
+/* ============ Responsive splash fallbacks ============ */
+@media (max-width: 700px) {
+  .movieflix-lockup { height: 220px; }
+  .movieflix-brand-name { font-size: 48px; letter-spacing: -3px; }
+  .movieflix-tagline { font-size: 13px; letter-spacing: 3px; }
+}
+@media (min-width: 701px) and (max-width: 1100px) {
+  .movieflix-brand-name { font-size: 72px; }
+  .movieflix-tagline { font-size: 18px; }
+}
+@media (min-width: 1400px) {
+  html.tv-mode .movieflix-tagline { font-size: 30px; }
+}
