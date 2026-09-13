@@ -13,7 +13,7 @@ body { display: block; background-color: #020611 !important; color: #fff !import
 .sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip: rect(0,0,0,0) !important; white-space: nowrap !important; border: 0 !important; }
 .cinematic-bg, .movieflix-page-bg { min-height: 100vh; background: #020611; background-image: radial-gradient(circle at 25% 20%, #06334a 0, #020611 42%), radial-gradient(circle at 80% 80%, #251035 0, #020611 45%); }
 .movieflix-splash { position: fixed; z-index: 9999; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: center; justify-content: center; overflow: hidden; background: #020611; color: #fff; }
-.movieflix-lockup { position: relative; width: 90%; max-width: 1050px; height: 330px; }
+.movieflix-lockup { position: relative; width: 90%; max-width: 1050px; height: 330px; transform: translateY(7%); }
 .movieflix-intro-mark { position: absolute; left: 0; top: 18%; width: 31%; height: 64%; }
 .movieflix-wordmark-window { position: absolute; left: 28%; right: 0; top: 20%; overflow: hidden; padding-top: 5%; margin-top: -5%; }
 .movieflix-brand-name { position: relative; display: block; width: auto; font-family: "Arial Black", Arial, sans-serif; font-size: 100px; font-weight: 900; line-height: 1.12; letter-spacing: -5px; color: #04dcff; }
@@ -95,6 +95,7 @@ html.tv-mode .tv-profiles-screen {
   html.tv-mode [data-tv-qr-panel] img { width: 164px !important; height: 164px !important; }
   html.tv-mode [data-tv-profiles-screen] { padding-top: 10px !important; padding-bottom: 10px !important; }
   html.tv-mode [data-tv-profiles-screen] [role="dialog"] { max-height: 94vh !important; padding: 18px !important; overflow-y: auto; }
+  html.tv-mode .movieflix-lockup { width: 78vw; max-height: 70vh; transform: translateY(5%); }
 }
 
 /* ============ Responsive splash fallbacks ============ */

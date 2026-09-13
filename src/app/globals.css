@@ -282,7 +282,7 @@ select {
   background: radial-gradient(ellipse at 30% 40%, #07335955, transparent 45%),
     radial-gradient(ellipse at 78% 62%, #65134433, transparent 40%), #030715;
 }
-.movieflix-lockup { position: relative; width: min(90vw, 1050px); aspect-ratio: 4 / 1.25; }
+.movieflix-lockup { position: relative; width: min(90vw, 1050px); aspect-ratio: 4 / 1.25; transform: translateY(7%); }
 .movieflix-intro-mark {
   position: absolute; z-index: 2; width: 27%; height: auto; aspect-ratio: 1; left: 0; top: 0;
   animation: movieflix-enter 2.05s cubic-bezier(.22,1,.36,1) both;
