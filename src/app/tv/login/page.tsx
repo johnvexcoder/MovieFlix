@@ -209,7 +209,7 @@ export default function TvLoginPage() {
     if (!isTv) {
       return (
         <div className="flex flex-col items-center justify-center gap-4 text-center">
-          <Monitor className="h-12 w-12 text-cyan-400 tv:h-20 tv:w-20" />
+          <Monitor className="h-12 w-12 text-cyan-400 tv:h-16 tv:w-16" />
           <p className="text-sm font-semibold tracking-wider text-neutral-400 uppercase tv:text-xl">
             Sign in on your TV
           </p>
@@ -233,7 +233,7 @@ export default function TvLoginPage() {
     if (status === "ready" && challenge) {
       return (
         <>
-          <p className="text-sm font-semibold tracking-wider text-neutral-400 uppercase tv:text-xl">
+          <p className="text-sm font-semibold tracking-wider text-neutral-400 uppercase tv:text-lg">
             Scan with your phone
           </p>
           {qrDataUrl ? (
@@ -243,27 +243,27 @@ export default function TvLoginPage() {
               alt={`QR code to sign in to MovieFlix. Open ${challenge.qrUrl}`}
               width={280}
               height={280}
-              className="mt-5 rounded-2xl bg-white p-3 shadow-2xl tv:mt-8 tv:h-80 tv:w-80 tv:rounded-3xl"
+              className="mt-5 rounded-2xl bg-white p-3 shadow-2xl tv:mt-5 tv:h-52 tv:w-52 tv:rounded-3xl"
             />
           ) : (
-            <div className="mt-5 flex h-64 w-64 items-center justify-center rounded-2xl bg-white tv:mt-8 tv:h-80 tv:w-80">
+            <div className="mt-5 flex h-64 w-64 items-center justify-center rounded-2xl bg-white tv:mt-5 tv:h-52 tv:w-52">
               <Loader2 className="h-8 w-8 animate-spin text-black/40 tv:h-14 tv:w-14" />
             </div>
           )}
 
-          <div className="mt-5 text-center tv:mt-8">
-            <p className="text-sm text-neutral-400 tv:text-xl">…or enter this code on your phone:</p>
-            <p className="mt-2 text-2xl font-black tracking-[0.3em] text-white tv:mt-4 tv:text-4xl">
+          <div className="mt-5 text-center tv:mt-6">
+            <p className="text-sm text-neutral-400 tv:text-lg">…or enter this code on your phone:</p>
+            <p className="mt-2 text-2xl font-black tracking-[0.3em] text-white tv:mt-3 tv:text-3xl">
               {challenge.code}
             </p>
           </div>
 
-          <div className="mt-5 flex flex-col items-center gap-1 tv:mt-8">
-            <p className="text-xs text-neutral-500 tv:text-lg">
+          <div className="mt-5 flex flex-col items-center gap-1 tv:mt-6">
+            <p className="text-xs text-neutral-500 tv:text-base">
               Code expires in {minutes}:{seconds}
             </p>
             {secondsLeft <= 60 && (
-              <p className="text-xs font-semibold text-amber-400 tv:text-lg">
+              <p className="text-xs font-semibold text-amber-400 tv:text-base">
                 A fresh code will appear automatically.
               </p>
             )}
@@ -320,27 +320,27 @@ export default function TvLoginPage() {
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
 
-      <div data-tv-login-content className="relative z-10 w-full max-w-2xl md:max-w-5xl tv:max-w-6xl">
+      <div data-tv-login-content className="relative z-10 w-full max-w-2xl md:max-w-4xl tv:max-w-4xl">
         {/* Header */}
-        <div className="mb-8 flex flex-col items-center text-center tv:mb-12">
-          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10 tv:h-24 tv:w-24">
-            <MovieFlixLogo className="h-12 w-12 tv:h-20 tv:w-20" size={48} />
+        <div className="mb-8 flex flex-col items-center text-center tv:mb-8">
+          <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10 tv:h-16 tv:w-16">
+            <MovieFlixLogo className="h-12 w-12 tv:h-10 tv:w-10" size={48} />
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-white tv:text-5xl">
+          <h1 className="text-3xl font-black tracking-tight text-white tv:text-4xl">
             Sign In on Your TV
           </h1>
-          <p className="mt-2 max-w-md text-sm text-neutral-400 tv:mt-4 tv:max-w-2xl tv:text-2xl">
+          <p className="mt-2 max-w-md text-sm text-neutral-400 tv:mt-3 tv:max-w-xl tv:text-xl">
             Scan the QR code with your phone to sign in instantly, or use your account credentials.
           </p>
         </div>
 
         {/* QR panel (left) + Login form (right) */}
-        <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 tv:grid-cols-2 tv:items-stretch tv:gap-10">
-          <div data-tv-qr-panel className="glass-panel flex h-full flex-col items-center justify-center rounded-3xl p-8 shadow-2xl shadow-black/60 tv:p-12">
-            <div className="flex w-full max-w-xs flex-col items-center justify-center tv:min-w-[22rem]">{renderQrPanel()}</div>
+        <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 tv:grid-cols-2 tv:items-stretch tv:gap-6">
+          <div data-tv-qr-panel className="glass-panel flex h-full flex-col items-center justify-center rounded-3xl p-8 shadow-2xl shadow-black/60 tv:p-8">
+            <div className="flex w-full max-w-xs flex-col items-center justify-center tv:min-w-[15rem]">{renderQrPanel()}</div>
           </div>
 
-          <div data-tv-password-panel className="glass-panel flex h-full flex-col justify-center rounded-3xl p-8 shadow-2xl shadow-black/80 tv:p-12">
+          <div data-tv-password-panel className="glass-panel flex h-full flex-col justify-center rounded-3xl p-8 shadow-2xl shadow-black/80 tv:p-8">
             <div className="mb-6 flex flex-col items-center text-center tv:mb-8">
               <p className="text-xs font-semibold tracking-wider text-neutral-400 uppercase tv:text-lg">
                 Sign In to Watch
@@ -354,7 +354,7 @@ export default function TvLoginPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-neutral-500 tv:mt-10 tv:text-lg">
+        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-neutral-500 tv:mt-8 tv:text-base">
           <ShieldCheck className="h-4 w-4 text-emerald-500 tv:h-6 tv:w-6" />
           <span>Your TV will stay signed in on this device.</span>
         </div>

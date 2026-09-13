@@ -10,6 +10,11 @@ import {
   watchHistory,
   myList,
   profileSettings,
+  billingOrders,
+  billingEvents,
+  subscriptions,
+  signupSessions,
+  contactSubmissions,
 } from "../../src/db/schema";
 
 export const SEED = {
@@ -46,6 +51,16 @@ export async function seedFixture() {
   await db.delete(episodes).where(eq(episodes.mediaId, SEED.seriesId));
   await db.delete(seasons).where(eq(seasons.mediaId, SEED.seriesId));
   await db.delete(media).where(inArray(media.id, [SEED.movieId, SEED.seriesId]));
+  // Billing rows written by the payment flows must go before the account
+  // delete, or SQLite complains about foreign keys. billing_events points at
+  // billing_orders, so events die first.
+  await db.delete(billingEvents).where(inArray(billingEvents.orderId,
+    (await db.select({ id: billingOrders.id }).from(billingOrders)
+      .where(eq(billingOrders.accountId, SEED.accountId))).map((o) => o.id)));
+  await db.delete(billingOrders).where(eq(billingOrders.accountId, SEED.accountId));
+  await db.delete(subscriptions).where(eq(subscriptions.accountId, SEED.accountId));
+  await db.delete(signupSessions).where(eq(signupSessions.accountId, SEED.accountId));
+  await db.delete(contactSubmissions).where(eq(contactSubmissions.accountId, SEED.accountId));
   // Delete ALL profiles for the test account (not just the two known IDs)
   // so that any profiles created by earlier test runs are cleaned up first.
   await db.delete(profiles).where(eq(profiles.accountId, SEED.accountId));

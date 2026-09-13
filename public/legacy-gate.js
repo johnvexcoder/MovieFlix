@@ -33,7 +33,34 @@
     }
   }
 
-  var ok = supportsModules() && supportsPromise();
+  /* Some engines (e.g. Chromium 61-79 browsers on old TVs) report that they
+   * support ES modules but still cannot parse the modern operators the Next.js
+   * dev bundle relies on (optional chaining `?.`, nullish `??`). If we cannot
+   * compile those, hydration dies after the splash and the user gets stuck on
+   * the boot-diagnostics wall. Probe the actual grammar instead of trusting
+   * the module flag alone. If eval is blocked (CSP) we cannot verify, so we
+   * optimistically assume the engine is fine and let the app try. */
+  function parsesModernGrammar() {
+    function compiles(body) {
+      try {
+        var F = new Function(body);
+        F();
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    try {
+      if (typeof Array.from !== 'function') return false;
+      if (typeof Object.assign !== 'function') return false;
+      if (typeof Symbol !== 'function') return false;
+      return compiles('var o = { a: [1] }; return o.a?.[0] != null ? (o.missing ?? "x") : "y";');
+    } catch (e) {
+      return true; // can't run probes (restricted eval) — assume modern
+    }
+  }
+
+  var ok = supportsModules() && supportsPromise() && parsesModernGrammar();
 
   try {
     window.__MVF_ENGINE_OK__ = ok;

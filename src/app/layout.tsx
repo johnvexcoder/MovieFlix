@@ -44,7 +44,7 @@ const BOOT_SENTINEL_SCRIPT = `(function(){
     shown = true;
     show();
   }
-  setTimeout(check, 9000);
+  setTimeout(check, 30000);
   window.__MOVIEFLIX_BOOT_CHECK__ = check;
 })();`;
 
@@ -60,16 +60,30 @@ const BOOT_DIAGNOSTICS_HTML = `(function(){
   title.textContent = "MovieFlix could not start";
   title.style.cssText = "font-size:28px;font-weight:800;margin-bottom:14px;";
   var body = d.createElement("p");
-  body.textContent = "The app did not finish loading. This usually happens on older Smart TV web browsers that miss required web features.";
+  body.textContent = "The app did not finish loading. This usually happens on older Smart TV web browsers that miss required web features. Try TV mode, which uses a much simpler page that works on older engines.";
   body.style.cssText = "font-size:15px;line-height:1.5;color:#9ca3af;margin:0 0 18px;";
+  var wrap = d.createElement("div");
+  wrap.style.cssText = "display:flex;flex-direction:column;gap:12px;align-items:center;";
   var reload = d.createElement("button");
   reload.type = "button";
-  reload.textContent = "\u21bb Reload";
-  reload.style.cssText = "min-height:46px;padding:10px 22px;border-radius:999px;border:1px solid #00d2f5;background:#00d2f5;color:#03111e;font-size:15px;font-weight:700;cursor:pointer;";
+  reload.textContent = "\u21bb Retry";
+  reload.style.cssText = "min-height:46px;padding:10px 22px;border-radius:999px;border:1px solid #00d2f5;background:#00d2f5;color:#03111e;font-size:15px;font-weight:700;cursor:pointer;width:100%;max-width:360px;";
   reload.addEventListener("click", function(){ window.location.reload(); });
+  var tvMode = d.createElement("button");
+  tvMode.type = "button";
+  tvMode.textContent = "Open TV Mode (classic)";
+  tvMode.style.cssText = "min-height:46px;padding:10px 22px;border-radius:999px;border:1px solid #58728f;background:#0b1629;color:#fff;font-size:15px;font-weight:700;cursor:pointer;width:100%;max-width:360px;";
+  tvMode.addEventListener("click", function(){
+    var from = "/";
+    try { from = String(window.location.pathname || "/"); } catch (e) { /* keep */ }
+    try { window.location.href = "/legacy-tv.html?from=" + encodeURIComponent(from); }
+    catch (e) { /* ignore */ }
+  });
+  wrap.appendChild(reload);
+  wrap.appendChild(tvMode);
   inner.appendChild(title);
   inner.appendChild(body);
-  inner.appendChild(reload);
+  inner.appendChild(wrap);
   box.appendChild(inner);
   d.body.appendChild(box);
 })();`;

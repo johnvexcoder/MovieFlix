@@ -12,6 +12,7 @@
   'use strict';
 
   var DOC = document;
+  var timers = [];
 
   /* ------------------------------------------------------------------ *
    *  Small utilities                                                     *
@@ -366,7 +367,6 @@
     APP.screen = 'login';
     APP.qr = null;
     var gen = 0;
-    var timers = [];
 
     var box = banner('MOVIEFLIX', 'Sign in with the MovieFlix app on your phone');
     var panel = make('div');
@@ -410,6 +410,66 @@
       var refresh = make('button', { class: 'btn ghost' }, 'Generate New Code');
       root.appendChild(refresh);
       bindClick(refresh, startQr);
+
+      /* Classic username/password login — works on any old TV engine, no
+       * phone required. Lives on the same sign-in panel as the QR code. */
+      var divider = make('div', { class: 'divider' }, 'OR');
+      root.appendChild(divider);
+      var formWrap = make('div');
+      addClass(formWrap, 'loginform');
+      root.appendChild(formWrap);
+      formWrap.appendChild(make('p', { class: 'hint' }, 'Sign in with your username and password:'));
+      var fname = DOC.createElement('input');
+      fname.type = 'text';
+      fname.className = 'tvin';
+      fname.placeholder = 'Username or email';
+      fname.setAttribute('autocomplete', 'username');
+      var fpass = DOC.createElement('input');
+      fpass.type = 'password';
+      fpass.className = 'tvin';
+      fpass.placeholder = 'Password';
+      fpass.setAttribute('autocomplete', 'current-password');
+      var formStatus = make('div', { class: 'status' }, '');
+      var signin = make('button', { class: 'btn' }, 'Sign In');
+      formWrap.appendChild(fname);
+      formWrap.appendChild(fpass);
+      formWrap.appendChild(formStatus);
+      formWrap.appendChild(signin);
+      var formStatusEl = formStatus;
+      function submitLogin() {
+        var u = String(fname.value || '').trim();
+        var p = String(fpass.value || '');
+        if (!u || !p) {
+          formStatusEl.textContent = 'Enter your username and password.';
+          formStatusEl.className = 'status err';
+          return;
+        }
+        formStatusEl.textContent = 'Signing in\u2026';
+        formStatusEl.className = 'status';
+        http({ method: 'POST', url: '/api/auth/account-login', body: { username: u, password: p }, allowRefresh: true }, function (res) {
+          if (res.ok && res.data && res.data.success) {
+            var d = res.data.data || {};
+            if (d.requiresPayment) { showPayment(); return; }
+            showProfiles();
+            return;
+          }
+          formStatusEl.textContent = (res.data && res.data.error) || 'Sign-in failed. Try again.';
+          formStatusEl.className = 'status err';
+        });
+      }
+      bindClick(signin, submitLogin);
+      fname.addEventListener('keydown', function (e) {
+        if (e.keyCode === 13 || e.keyCode === 108) submitLogin();
+      });
+      fpass.addEventListener('keydown', function (e) {
+        if (e.keyCode === 13 || e.keyCode === 108) submitLogin();
+      });
+      setGrid([
+        [{ el: refresh, action: startQr }],
+        [{ el: fname, action: function () { try { fname.focus(); } catch (e) { /* ignore */ } } }],
+        [{ el: fpass, action: function () { try { fpass.focus(); } catch (e) { /* ignore */ } } }],
+        [{ el: signin, action: submitLogin }]
+      ]);
 
       var myGen = gen;
       var startedAt = Date.now();
@@ -567,6 +627,344 @@
     http({ method: 'POST', url: '/api/auth/logout', body: null }, function () {
       showLogin();
     });
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Payment & plans                                                    *
+   * ------------------------------------------------------------------ */
+  var payGen = 0;
+
+  function fmtMoney(minor) {
+    var v = Math.max(0, Number(minor || 0) / 100);
+    return 'PHP ' + v.toFixed(2);
+  }
+  function fmtPlanTag(plan) {
+    return plan.isLifetime ? 'Lifetime access' : (plan.durationHours + ' hours');
+  }
+
+  function showPayment() {
+    var view = stage();
+    APP.screen = 'payment';
+    var box = banner('MOVIEFLIX', 'Payment & Plans');
+    view.appendChild(box);
+    var root = make('div');
+    addClass(root, 'panel');
+    box.appendChild(root);
+    var gen = ++payGen;
+
+    function clearTimers() {
+      for (var i = 0; i < timers.length; i++) { window.clearInterval(timers[i]); }
+      timers.length = 0;
+    }
+
+    function setStatus(text, cls) {
+      var st = root.querySelector('.status');
+      if (!st) return;
+      st.textContent = text;
+      st.className = 'status' + (cls ? ' ' + cls : '');
+    }
+
+    function goBack() { clearTimers(); gen++; showProfiles(); }
+
+    function drawLoading(msg) {
+      clearTimers();
+      clear(root);
+      root.appendChild(make('h1', {}, msg || 'Loading\u2026'));
+    }
+
+    function drawError(msg) {
+      clearTimers();
+      clear(root);
+      root.appendChild(make('h1', {}, 'Payment unavailable'));
+      root.appendChild(make('p', { class: 'hint' }, String(msg || 'Try again later.')));
+      var retry = make('button', { class: 'btn' }, 'Try Again');
+      bindClick(retry, showPayment);
+      var back = make('button', { class: 'btn ghost' }, '\u2190 Back to Profiles');
+      bindClick(back, goBack);
+      root.appendChild(retry);
+      root.appendChild(back);
+      setGrid([
+        [{ el: retry, action: showPayment }],
+        [{ el: back, action: goBack }]
+      ]);
+    }
+
+    function drawPlans() {
+      clearTimers();
+      clear(root);
+      root.appendChild(make('h1', {}, 'Choose a plan'));
+      root.appendChild(make('p', { class: 'hint' }, 'Select a plan, then pay with GCash or Maya by scanning the QR code on your phone.'));
+      var statusNote = make('div', { class: 'status' }, 'Checking your membership\u2026');
+      root.appendChild(statusNote);
+      var backBtn = make('button', { class: 'btn ghost' }, '\u2190 Back to Profiles');
+      root.appendChild(backBtn);
+      bindClick(backBtn, goBack);
+      http({ method: 'GET', url: '/api/billing/orders', allowRefresh: true }, function (res) {
+        if (gen !== payGen) return;
+        if (res.ok && res.data && res.data.data && Array.isArray(res.data.data.orders)) {
+          var active = null;
+          var all = res.data.data.orders;
+          for (var i = 0; i < all.length; i++) {
+            if (all[i].status === 'PAID') active = all[i];
+          }
+          if (active && active.entitlementEnd) {
+            statusNote.textContent = 'Your membership is active until ' + String(active.entitlementEnd).slice(0, 10) + '.';
+            statusNote.className = 'status payok';
+          } else {
+            statusNote.textContent = 'You do not have an active plan yet.';
+          }
+        } else {
+          statusNote.textContent = '';
+        }
+      });
+      var grid = [];
+      var planRow = [];
+      for (var i = 0; i < plans.length; i++) {
+        (function (plan) {
+          var off = plan.percentOff > 0 ? ' \u2014 ' + plan.percentOff + '% off!' : '';
+          var opt = make('button', { class: 'opt prow' }, plan.name);
+          opt.appendChild(make('span', { class: 'tag' }, fmtPlanTag(plan) + off));
+          opt.appendChild(make('span', { class: 'price' }, 'PHP ' + Number(plan.finalPrice || 0).toFixed(2)));
+          bindClick(opt, function () { showConfirm(plan); });
+          root.appendChild(opt);
+          planRow.push({ el: opt, action: function () { showConfirm(plan); } });
+        })(plans[i]);
+      }
+      grid.push(planRow);
+      grid.push([{ el: backBtn, action: goBack }]);
+      setGrid(grid);
+    }
+
+    function showConfirm(plan) {
+      clearTimers();
+      clear(root);
+      root.appendChild(make('h1', {}, 'Confirm payment'));
+      root.appendChild(make('p', { class: 'hint' }, 'Review your plan, then continue.'));
+      var statusNote = make('div', { class: 'status' }, 'Calculating price\u2026');
+      root.appendChild(statusNote);
+      var payBtn = make('button', { class: 'btn' }, 'Pay Now');
+      var backBtn = make('button', { class: 'btn ghost' }, '\u2190 Choose another plan');
+      bindClick(backBtn, function () { drawPlans(); });
+      bindClick(payBtn, function () { createOrderNow(plan); });
+      root.appendChild(payBtn);
+      root.appendChild(backBtn);
+      setGrid([
+        [{ el: payBtn, action: function () { createOrderNow(plan); } }],
+        [{ el: backBtn, action: function () { drawPlans(); } }]
+      ]);
+      http({ method: 'POST', url: '/api/billing/quote', body: { planId: plan.id }, allowRefresh: true }, function (res) {
+        if (gen !== payGen) return;
+        if (!res.ok || !res.data || !res.data.success) {
+          statusNote.textContent = (res.data && res.data.error) || 'Could not calculate price.';
+          statusNote.className = 'status err';
+          return;
+        }
+        var q = res.data.data || {};
+        statusNote.innerHTML = '';
+        statusNote.textContent = '';
+        root.insertBefore(make('div', { class: 'meta' },
+          plan.name + ' \u2014 ' + fmtPlanTag(plan) + '\nPrice: ' + fmtMoney(q.finalAmountMinor) +
+          (q.discountAmountMinor > 0 ? '  (discount applied)' : '')), payBtn);
+      });
+    }
+
+    function createOrderNow(plan) {
+      clearTimers();
+      // Swap in a FRESH status element. The earlier quote/confirm callbacks
+      // keep a reference to the old one, so a late quote response arriving
+      // after this payment POST cannot overwrite the payment status.
+      var old = root.querySelector('.status');
+      var statusNote = make('div', { class: 'status' }, 'Creating payment\u2026');
+      if (old) root.replaceChild(statusNote, old);
+      else root.appendChild(statusNote);
+      statusNote.textContent = 'Creating payment\u2026';
+      statusNote.className = 'status';
+      http({ method: 'POST', url: '/api/billing/orders', body: { planId: plan.id }, allowRefresh: true }, function (res) {
+        if (gen !== payGen) return;
+        if (!res.ok || !res.data || !res.data.success) {
+          statusNote.textContent = (res.data && res.data.error) || 'Payment could not be created.';
+          statusNote.className = 'status err';
+          return;
+        }
+        var d = res.data.data || {};
+        if (d.status === 'PAID') { drawSuccess(d); return; }
+        if (d.qrImage) { drawQrPayment(d); return; }
+        statusNote.textContent = 'Payment is ' + String(d.status || 'pending') + ' \u2014 try again in a moment.';
+      });
+    }
+
+    function drawQrPayment(order) {
+      clearTimers();
+      clear(root);
+      root.appendChild(make('h1', {}, 'Scan to pay'));
+      root.appendChild(make('p', { class: 'hint' }, 'Open GCash or Maya on your phone and scan the QR code. Keep this window open.' + (order.amountMinor ? '\nAmount: ' + fmtMoney(order.amountMinor) : '')));
+      var card = make('div', { class: 'paycard' });
+      var img = DOC.createElement('img');
+      img.src = String(order.qrImage || '');
+      img.alt = 'Payment QR code';
+      card.appendChild(img);
+      root.appendChild(card);
+      var statusNote = make('div', { class: 'status' }, 'Waiting for payment\u2026');
+      root.appendChild(statusNote);
+      var backBtn = make('button', { class: 'btn ghost' }, '\u2190 Back to Profiles');
+      bindClick(backBtn, goBack);
+      root.appendChild(backBtn);
+      setGrid([[{ el: backBtn, action: goBack }]]);
+      var attempts = 0;
+      var timer = window.setInterval(function () {
+        if (gen !== payGen) { window.clearInterval(timer); return; }
+        attempts++;
+        if (attempts > 90) {
+          window.clearInterval(timer);
+          statusNote.textContent = 'Still waiting. Re-check with your payment app.';
+          return;
+        }
+        http({ method: 'GET', url: '/api/billing/orders/' + encodeURIComponent(order.id), allowRefresh: true }, function (res) {
+          if (gen !== payGen) { window.clearInterval(timer); return; }
+          if (!res.ok || !res.data || !res.data.success) return;
+          var o = res.data.data.order || {};
+          if (o.status === 'PAID') { window.clearInterval(timer); drawSuccess(o); return; }
+          if (o.status === 'FAILED' || o.status === 'EXPIRED' || o.status === 'CANCELLED') {
+            window.clearInterval(timer);
+            statusNote.textContent = 'Payment ' + o.status.toLowerCase() + '. You can try again from the start.';
+            statusNote.className = 'status err';
+            var again = make('button', { class: 'btn' }, 'Try Again');
+            bindClick(again, showPayment);
+            root.appendChild(again);
+            setGrid([
+              [{ el: again, action: showPayment }],
+              [{ el: backBtn, action: goBack }]
+            ]);
+            return;
+          }
+          statusNote.textContent = 'Waiting for payment\u2026';
+        });
+      }, 4000);
+      timers.push(timer);
+    }
+
+    function drawSuccess(order) {
+      clearTimers();
+      clear(root);
+      root.appendChild(make('h1', {}, 'Payment confirmed \u2713'));
+      root.appendChild(make('p', { class: 'hint' }, order.planName ? order.planName + ' is now active on your account.' : 'Your membership is now active.'));
+      var cont = make('button', { class: 'btn' }, 'Continue to Profiles');
+      bindClick(cont, goBack);
+      root.appendChild(cont);
+      setGrid([[{ el: cont, action: goBack }]]);
+    }
+
+    function loadPlans() {
+      drawLoading('Loading plans\u2026');
+      http({ method: 'GET', url: '/api/plans', allowRefresh: true }, function (res) {
+        if (gen !== payGen) return;
+        if (!res.ok || !res.data || !res.data.success) {
+          drawError((res.data && res.data.error) || 'Could not load plans.');
+          return;
+        }
+        plans = res.data.data.plans || [];
+        if (!plans || !plans.length) {
+          drawError('No plans are available right now.');
+          return;
+        }
+        drawPlans();
+      });
+    }
+
+    var plans = [];
+    loadPlans();
+  }
+
+  /* ------------------------------------------------------------------ *
+   *  Account settings: Payment, Report a Problem, Feedback              *
+   * ------------------------------------------------------------------ */
+  function showSettings() {
+    var view = stage();
+    APP.screen = 'settings';
+    var box = banner('MOVIEFLIX', 'Account');
+    view.appendChild(box);
+    var panel = make('div');
+    addClass(panel, 'panel');
+    box.appendChild(panel);
+    panel.appendChild(make('p', { class: 'hint' }, 'Manage your plan, report a problem, or share feedback.'));
+    var backBtn = make('button', { class: 'btn ghost' }, '\u2190 Back to Home');
+    bindClick(backBtn, showHome);
+    panel.appendChild(backBtn);
+
+    function row(label, action) {
+      var b = make('button', { class: 'opt' }, label);
+      bindClick(b, action);
+      panel.appendChild(b);
+      return { el: b, action: action };
+    }
+    setGrid([
+      [row('Payment / Plans', showPayment)],
+      [row('Report a Problem', function () { showContact('report'); })],
+      [row('Give Feedback', function () { showContact('feedback'); })],
+      [{ el: backBtn, action: showHome }]
+    ]);
+  }
+
+  function showContact(type) {
+    var isReport = type === 'report';
+    var view = stage();
+    APP.screen = 'contact';
+    var box = banner('MOVIEFLIX', isReport ? 'Report a Problem' : 'Give Feedback');
+    view.appendChild(box);
+    var root = make('div');
+    addClass(root, 'panel');
+    box.appendChild(root);
+    root.appendChild(make('p', { class: 'hint' },
+      isReport
+        ? 'Something not working? Describe what happened and we will look into it.'
+        : 'Tell us what you love, what could be better, and what you would like to see next.'));
+
+    var subj = DOC.createElement('input');
+    subj.type = 'text';
+    subj.className = 'tvin';
+    subj.placeholder = isReport ? 'Subject (optional)' : 'Subject (optional)';
+    var msg = DOC.createElement('textarea');
+    msg.className = 'tvin textarea';
+    msg.placeholder = isReport ? 'What happened, what were you doing\u2026' : 'Share your feedback\u2026';
+    var status = make('div', { class: 'status' }, '');
+    var submit = make('button', { class: 'btn' }, isReport ? 'Submit Report' : 'Send Feedback');
+    var backBtn = make('button', { class: 'btn ghost' }, '\u2190 Back to Settings');
+    bindClick(backBtn, showSettings);
+    bindClick(submit, send);
+
+    root.appendChild(subj);
+    root.appendChild(msg);
+    root.appendChild(status);
+    root.appendChild(submit);
+    root.appendChild(backBtn);
+    setGrid([
+      [{ el: subj, action: function () { try { subj.focus(); } catch (e) { /* ignore */ } } }],
+      [{ el: msg, action: function () { try { msg.focus(); } catch (e) { /* ignore */ } } }],
+      [{ el: submit, action: send }, { el: backBtn, action: showSettings }]
+    ]);
+
+    function send() {
+      var subject = String(subj.value || '').trim();
+      var message = String(msg.value || '').trim();
+      if (message.length < 3) {
+        status.textContent = 'Please describe your ' + (isReport ? 'problem' : 'feedback') + ' (at least 3 characters).';
+        status.className = 'status err';
+        return;
+      }
+      status.textContent = 'Submitting\u2026';
+      status.className = 'status';
+      http({ method: 'POST', url: '/api/contact', body: { type: type, subject: subject, message: message }, allowRefresh: true }, function (res) {
+        if (res.ok && res.data && res.data.success) {
+          status.textContent = 'Thank you! Your ' + (isReport ? 'report' : 'feedback') + ' has been received.';
+          status.className = 'status payok';
+          subj.value = '';
+          msg.value = '';
+          return;
+        }
+        status.textContent = (res.data && res.data.error) || 'Could not submit. Try again.';
+        status.className = 'status err';
+      });
+    }
   }
 
   /* ------------------------------------------------------------------ *
@@ -1080,6 +1478,11 @@
       }
 
       var signRow = [];
+      var settingsBtn = make('button', { class: 'btn ghost' }, 'Settings: Payment / Report / Feedback');
+      bindClick(settingsBtn, showSettings);
+      box.appendChild(settingsBtn);
+      grid.push([{ el: settingsBtn, action: showSettings }]);
+
       var so2 = make('button', { class: 'btn ghost' }, 'Sign Out');
       bindClick(so2, doSignout);
       box.appendChild(so2);

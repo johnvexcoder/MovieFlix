@@ -34,10 +34,26 @@
   .tile .name { display: block; padding: 10px 12px; font-weight: 700;
     height: 48px; overflow: hidden; }
   .tile .pct { float: right; font-size: 12px; color: #04dcff; }
-  .tile.focused, .btn.focused, .opt.focused, .ctrl.focused {
+  .tile.focused, .btn.focused, .opt.focused, .ctrl.focused, .tvin.focused {
     outline: 3px solid #00d2f5; outline-offset: 6px;
     box-shadow: 0 0 0 10px rgba(0,210,245,0.25), 0 0 34px rgba(0,210,245,0.5);
   }
+  .tvin { display: block; width: 100%; max-width: 440px; margin: 10px auto;
+    min-height: 52px; background: #101b31; color: #fff; border: 1px solid #58728f;
+    border-radius: 12px; font-size: 22px; padding: 0 16px; text-align: center; }
+  .tvin.textarea { min-height: 150px; padding: 12px 16px; text-align: left;
+    resize: none; line-height: 1.4; }
+  .loginform { max-width: 440px; margin: 10px auto 0; }
+  .divider { display: flex; align-items: center; gap: 12px; margin: 14px auto 6px;
+    max-width: 440px; color: #94a3b8; font-size: 16px; }
+  .divider:before, .divider:after { content: ""; flex: 1; height: 1px; background: #243955; }
+  .paycard { display: inline-block; background: #fff; padding: 14px; margin: 8px auto;
+    border-radius: 12px; }
+  .paycard img { display: block; max-width: 300px; height: auto; }
+  .prow { display: block; text-align: left; }
+  .prow .price { float: right; color: #04dcff; font-weight: 800; }
+  .prow .tag { font-size: 13px; color: #94a3b8; display: block; }
+  .payok { color: #34d399; font-weight: 800; }
   .panel { max-width: 640px; margin: 40px auto 0; background: #0b1629;
     border: 1px solid #243955; border-radius: 20px; padding: 34px;
     text-align: center; }
