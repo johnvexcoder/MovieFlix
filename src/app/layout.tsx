@@ -82,7 +82,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       suppressHydrationWarning
     >
       <head>
-        <link rel="stylesheet" href="/tv-compat.css?v=3" />
+        <link rel="stylesheet" href="/tv-compat.css?v=4" />
         {/* Capability gate must run first: it sends engines that cannot parse
         ES modules to the standalone ES5 portal (/legacy-tv.html) before
         anything else happens. Classic script, ES5, dependency-free. */}

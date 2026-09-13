@@ -17,6 +17,8 @@ export function TvModeBridge() {
     const readyTimer = window.setTimeout(() => {
       try {
         (window as unknown as { __MOVIEFLIX_READY__?: boolean }).__MOVIEFLIX_READY__ = true;
+        const diagnostics = document.getElementById("mvf-diagnostics");
+        if (diagnostics) diagnostics.style.display = "none";
       } catch {
         /* ignore */
       }

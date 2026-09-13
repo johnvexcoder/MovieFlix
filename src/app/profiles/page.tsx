@@ -486,7 +486,7 @@ export default function ProfilesPage() {
   }
 
   return (
-    <div className="cinematic-bg relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-6 sm:px-4 sm:py-12 select-none">
+    <div data-tv-profiles-screen className="tv-profiles-screen cinematic-bg relative flex min-h-screen flex-col items-center justify-center overflow-x-hidden px-3 py-6 sm:px-4 sm:py-12 select-none">
       {/* Background ambient lighting */}
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/3 left-1/2 h-[550px] w-[550px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/12 blur-[160px]" />

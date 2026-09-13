@@ -86,6 +86,22 @@
   table.diag td, table.diag th { border: 1px solid #243955; padding: 8px 10px; text-align: left; }
   table.diag th { background: #0b1629; }
   .try { font-size: 18px; color: #d1d5db; margin: 8px 0; }
+  @media (max-height: 650px) and (orientation: landscape) {
+    html, body { font-size: 16px; overflow: hidden; }
+    .wrap { max-width: 1100px; padding: 8px 18px; }
+    header.top { padding: 2px 0 7px; }
+    header.top .brand { font-size: 24px; }
+    header.top .sub { font-size: 12px; }
+    .panel { max-width: 760px; margin: 0 auto; padding: 10px 20px; border-radius: 14px; }
+    .panel h1 { margin-bottom: 3px; font-size: 22px; }
+    .panel p.hint { max-width: 620px; margin: 0 auto 7px; font-size: 12px; }
+    .qrbox { padding: 6px; border-radius: 8px; }
+    .qrbox table { width: 170px !important; height: 170px !important; }
+    .code { margin: 6px 0 1px; font-size: 28px; letter-spacing: 8px; }
+    .count, .status { font-size: 13px; }
+    .status { min-height: 16px; margin: 3px 0; }
+    .btn { min-height: 36px; line-height: 34px; padding: 0 18px; font-size: 14px; margin: 3px; }
+  }
 </style>
 </head>
 <body>

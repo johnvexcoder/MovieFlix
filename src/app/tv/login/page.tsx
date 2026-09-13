@@ -313,14 +313,14 @@ export default function TvLoginPage() {
   };
 
   return (
-    <div className="cinematic-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 select-none sm:px-6">
+    <div data-tv-login-screen className="tv-login-screen cinematic-bg relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 select-none sm:px-6">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute top-1/4 left-1/2 h-[500px] w-[600px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-cyan-500/15 blur-[160px]" />
         <div className="absolute -bottom-10 right-1/4 h-[400px] w-[500px] rounded-full bg-fuchsia-600/10 blur-[140px]" />
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
 
-      <div className="relative z-10 w-full max-w-2xl md:max-w-5xl tv:max-w-6xl">
+      <div data-tv-login-content className="relative z-10 w-full max-w-2xl md:max-w-5xl tv:max-w-6xl">
         {/* Header */}
         <div className="mb-8 flex flex-col items-center text-center tv:mb-12">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10 tv:h-24 tv:w-24">
@@ -336,11 +336,11 @@ export default function TvLoginPage() {
 
         {/* QR panel (left) + Login form (right) */}
         <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 tv:grid-cols-2 tv:items-stretch tv:gap-10">
-          <div className="glass-panel flex h-full flex-col items-center justify-center rounded-3xl p-8 shadow-2xl shadow-black/60 tv:p-12">
+          <div data-tv-qr-panel className="glass-panel flex h-full flex-col items-center justify-center rounded-3xl p-8 shadow-2xl shadow-black/60 tv:p-12">
             <div className="flex w-full max-w-xs flex-col items-center justify-center tv:min-w-[22rem]">{renderQrPanel()}</div>
           </div>
 
-          <div className="glass-panel flex h-full flex-col justify-center rounded-3xl p-8 shadow-2xl shadow-black/80 tv:p-12">
+          <div data-tv-password-panel className="glass-panel flex h-full flex-col justify-center rounded-3xl p-8 shadow-2xl shadow-black/80 tv:p-12">
             <div className="mb-6 flex flex-col items-center text-center tv:mb-8">
               <p className="text-xs font-semibold tracking-wider text-neutral-400 uppercase tv:text-lg">
                 Sign In to Watch

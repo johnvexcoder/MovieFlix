@@ -63,6 +63,40 @@ html.tv-mode .movieflix-skip, html.tv-mode .movieflix-brand-name { font-size: cl
 /* Scrollable regions: older WebKit needs the legacy touch momentum hint. */
 html.tv-mode * { -webkit-overflow-scrolling: touch; }
 
+/* TV webviews often expose a 960x540 or 800x450 CSS viewport even on a
+   1080p panel. Scale only TV mode by viewport height so login and profile
+   selection stay inside one landscape screen. */
+html.tv-mode .tv-login-screen,
+html.tv-mode .tv-profiles-screen {
+  width: 100%; height: 100vh; min-height: 100vh; max-height: 100vh;
+  overflow: hidden;
+}
+
+@media (max-height: 800px) {
+  html.tv-mode { font-size: 14px; }
+  html.tv-mode .tv-login-screen { padding-top: 12px !important; padding-bottom: 12px !important; }
+  html.tv-mode [data-tv-login-content] > div:first-child { margin-bottom: 14px !important; }
+  html.tv-mode [data-tv-login-content] > div:first-child > div:first-child { width: 54px !important; height: 54px !important; margin-bottom: 6px !important; }
+  html.tv-mode [data-tv-login-content] > div:first-child h1 { font-size: 28px !important; }
+  html.tv-mode [data-tv-login-content] > div:first-child p { margin-top: 4px !important; font-size: 14px !important; }
+  html.tv-mode [data-tv-login-content] > div:nth-child(2) { gap: 16px !important; }
+  html.tv-mode [data-tv-qr-panel], html.tv-mode [data-tv-password-panel] { padding: 18px !important; }
+  html.tv-mode [data-tv-qr-panel] img { width: 190px !important; height: 190px !important; margin-top: 8px !important; }
+  html.tv-mode [data-tv-qr-panel] .mt-5 { margin-top: 8px !important; }
+  html.tv-mode [data-tv-login-content] > div:last-child { margin-top: 8px !important; }
+}
+
+@media (max-height: 560px) {
+  html.tv-mode { font-size: 12px; }
+  html.tv-mode [data-tv-login-content] { max-width: 920px !important; }
+  html.tv-mode [data-tv-login-content] > div:first-child > div:first-child { width: 42px !important; height: 42px !important; }
+  html.tv-mode [data-tv-login-content] > div:first-child h1 { font-size: 23px !important; }
+  html.tv-mode [data-tv-qr-panel], html.tv-mode [data-tv-password-panel] { padding: 12px 18px !important; }
+  html.tv-mode [data-tv-qr-panel] img { width: 164px !important; height: 164px !important; }
+  html.tv-mode [data-tv-profiles-screen] { padding-top: 10px !important; padding-bottom: 10px !important; }
+  html.tv-mode [data-tv-profiles-screen] [role="dialog"] { max-height: 94vh !important; padding: 18px !important; overflow-y: auto; }
+}
+
 /* ============ Responsive splash fallbacks ============ */
 @media (max-width: 700px) {
   .movieflix-lockup { height: 220px; }
