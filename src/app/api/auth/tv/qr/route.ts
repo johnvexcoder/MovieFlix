@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { createTvQrChallenge } from "@/lib/tv-auth";
 import { getAppPublicUrl } from "@/lib/app-settings";
+import { getClientIp } from "@/lib/auth";
+import { setRateLimit } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
@@ -10,8 +12,11 @@ export const dynamic = "force-dynamic";
  * canonical public URL (admin-configured) so a malicious TV can never phish a
  * user with a QR pointing at an attacker-controlled origin.
  */
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
+    const ip = getClientIp(request);
+    const limit = await setRateLimit(`ratelimit:tv-qr:${ip}`, 60_000, 12);
+    if (!limit.allowed) return errorResponse("Too many TV login requests. Please wait a minute.", 429);
     const challenge = await createTvQrChallenge();
     const publicUrl = await getAppPublicUrl();
     const approveUrl = `${publicUrl}/login/approve?tv_code=${encodeURIComponent(challenge.code)}`;
@@ -19,7 +24,7 @@ export async function POST(_request: NextRequest) {
     return successResponse({
       code: challenge.code,
       qrUrl: approveUrl,
-      expiresIn: 600,
+      expiresIn: 300,
     });
   } catch (error) {
     console.error("TV QR create error:", error);

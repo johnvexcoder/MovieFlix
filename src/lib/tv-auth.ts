@@ -1,5 +1,6 @@
 import { getRedisClient } from "@/lib/redis";
 import { v4 as uuidv4 } from "uuid";
+import { randomInt } from "node:crypto";
 import { TV_CODE_CHARSET, TV_CODE_LENGTH, TV_CODE_RE } from "@/lib/tv-code";
 
 /**
@@ -16,7 +17,7 @@ import { TV_CODE_CHARSET, TV_CODE_LENGTH, TV_CODE_RE } from "@/lib/tv-code";
  */
 
 const TV_QR_PREFIX = "tv:qr:";
-const TV_QR_TTL_SECONDS = 600; // 10 minutes
+const TV_QR_TTL_SECONDS = 300; // 5 minutes
 
 export { TV_CODE_CHARSET, TV_CODE_LENGTH, TV_CODE_RE };
 
@@ -34,7 +35,8 @@ export interface TvQrChallenge {
 function randomCode(): string {
   let out = "";
   for (let i = 0; i < TV_CODE_LENGTH; i += 1) {
-    out += TV_CODE_CHARSET[Math.floor(Math.random() * TV_CODE_CHARSET.length)];
+    // Authentication challenges must use a cryptographically secure source.
+    out += TV_CODE_CHARSET[randomInt(TV_CODE_CHARSET.length)];
   }
   return out;
 }
@@ -43,30 +45,68 @@ function challengeKey(code: string): string {
   return `${TV_QR_PREFIX}${code}`;
 }
 
+// ——— Process-local fallback ———
+// All challenge operations prefer Redis (shared, multi-instance) but fall back
+// to an in-memory Map when Redis is unreachable, so a single dev/standalone
+// server keeps working (same fail-open philosophy as the rate limiter and
+// active-session tracking elsewhere in this codebase).
+const memChallenges = new Map<string, TvQrChallenge>();
+
+function memPrune(): void {
+  const now = Date.now();
+  if (memChallenges.size === 0) return;
+  for (const [key, value] of memChallenges) {
+    if (value.expiresAt <= now) memChallenges.delete(key);
+  }
+}
+
 export async function createTvQrChallenge(): Promise<TvQrChallenge> {
+  const now = Date.now();
   const client = getRedisClient();
   let code = randomCode();
-  for (let attempt = 0; attempt < 5; attempt += 1) {
-    if ((await client.exists(challengeKey(code))) === 0) break;
-    code = randomCode();
+  try {
+    for (let attempt = 0; attempt < 5; attempt += 1) {
+      if ((await client.exists(challengeKey(code))) === 0) break;
+      code = randomCode();
+    }
+    const challenge: TvQrChallenge = {
+      code,
+      status: "awaiting_approval",
+      createdAt: now,
+      expiresAt: now + TV_QR_TTL_SECONDS * 1000,
+    };
+    await client.setex(challengeKey(code), TV_QR_TTL_SECONDS, JSON.stringify(challenge));
+    return challenge;
+  } catch {
+    // Redis unavailable — store in memory for this process.
+    memPrune();
+    const challenge: TvQrChallenge = {
+      code,
+      status: "awaiting_approval",
+      createdAt: now,
+      expiresAt: now + TV_QR_TTL_SECONDS * 1000,
+    };
+    memChallenges.set(code, challenge);
+    return challenge;
   }
-  const challenge: TvQrChallenge = {
-    code,
-    status: "awaiting_approval",
-    createdAt: Date.now(),
-    expiresAt: Date.now() + TV_QR_TTL_SECONDS * 1000,
-  };
-  await client.setex(challengeKey(code), TV_QR_TTL_SECONDS, JSON.stringify(challenge));
-  return challenge;
 }
 
 export async function getTvQrChallenge(code: string): Promise<TvQrChallenge | null> {
   try {
     const raw = await getRedisClient().get(challengeKey(code));
-    return raw ? (JSON.parse(raw) as TvQrChallenge) : null;
+    if (raw) return JSON.parse(raw) as TvQrChallenge;
   } catch {
+    // Redis unavailable — check the in-memory store below.
+  }
+
+  memPrune();
+  const challenge = memChallenges.get(code);
+  if (!challenge) return null;
+  if (challenge.expiresAt <= Date.now()) {
+    memChallenges.delete(code);
     return null;
   }
+  return challenge;
 }
 
 /**
@@ -78,21 +118,37 @@ export async function approveTvQrChallenge(
   code: string,
   accountId: string
 ): Promise<TvQrChallenge | null> {
-  const client = getRedisClient();
   const key = challengeKey(code);
   try {
-    const raw = await client.get(key);
-    if (!raw) return null;
-    const challenge = JSON.parse(raw) as TvQrChallenge;
-    if (challenge.status !== "awaiting_approval") return null;
-    challenge.status = "approved";
-    challenge.accountId = accountId;
-    challenge.claimToken = uuidv4();
-    await client.setex(key, TV_QR_TTL_SECONDS, JSON.stringify(challenge));
-    return challenge;
+    // GETDEL makes the one-time exchange atomic across concurrent app workers.
+    // Without it, two simultaneous claims could both read the same challenge
+    // before either deleted it and both receive a session.
+    const raw = await getRedisClient().getdel(key);
+    if (raw) {
+      const challenge = JSON.parse(raw) as TvQrChallenge;
+      if (challenge.status !== "awaiting_approval") return null;
+      challenge.status = "approved";
+      challenge.accountId = accountId;
+      challenge.claimToken = uuidv4();
+      await getRedisClient().setex(key, TV_QR_TTL_SECONDS, JSON.stringify(challenge));
+      return challenge;
+    }
   } catch {
+    // Redis unavailable — fall through to the in-memory store.
+  }
+
+  memPrune();
+  const challenge = memChallenges.get(code);
+  if (!challenge) return null;
+  if (challenge.expiresAt <= Date.now()) {
+    memChallenges.delete(code);
     return null;
   }
+  if (challenge.status !== "awaiting_approval") return null;
+  challenge.status = "approved";
+  challenge.accountId = accountId;
+  challenge.claimToken = uuidv4();
+  return challenge;
 }
 
 /**
@@ -103,24 +159,37 @@ export async function claimTvQrChallenge(
   code: string,
   claimToken: string
 ): Promise<{ ok: true; accountId: string } | { ok: false }> {
-  const client = getRedisClient();
+  const key = challengeKey(code);
   try {
-    const raw = await client.get(challengeKey(code));
-    if (!raw) return { ok: false };
-    const challenge = JSON.parse(raw) as TvQrChallenge;
-    if (
-      challenge.status !== "approved" ||
-      !challenge.claimToken ||
-      challenge.claimToken !== claimToken ||
-      !challenge.accountId
-    ) {
-      return { ok: false };
-    }
-    await client.del(challengeKey(code));
-    return { ok: true, accountId: challenge.accountId };
+    // Validate and delete in one Redis operation. A wrong token does not let
+    // an attacker cancel the TV's valid challenge, while concurrent valid
+    // claims cannot both succeed.
+    const accountId = await getRedisClient().eval(
+      "local raw=redis.call('GET',KEYS[1]); if not raw then return false end; " +
+        "local c=cjson.decode(raw); if c.status~='approved' or c.claimToken~=ARGV[1] or not c.accountId then return false end; " +
+        "redis.call('DEL',KEYS[1]); return c.accountId",
+      1,
+      key,
+      claimToken
+    );
+    if (typeof accountId === "string" && accountId) return { ok: true, accountId };
+    return { ok: false };
   } catch {
+    // Redis unavailable — fall through to the in-memory store.
+  }
+
+  const challenge = memChallenges.get(code);
+  if (!challenge) return { ok: false };
+  if (
+    challenge.status !== "approved" ||
+    !challenge.claimToken ||
+    challenge.claimToken !== claimToken ||
+    !challenge.accountId
+  ) {
     return { ok: false };
   }
+  memChallenges.delete(code);
+  return { ok: true, accountId: challenge.accountId };
 }
 
 export async function invalidateTvQrChallenge(code: string): Promise<void> {
@@ -129,4 +198,5 @@ export async function invalidateTvQrChallenge(code: string): Promise<void> {
   } catch {
     // noop
   }
+  memChallenges.delete(code);
 }

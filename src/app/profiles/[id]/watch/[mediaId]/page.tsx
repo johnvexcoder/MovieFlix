@@ -74,6 +74,15 @@ export default function WatchPage() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoPlayAttemptedRef = useRef(false);
   const autoFallbackDoneRef = useRef(false);
+  // Native-HLS fast-fail watchdog (old Smart TVs / some Safari builds):
+  // armed when the player falls back to native HLS (no hls.js), then disarmed
+  // once a real first frame + sensible duration arrive. If the native-HLS
+  // stack instead reports a toy duration and fires "ended" almost immediately
+  // without decoding a frame (the "movie plays and the seekbar runs to 100%
+  // in seconds" symptom), we treat it as a decode failure and fall back to the
+  // MP4 source stream.
+  const hlsFastFailArmedRef = useRef(false);
+  const hlsFastFailStartRef = useRef<number | null>(null);
   const userPausedRef = useRef(false);
   const desiredPlayingRef = useRef(autoplayIntent);
 
@@ -119,6 +128,7 @@ export default function WatchPage() {
   const actionRefs = useRef<{
     switchQuality: (height: number) => Promise<void>;
     refreshSession: () => Promise<void>;
+    switchToSource: () => void;
   } | null>(null);
 
   // Android/mobile backgrounding: browsers auto-pause the video when the tab is
@@ -449,6 +459,23 @@ export default function WatchPage() {
     const onEnded = () => {
       setPlaying(false);
       desiredPlayingRef.current = false;
+      // Native-HLS fast-fail: if the watchdog is still armed (no real first
+      // frame ever decoded) and `ended` fires within ~15s of the source load,
+      // this is the "HLS stack read a few segments and treats the playlist as
+      // the whole movie" symptom. Switch to the MP4 source stream instead of
+      // advancing (seekbar shouldn't race to 100%).
+      if (
+        hlsFastFailArmedRef.current &&
+        hlsFastFailStartRef.current &&
+        Date.now() - hlsFastFailStartRef.current < 15000
+      ) {
+        hlsFastFailArmedRef.current = false;
+        actionRefs.current?.switchToSource();
+        setBuffering(false);
+        setStreamError(null);
+        return;
+      }
+      hlsFastFailArmedRef.current = false;
       if (nextEpisode) {
         router.push(`/profiles/${profileId}/watch/${mediaId}?episode=${nextEpisode.id}`);
       }
@@ -600,6 +627,7 @@ export default function WatchPage() {
     actionRefs.current = {
       switchQuality,
       refreshSession,
+      switchToSource,
     };
   });
 
@@ -890,9 +918,18 @@ export default function WatchPage() {
                 }
               });
             } else {
-              // Safari and many Smart TVs play HLS natively.
+              // Safari and many Smart TVs play HLS natively. Old TV engines are
+              // the whole reason the watchdog exists: they can report a token
+              // 4–6s duration and fire `ended` immediately when they cannot
+              // (or will not) follow the growing event playlist. Arm the
+              // fast-fail watchdog so we fall back to the source stream instead
+              // of treating the "movie" as over before it ever started.
               video.src = url;
               video.load();
+              if (!hlsRef.current) {
+                hlsFastFailArmedRef.current = true;
+                hlsFastFailStartRef.current = Date.now();
+              }
             }
             if (prev > 0) video.currentTime = keepPos;
             return;

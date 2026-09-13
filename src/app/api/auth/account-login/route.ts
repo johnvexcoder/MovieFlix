@@ -23,11 +23,11 @@ export async function POST(request: NextRequest) {
 
     const ip = getClientIp(request);
 
-    // Rate limit: 5 login attempts per 15 minutes per IP + username. Keying on
+    // Rate limit: 10 login attempts per 15 minutes per IP + username. Keying on
     // the pair (rather than IP alone) keeps a single compromised/misconfigured
     // proxy from trivially defeating the limit via spoofed X-Forwarded-For.
     const rateKey = `ratelimit:account-login:${ip}:${String(username).toLowerCase()}`;
-    const rateLimit = await setRateLimit(rateKey, 15 * 60 * 1000, 5);
+    const rateLimit = await setRateLimit(rateKey, 15 * 60 * 1000, 10);
     if (!rateLimit.allowed) {
       return errorResponse("Too many login attempts. Please try again later.", 429);
     }

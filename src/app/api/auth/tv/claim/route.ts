@@ -5,6 +5,8 @@ import { eq } from "drizzle-orm";
 import { successResponse, errorResponse, ERROR_CODES } from "@/lib/api-response";
 import { claimTvQrChallenge, TV_CODE_RE } from "@/lib/tv-auth";
 import { establishAccountSession } from "@/lib/user-session";
+import { getClientIp } from "@/lib/auth";
+import { setRateLimit } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +17,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
+    const limit = await setRateLimit(`ratelimit:tv-claim:${getClientIp(request)}`, 5 * 60_000, 20);
+    if (!limit.allowed) return errorResponse("Too many claim attempts. Please wait and try again.", 429);
     const body = await request.json().catch(() => ({}));
     const code = String(body.code || "").toUpperCase();
     const claimToken = String(body.claimToken || "");

@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { successResponse, errorResponse, ERROR_CODES } from "@/lib/api-response";
-import { verifyToken } from "@/lib/auth";
+import { getClientIp, verifyToken } from "@/lib/auth";
 import { approveTvQrChallenge, TV_CODE_RE } from "@/lib/tv-auth";
+import { setRateLimit } from "@/lib/redis";
 
 export const dynamic = "force-dynamic";
 
@@ -12,6 +13,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(request: NextRequest) {
   try {
+    const limit = await setRateLimit(`ratelimit:tv-approve:${getClientIp(request)}`, 5 * 60_000, 20);
+    if (!limit.allowed) return errorResponse("Too many approval attempts. Please wait and try again.", 429);
     const body = await request.json().catch(() => ({}));
     const code = String(body.code || "").toUpperCase();
     if (!TV_CODE_RE.test(code)) {

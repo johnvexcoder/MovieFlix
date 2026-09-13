@@ -35,6 +35,14 @@ const PUBLIC_PATHS = [
   "/tv/login",
   "/login/approve",
   "/api/auth/tv",
+  // ES5 TV portal static assets (public/). The portal is shown pre-login, so
+  // its html/js/css must bypass the auth proxy just like /tv/login does.
+  "/legacy-tv.html",
+  "/legacy-gate.js",
+  "/legacy-polyfills.js",
+  "/legacy-qrcode.js",
+  "/legacy-tv.js",
+  "/tv-compat.css",
 ];
 
 // Paths a user may still visit while required to change their password. These

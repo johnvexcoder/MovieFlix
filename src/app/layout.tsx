@@ -83,6 +83,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     >
       <head>
         <link rel="stylesheet" href="/tv-compat.css?v=3" />
+        {/* Capability gate must run first: it sends engines that cannot parse
+        ES modules to the standalone ES5 portal (/legacy-tv.html) before
+        anything else happens. Classic script, ES5, dependency-free. */}
+        {/* eslint-disable-next-line @next/next/no-sync-scripts */}
+        <script src="/legacy-gate.js?v=1" />
         {/* Compatibility polyfills must execute before the application bundle on older TV browsers. */}
         {/* eslint-disable-next-line @next/next/no-sync-scripts */}
         <script src="/legacy-polyfills.js?v=2" />

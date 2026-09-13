@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<!--
+  legacy-tv.html — MovieFlix Smart TV portal for module-incapable engines.
+
+  This page is intentionally tiny and static: ES5 script tags only, no
+  build step, conservative CSS (no custom properties / grid / flex reliance).
+  All logic lives in /legacy-tv.js, which talks to the existing JSON APIs
+  over XHR (cookies ride along same-origin). It does not share any security
+  surface with the modern app.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MovieFlix - TV</title>
+<link rel="icon" href="/logo.svg?v=2" type="image/svg+xml">
+<style>
+  html, body { margin: 0; min-height: 100%; background: #020611; color: #fff;
+    font-family: Arial, Helvetica, sans-serif; font-size: 20px; }
+  * { box-sizing: border-box; }
+  .wrap { max-width: 1280px; margin: 0 auto; padding: 24px; }
+  header.top { display: block; padding: 8px 0 20px; }
+  header.top .brand { font-size: 34px; font-weight: 900; color: #04dcff;
+    letter-spacing: -1px; text-decoration: none; }
+  header.top .sub { font-size: 16px; color: #94a3b8; margin-top: 2px; }
+  .row { margin: 0 0 30px; }
+  .row h2 { font-size: 24px; font-weight: 800; margin: 0 0 12px; }
+  .tiles { font-size: 0; }
+  .tile { display: inline-block; width: 190px; margin: 0 14px 14px 0;
+    background: #0b1629; border: 1px solid #243955; border-radius: 12px;
+    overflow: hidden; vertical-align: top; font-size: 16px; }
+  .tile .poster { display: block; width: 190px; height: 285px; background: #101b31; }
+  .tile .poster img { width: 190px; height: 285px; object-fit: cover; }
+  .tile .name { display: block; padding: 10px 12px; font-weight: 700;
+    height: 48px; overflow: hidden; }
+  .tile .pct { float: right; font-size: 12px; color: #04dcff; }
+  .tile.focused, .btn.focused, .opt.focused, .ctrl.focused {
+    outline: 3px solid #00d2f5; outline-offset: 6px;
+    box-shadow: 0 0 0 10px rgba(0,210,245,0.25), 0 0 34px rgba(0,210,245,0.5);
+  }
+  .panel { max-width: 640px; margin: 40px auto 0; background: #0b1629;
+    border: 1px solid #243955; border-radius: 20px; padding: 34px;
+    text-align: center; }
+  .panel h1 { margin: 0 0 8px; font-size: 30px; }
+  .panel p.hint { color: #94a3b8; font-size: 16px; margin: 0 0 22px; }
+  .qrbox { display: inline-block; background: #fff; padding: 16px;
+    border-radius: 14px; }
+  .qrbox table { border-collapse: collapse; margin: 0 auto; background: #fff; }
+  .code { font-size: 44px; font-weight: 900; letter-spacing: 12px; color: #04dcff;
+    margin: 20px 0 4px; }
+  .count { font-size: 20px; color: #94a3b8; }
+  .status { font-size: 18px; min-height: 26px; margin: 14px 0 6px; }
+  .status.ok { color: #34d399; font-weight: 800; }
+  .status.err { color: #f87171; }
+  .btn { display: inline-block; min-height: 46px; line-height: 44px; padding: 0 26px;
+    border: 1px solid #00d2f5; border-radius: 999px; background: #00d2f5;
+    color: #03111e; font-size: 17px; font-weight: 800; cursor: pointer; margin: 6px; }
+  .btn.ghost { background: #101b31; border-color: #58728f; color: #fff; }
+  .opt { display: block; min-height: 52px; background: #0b1629;
+    border: 1px solid #243955; border-radius: 12px; color: #fff;
+    font-size: 19px; font-weight: 700; padding: 0 20px; cursor: pointer;
+    margin: 10px auto; width: 100%; text-align: left; }
+  .err { color: #f87171; font-size: 16px; margin-top: 10px; min-height: 22px; }
+  .pins { margin: 18px auto; }
+  .pin-dot { display: inline-block; width: 26px; height: 26px; margin: 0 8px;
+    border-radius: 50%; border: 2px solid #58728f; background: #101b31; }
+  .pin-dot.filled { background: #00d2f5; border-color: #00d2f5; }
+  .pinpad { max-width: 300px; margin: 8px auto 0; }
+  .key { display: inline-block; width: 88px; height: 88px; margin: 6px;
+    border: 1px solid #58728f; border-radius: 14px; background: #101b31;
+    color: #fff; font-size: 30px; font-weight: 800; cursor: pointer;
+    line-height: 88px; text-align: center; }
+  .meta { color: #94a3b8; font-size: 17px; margin: 6px 0 16px; }
+  .desc { font-size: 17px; line-height: 1.5; margin: 0 0 22px; color: #d1d5db; }
+  .video { width: 100%; max-width: 1280px; background: #000; }
+  .controls { max-width: 1280px; margin: 14px auto 0; text-align: center; }
+  .ctrl { display: inline-block; min-height: 52px; line-height: 50px;
+    padding: 0 30px; border: 1px solid #58728f; border-radius: 999px;
+    background: #0b1629; color: #fff; font-size: 18px; font-weight: 700;
+    cursor: pointer; margin: 6px; }
+  .prog { max-width: 1280px; height: 8px; margin: 12px auto 4px; background: #1e293b;
+    border-radius: 4px; overflow: hidden; }
+  .prog > div { height: 8px; background: #04dcff; width: 0; }
+  .times { max-width: 1280px; margin: 0 auto; font-size: 16px; color: #94a3b8; }
+  table.diag { width: 100%; border-collapse: collapse; font-size: 16px; margin-top: 16px; }
+  table.diag td, table.diag th { border: 1px solid #243955; padding: 8px 10px; text-align: left; }
+  table.diag th { background: #0b1629; }
+  .try { font-size: 18px; color: #d1d5db; margin: 8px 0; }
+</style>
+</head>
+<body>
+  <div id="app"></div>
+  <noscript><div style="min-height:100vh;display:flex;align-items:center;justify-content:center;">MovieFlix for TV needs JavaScript enabled.</div></noscript>
+  <script src="/legacy-qrcode.js?v=1"></script>
+  <script src="/legacy-tv.js?v=1"></script>
+</body>
+</html>

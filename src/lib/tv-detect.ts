@@ -11,7 +11,7 @@
  *
  * Detection is purely heuristic and COARSE — browsers spoof user agents — so
  * it is never used for authorization, only for presentation tuning. Users can
- * also force the mode with `?tv=1` or `?tv=0`.
+ * Developers can force the mode locally with `?tv=1` or `?tv=0`.
  */
 
 const TV_PATTERNS: Array<{ platform: string; pattern: RegExp }> = [
@@ -78,8 +78,12 @@ export function getTvPlatform(): TvPlatform {
  */
 export function resolveTvMode(): boolean {
   if (typeof window === "undefined") return false;
-  const override = new URLSearchParams(window.location.search).get("tv");
-  if (override === "1") return true;
-  if (override === "0") return false;
+  // A query switch is useful for local UI testing, but must never expose the
+  // TV-only QR screen to phones/desktops in production.
+  if (process.env.NODE_ENV !== "production") {
+    const override = new URLSearchParams(window.location.search).get("tv");
+    if (override === "1") return true;
+    if (override === "0") return false;
+  }
   return isTvBrowser();
 }

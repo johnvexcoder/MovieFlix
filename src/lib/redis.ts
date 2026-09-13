@@ -65,9 +65,16 @@ export async function setTokenVersion(
 }
 
 export async function getTokenVersion(profileId: string): Promise<number> {
-  const client = getRedisClient();
-  const version = await client.get(`token_version:${profileId}`);
-  return version ? parseInt(version, 10) : 1;
+  try {
+    const client = getRedisClient();
+    const version = await client.get(`token_version:${profileId}`);
+    return version ? parseInt(version, 10) : 1;
+  } catch {
+    // Redis unavailable: treat as "no stored version", which is exactly what a
+    // missing key means (version 1). Lets a standalone server keep issuing
+    // valid refresh tokens during a Redis outage instead of failing logins.
+    return 1;
+  }
 }
 
 export async function incrementTokenVersion(
