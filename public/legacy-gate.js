@@ -60,7 +60,34 @@
     }
   }
 
-  var ok = supportsModules() && supportsPromise() && parsesModernGrammar();
+  // Determine if the device is likely a TV based on user agent
+   function isLikelyTV() {
+     var ua = String(window.navigator.userAgent || '');
+     var tvPatterns = [
+       /SmartTV/i,
+       /\bTV\b/i,
+       / Roku/i,
+       /HbbTV/i,
+       /Netcast/i,
+       /Viera/i,
+       /WebOS/i,
+       /Tizen/i,
+       /WebKit.*TV/i,
+       /CrKey/i,
+     ];
+     for (var i = 0; i < tvPatterns.length; i++) {
+       if (tvPatterns[i].test(ua)) {
+         return true;
+       }
+     }
+     return false;
+   }
+
+   var ok = supportsModules() && supportsPromise() && parsesModernGrammar();
+   if (!isLikelyTV()) {
+     // For non-TV devices, assume modern to avoid false positives on desktop browsers.
+     ok = true;
+   }
 
   try {
     window.__MVF_ENGINE_OK__ = ok;
