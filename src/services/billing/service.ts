@@ -77,7 +77,40 @@ export async function fulfillOrder(input:{orderId?:string;providerIntentId?:stri
   const account=tx.select().from(accounts).where(eq(accounts.id,order.accountId)).get();if(!account)throw new Error("Account not found");const base=account.expiresAt&&Date.parse(account.expiresAt)>Date.now()?Date.parse(account.expiresAt):Date.now();const hours=(order.planDurationHoursSnapshot||0)+order.promoBonusHoursSnapshot;const entitlementEnd=order.planLifetimeSnapshot?null:new Date(base+hours*3600000).toISOString();const subscription=tx.select().from(subscriptions).where(eq(subscriptions.accountId,account.id)).get();const sid=subscription?.id||randomUUID();tx.insert(subscriptions).values({id:sid,accountId:account.id,planId:order.planId,status:"ACTIVE",currentPeriodStart:now,currentPeriodEnd:entitlementEnd,isLifetime:order.planLifetimeSnapshot,autoRenew:false,cancelAtPeriodEnd:false,provider:order.provider,createdAt:subscription?.createdAt||now,updatedAt:now}).onConflictDoUpdate({target:subscriptions.accountId,set:{planId:order.planId,status:"ACTIVE",currentPeriodStart:now,currentPeriodEnd:entitlementEnd,isLifetime:order.planLifetimeSnapshot,autoRenew:false,cancelAtPeriodEnd:false,provider:order.provider,updatedAt:now}}).run();tx.update(accounts).set({expiresAt:entitlementEnd,isLocked:false,registrationStatus:"active",durationHours:order.planDurationHoursSnapshot,updatedAt:now}).where(eq(accounts.id,account.id)).run();if(!tx.select().from(profiles).where(eq(profiles.accountId,account.id)).get()){const pid=randomUUID();tx.insert(profiles).values({id:pid,accountId:account.id,name:account.fullName||account.username,isMainProfile:true,createdAt:now,updatedAt:now}).run();tx.insert(profileSettings).values({id:randomUUID(),profileId:pid,createdAt:now,updatedAt:now}).run()}
   if(order.promoId){tx.insert(promoRedemptions).values({id:randomUUID(),promoId:order.promoId,accountId:account.id,orderId:order.id,redeemedAt:now}).run();tx.update(promoCodes).set({uses:sql`${promoCodes.uses}+1`,reservedUses:sql`max(0,${promoCodes.reservedUses}-1)`,updatedAt:now}).where(eq(promoCodes.id,order.promoId)).run()}
   tx.update(billingOrders).set({subscriptionId:sid,providerPaymentId:input.providerPaymentId,status:"PAID",paidAt:now,promoReserved:false,qrImage:null,entitlementStart:now,entitlementEnd,updatedAt:now}).where(eq(billingOrders.id,order.id)).run();tx.update(billingEvents).set({status:"PROCESSED",processedAt:now}).where(eq(billingEvents.providerEventId,input.providerEventId)).run();if(customerSignup(account.registrationStatus))tx.update(signupSessions).set({completedAt:now}).where(and(eq(signupSessions.accountId,account.id),isNull(signupSessions.completedAt))).run();return true});
- if(fulfilled){const [account]=await db.select().from(accounts).where(eq(accounts.id,order.accountId)).limit(1);if(account?.email)void sendEmail({to:account.email,subject:"MovieFlix payment confirmed",html:emailLayout({title:"Your membership is active",bodyHtml:`${greeting(escapeHtml(account.fullName||account.username))}<p>PayMongo confirmed your payment for <strong>${escapeHtml(order.planNameSnapshot)}</strong>. Your MovieFlix access is ready.</p>`})})}
+ if (fulfilled) {
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, order.accountId)).limit(1);
+  if (account?.email) {
+    const original = Number(order.originalAmountMinor) / 100;
+    const discount = Number(order.discountAmountMinor) / 100;
+    const final = Number(order.finalAmountMinor) / 100;
+    const paidAt = order.paidAt ? new Date(order.paidAt) : new Date();
+    const dateStr = paidAt.toLocaleDateString('en-PH', { year: 'numeric', month: 'long', day: 'numeric' });
+    let discountDesc = 'None';
+    if (order.promoCodeSnapshot && order.promoDiscountTypeSnapshot) {
+      if (order.promoDiscountTypeSnapshot === 'percent') {
+        discountDesc = `Promo (${order.promoDiscountValueSnapshot}% off)`;
+      } else if (order.promoDiscountTypeSnapshot === 'amount') {
+        const amt = Number(order.promoDiscountValueSnapshot) / 100;
+        discountDesc = `Promo (₱${amt} off)`;
+      }
+    }
+    const bodyHtml = `
+      ${greeting(escapeHtml(account.fullName || account.username))}
+      <p>Your payment for <strong>${escapeHtml(order.planNameSnapshot)}</strong> has been confirmed.</p>
+      <p><strong>Plan:</strong> ${escapeHtml(order.planNameSnapshot)}</p>
+      <p><strong>Amount:</strong> ₱${original.toFixed(2)}</p>
+      <p><strong>Discount:</strong> ${escapeHtml(discountDesc)} (₱${discount.toFixed(2)})</p>
+      <p><strong>Total Paid:</strong> ₱${final.toFixed(2)}</p>
+      <p><strong>Date:</strong> ${dateStr}</p>
+      <p>Thank you for subscribing to MovieFlix!</p>
+    `;
+    void sendEmail({
+      to: account.email,
+      subject: 'MovieFlix payment confirmed',
+      html: emailLayout({ title: 'Your membership is active', bodyHtml }),
+    });
+  }
+}
  return order.id;
 }
 function customerSignup(status:string){return status==="pending"||status==="awaiting_payment_approval"}
