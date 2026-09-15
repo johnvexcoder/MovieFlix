@@ -58,6 +58,9 @@ export async function GET(
         .where(eq(episodes.id, episodeId))
         .limit(1);
 
+      if (!episodeItem || episodeItem.mediaId !== id) {
+        return new NextResponse("Episode does not belong to this title", { status: 404 });
+      }
       if (episodeItem && episodeItem.filePath) {
         targetFilePath = episodeItem.filePath;
       }

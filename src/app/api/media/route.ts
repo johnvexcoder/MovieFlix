@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const offset = (page - 1) * limit;
 
     // Build query
-    const conditions = [];
+    const conditions = [eq(media.hiddenFromCatalog, false)];
 
     if (type) {
       conditions.push(eq(media.type, type));

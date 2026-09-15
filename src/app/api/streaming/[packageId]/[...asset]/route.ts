@@ -46,7 +46,22 @@ export async function GET(request: NextRequest,
   if (!stat.isFile()) return new NextResponse("Not found", { status: 404 });
   const contentType = file.endsWith(".m3u8") ? "application/vnd.apple.mpegurl" :
     file.endsWith(".mp4") ? "video/mp4" : "video/iso.segment";
-  const fileStream = fs.createReadStream(file);
+  const range = request.headers.get("range");
+  let start = 0;
+  let end = stat.size - 1;
+  let status = 200;
+  if (range && !file.endsWith(".m3u8")) {
+    const match = range.match(/^bytes=(\d+)-(\d*)$/);
+    if (!match) return new NextResponse("Range not satisfiable", { status: 416,
+      headers: { "Content-Range": `bytes */${stat.size}` } });
+    start = Number(match[1]);
+    end = match[2] ? Math.min(Number(match[2]), stat.size - 1) : stat.size - 1;
+    if (!Number.isSafeInteger(start) || !Number.isSafeInteger(end) || start > end || start >= stat.size)
+      return new NextResponse("Range not satisfiable", { status: 416,
+        headers: { "Content-Range": `bytes */${stat.size}` } });
+    status = 206;
+  }
+  const fileStream = fs.createReadStream(file, { start, end });
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
       fileStream.on("data", (chunk) => controller.enqueue(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
@@ -55,8 +70,9 @@ export async function GET(request: NextRequest,
     },
     cancel() { fileStream.destroy(); },
   });
-  return new NextResponse(stream, { headers: {
-    "Content-Type": contentType, "Content-Length": String(stat.size),
+  return new NextResponse(stream, { status, headers: {
+    "Content-Type": contentType, "Content-Length": String(end - start + 1),
+    "Accept-Ranges": "bytes", ...(status === 206 ? { "Content-Range": `bytes ${start}-${end}/${stat.size}` } : {}),
     "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
   } });
 }

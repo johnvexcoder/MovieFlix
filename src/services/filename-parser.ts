@@ -137,6 +137,34 @@ function tryParseSeries(
   original: string,
   cleaned: { title: string; year: number | null; quality: string | null; source: string | null }
 ): ParsedFilename | null {
+  const tagged = original.match(
+    /^(.+?)[\s._-]+(?:(?:season[\s._-]*(\d{1,2})|s(\d{1,2}))[\s._-]*)?(?:ep(?:isode)?|e)0*(\d{1,3})(?:[\s._-].*)?$/i
+  );
+  if (tagged) {
+    const base = cleanFileName(tagged[1]);
+    if (base.title) return {
+      title: base.title, year: base.year || cleaned.year,
+      season: Number(tagged[2] || tagged[3] || 1), episode: Number(tagged[4]),
+      episodeEnd: null, type: "series",
+      quality: cleaned.quality, source: cleaned.source,
+    };
+  }
+  // Common library names such as "Night Has Come E01", "Show Episode 1",
+  // and "Show Season 1 EP1" must be recognized before they become separate
+  // top-level series. Release tags have already been removed from `cleaned`.
+  const loose = cleaned.title.match(
+    /^(.+?)\s+(?:season\s*(\d{1,2})\s*)?(?:s(\d{1,2})\s*)?(?:ep(?:isode)?|e)\s*0*(\d{1,3})$/i
+  );
+  const numeric = cleaned.title.match(/^(.+?)\s+(\d{1,2})x0*(\d{1,3})$/i);
+  if (loose || numeric) {
+    const title = (loose || numeric)![1].trim();
+    if (title) return {
+      title, year: cleaned.year,
+      season: loose ? Number(loose[2] || loose[3] || extractSeasonFromPath(original) || 1) : Number(numeric![2]),
+      episode: loose ? Number(loose[4]) : Number(numeric![3]),
+      episodeEnd: null, type: "series", quality: cleaned.quality, source: cleaned.source,
+    };
+  }
   // Pattern: Title.S01E01.ext or Title.S01E01E02.ext
   const seriesMatch1 = original.match(
     /^(.+?)[\s._-]+S(\d{1,2})E(\d{1,3})(?:-?E(\d{1,3}))?[\s._-]*$/i
@@ -313,6 +341,23 @@ export function extractSeasonFromPath(filePath: string): number | null {
   }
 
   return null;
+}
+
+/** Parent folder is authoritative when files are named only "Episode 1". */
+export function seriesIdentity(filePath: string): ParsedFilename | null {
+  const parsed = parseFilename(filePath);
+  if (parsed.type === "series" && parsed.episode) return parsed;
+  const fileName = filePath.split(/[/\\]/).pop()?.replace(/\.[^.]+$/, "") || "";
+  const bare = fileName.match(/^(?:(?:season\s*(\d{1,2})\s*)?(?:ep(?:isode)?|e)\s*0*(\d{1,3})|s(\d{1,2})e(\d{1,3}))$/i);
+  if (!bare) return null;
+  const folders = filePath.split(/[/\\]/).slice(0, -1);
+  let folder = folders.pop() || "";
+  if (/^(?:season\s*\d+|s\d{1,2})$/i.test(folder)) folder = folders.pop() || "";
+  const title = parseFilename(`${folder}.mp4`).title;
+  if (!title) return null;
+  return { ...parsed, title, type: "series",
+    season: Number(bare[1] || bare[3] || extractSeasonFromPath(filePath) || 1),
+    episode: Number(bare[2] || bare[4]), episodeEnd: null };
 }
 
 export function isVideoFile(filePath: string): boolean {

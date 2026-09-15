@@ -104,6 +104,18 @@ export async function recoverStaleJobs(): Promise<void> {
     .where(and(inArray(mediaStreamJobs.status, ["PROBING", "ENCODING", "VALIDATING"]),
       lt(mediaStreamJobs.leaseExpiresAt, new Date().toISOString())));
   for (const job of stale) {
+    const [pkg] = await db.select().from(mediaStreamPackages)
+      .where(eq(mediaStreamPackages.id, job.packageId)).limit(1);
+    if (pkg) {
+      const target = packageDirectory(pkg.mediaId, pkg.episodeId, pkg.version);
+      const parent = path.dirname(target);
+      if (fs.existsSync(parent)) {
+        for (const entry of fs.readdirSync(parent)) {
+          if (entry.startsWith(`.package-v${pkg.version}.tmp-`))
+            fs.rmSync(path.join(parent, entry), { recursive: true, force: true });
+        }
+      }
+    }
     const status = job.attempts < 3 ? "QUEUED" : "FAILED";
     await db.update(mediaStreamJobs).set({ status, stage: status,
       leaseExpiresAt: null, updatedAt: new Date().toISOString() })

@@ -273,6 +273,7 @@ export const media = sqliteTable("media", {
   backdropPath: text("backdrop_path"),
   posterPath: text("poster_path"),
   needsTranscode: integer("needs_transcode", { mode: "boolean" }).notNull().default(false),
+  hiddenFromCatalog: integer("hidden_from_catalog", { mode: "boolean" }).notNull().default(false),
   scanId: text("scan_id"),
   createdAt: text("created_at").notNull().default(""),
   updatedAt: text("updated_at").notNull().default(""),

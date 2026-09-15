@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Job is already finished" }, { status: 409 });
     await db.update(mediaStreamJobs).set({ status: "CANCELLED", stage: "CANCELLED",
       updatedAt: new Date().toISOString() }).where(eq(mediaStreamJobs.id, job.id));
+    await db.update(mediaStreamPackages).set({ status: "UNPREPARED",
+      updatedAt: new Date().toISOString() }).where(eq(mediaStreamPackages.id, job.packageId));
     return NextResponse.json({ cancelled: true });
   }
   return NextResponse.json({ error: "Unsupported action" }, { status: 400 });

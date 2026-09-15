@@ -169,6 +169,8 @@ export default function MediaDetailPage() {
 
   const seasons = media.seasons || [];
   const episodes = media.episodes || [];
+  const firstEpisode = [...episodes].sort((a, b) =>
+    a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber)[0];
   const seasonEpisodes = episodes.filter((ep) => ep.seasonNumber === selectedSeason);
   const matchPercent = media.rating ? Math.min(99, Math.round(media.rating * 10 + 6)) : 95;
 
@@ -283,11 +285,11 @@ export default function MediaDetailPage() {
               <div className="flex flex-wrap items-center gap-3 pt-3">
                 <Button
                   size="lg"
-                  onClick={() => router.push(`/profiles/${profileId}/watch/${media.id}?autoplay=1`)}
+                  onClick={() => router.push(`/profiles/${profileId}/watch/${media.id}?autoplay=1${firstEpisode ? `&episode=${firstEpisode.id}` : ""}`)}
                   className="btn-brand h-13 rounded-xl px-8 text-base font-bold shadow-2xl hover:scale-105 active:scale-95"
                 >
                   <Play className="mr-2 h-5 w-5 fill-white text-white" />
-                  Play {media.type === "series" ? "Episode 1" : "Movie"}
+                  Play {media.type === "series" ? `Episode ${firstEpisode?.episodeNumber || 1}` : "Movie"}
                 </Button>
 
                 <Button

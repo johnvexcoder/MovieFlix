@@ -31,6 +31,7 @@ async function resolveTargetFile(id: string, episodeId: string | null) {
       .from(episodes)
       .where(eq(episodes.id, episodeId))
       .limit(1);
+    if (!ep || ep.mediaId !== id) return null;
     if (ep?.filePath) {
       targetFilePath = ep.filePath;
       sourceHeight = ep.videoHeight ?? null;

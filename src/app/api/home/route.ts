@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
     const allMedia = await db
       .select()
       .from(media)
+      .where(eq(media.hiddenFromCatalog, false))
       .orderBy(desc(media.createdAt));
 
     // Get featured (first movie with backdrop)

@@ -440,6 +440,7 @@ export function setupDatabase() {
   ensureColumn("promo_codes", "discount_duration", "TEXT NOT NULL DEFAULT 'one_time'");
   ensureColumn("promo_codes", "reserved_uses", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("payment_methods", "account_name", "TEXT");
+  ensureColumn("media", "hidden_from_catalog", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("signup_sessions", "receipt_path", "TEXT");
   try {
     _sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admins_email ON admins(email) WHERE email IS NOT NULL;

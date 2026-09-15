@@ -2,9 +2,9 @@ import fs from "fs/promises";
 import path from "path";
 import { v4 as uuidv4 } from "uuid";
 import { db } from "@/db";
-import { media, seasons, episodes, scanLog, libraryConfig } from "@/db/schema";
-import { eq, and } from "drizzle-orm";
-import { parseFilename, isVideoFile, extractSeasonFromPath } from "./filename-parser";
+import { media, seasons, episodes, watchHistory, myList, scanLog, libraryConfig } from "@/db/schema";
+import { eq, and, sql } from "drizzle-orm";
+import { parseFilename, isVideoFile, seriesIdentity } from "./filename-parser";
 import { probeFile, needsTranscode, generateThumbnail } from "./ffmpeg-probe";
 import { searchMovie, searchTV, getSeasonDetails } from "./tmdb";
 import { findLocalPoster, findLocalBackdrop } from "@/lib/local-media";
@@ -74,6 +74,9 @@ async function runScan(scanId: string) {
       }
     }
 
+    // Repair older scans that stored each episode as a separate series title.
+    await organizeExistingSeries();
+
     await updateScanStatus(scanId, "completed", { errors });
   } catch (error) {
     await updateScanStatus(scanId, "failed", { error: String(error) });
@@ -111,6 +114,9 @@ async function processFile(
   filePath: string,
   type: "movies" | "series"
 ) {
+  const [existingEpisode] = await db.select({ id: episodes.id }).from(episodes)
+    .where(eq(episodes.filePath, filePath)).limit(1);
+  if (existingEpisode) { updateScanCounter(scanId, "skipped"); return; }
   // Check if file already exists in database
   const [existing] = await db
     .select()
@@ -124,7 +130,7 @@ async function processFile(
   }
 
   // Parse filename
-  const parsed = parseFilename(filePath);
+  const parsed = seriesIdentity(filePath) || parseFilename(filePath);
   const fileType = type === "series" ? "series" : parsed.type;
 
   // Probe file for metadata
@@ -135,6 +141,18 @@ async function processFile(
   const thumbnailName = `${uuidv4()}.jpg`;
   const thumbnailPath = path.join(thumbnailDir, thumbnailName);
   await generateThumbnail(filePath, thumbnailPath);
+
+  if (fileType === "series" && parsed.episode && parsed.title) {
+    const [series] = await db.select().from(media)
+      .where(and(eq(media.type, "series"), eq(media.hiddenFromCatalog, false),
+        sql`lower(${media.title}) = ${parsed.title.toLowerCase()}`)).limit(1);
+    if (series) {
+      await addEpisode(series.id, series.tmdbId, parsed.season || 1,
+        parsed.episode, filePath, probe, thumbnailPath);
+      updateScanCounter(scanId, "added");
+      return;
+    }
+  }
 
   // Fetch TMDB metadata
   let tmdbData = null;
@@ -190,25 +208,24 @@ async function processFile(
   updateScanCounter(scanId, "added");
 
   // If it's a series, fetch season/episode details
-  if (fileType === "series" && tmdbData?.tmdbId) {
-    await processSeriesEpisode(
-      mediaId,
-      tmdbData.tmdbId,
-      parsed.season,
-      parsed.episode,
-      filePath
-    );
+  if (fileType === "series" && parsed.episode) {
+    await addEpisode(mediaId, tmdbData?.tmdbId || null,
+      parsed.season || 1, parsed.episode, filePath, probe, thumbnailPath);
   }
 }
 
-async function processSeriesEpisode(
+async function addEpisode(
   mediaId: string,
-  tmdbId: number,
-  seasonNum: number | null,
-  episodeNum: number | null,
-  filePath: string
+  tmdbId: number | null,
+  seasonNum: number,
+  episodeNum: number,
+  filePath: string,
+  probe: Awaited<ReturnType<typeof probeFile>>,
+  thumbnailPath: string | null,
 ) {
-  if (!seasonNum || !episodeNum) return;
+  const [byPath] = await db.select({ id: episodes.id }).from(episodes)
+    .where(eq(episodes.filePath, filePath)).limit(1);
+  if (byPath) return;
 
   // Get or create season
   const [existingSeason] = await db
@@ -225,7 +242,7 @@ async function processSeriesEpisode(
   let seasonId = existingSeason?.id;
 
   if (!existingSeason) {
-    const seasonDetails = await getSeasonDetails(tmdbId, seasonNum);
+    const seasonDetails = tmdbId ? await getSeasonDetails(tmdbId, seasonNum) : null;
     seasonId = uuidv4();
 
     await db.insert(seasons).values({
@@ -243,7 +260,7 @@ async function processSeriesEpisode(
   }
 
   // Get episode details from TMDB
-  const seasonDetails = await getSeasonDetails(tmdbId, seasonNum);
+  const seasonDetails = tmdbId ? await getSeasonDetails(tmdbId, seasonNum) : null;
   const episodeDetails = seasonDetails?.episodes?.find(
     (e) => e.episode_number === episodeNum
   );
@@ -262,19 +279,74 @@ async function processSeriesEpisode(
       : null,
     stillPath: null,
     filePath,
-    fileSize: null,
-    fileCodec: null,
-    fileContainer: null,
-    fileDurationSeconds: null,
-    videoCodec: null,
-    videoWidth: null,
-    videoHeight: null,
-    audioCodec: null,
+    fileSize: probe?.size || null,
+    fileCodec: probe?.videoCodec || null,
+    fileContainer: probe?.container || null,
+    fileDurationSeconds: probe?.duration || null,
+    videoCodec: probe?.videoCodec || null,
+    videoWidth: probe?.width || null,
+    videoHeight: probe?.height || null,
+    audioCodec: probe?.audioCodec || null,
     tmdbId: tmdbId,
-    thumbnailPath: null,
-    needsTranscode: false,
+    thumbnailPath,
+    needsTranscode: probe ? needsTranscode(probe) : false,
     createdAt: new Date().toISOString(),
   });
+}
+
+/** Idempotent repair for older imports that made E01/E02 separate media rows. */
+export async function organizeExistingSeries() {
+  const titles = await db.select().from(media).where(eq(media.type, "series"));
+  const groups = new Map<string, { title: string; rows: { item: typeof titles[number]; season: number; episode: number }[] }>();
+  for (const item of titles) {
+    const identity = seriesIdentity(item.filePath);
+    if (!identity?.episode || !identity.title) continue;
+    const key = identity.title.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "");
+    const group = groups.get(key) || { title: identity.title, rows: [] };
+    group.rows.push({ item, season: identity.season || 1, episode: identity.episode });
+    groups.set(key, group);
+  }
+  for (const group of groups.values()) {
+    group.rows.sort((a, b) => a.item.createdAt.localeCompare(b.item.createdAt) ||
+      a.episode - b.episode);
+    // Keep an existing proper series entry when a previous import created one.
+    const existingSeries = titles.find((item) => item.type === "series" &&
+      !item.hiddenFromCatalog && !seriesIdentity(item.filePath)?.episode &&
+      item.title.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, "") ===
+        group.title.toLocaleLowerCase().replace(/[^\p{L}\p{N}]+/gu, ""));
+    const canonical = existingSeries || group.rows.find((row) => !row.item.hiddenFromCatalog)?.item || group.rows[0].item;
+    await db.update(media).set({ title: group.title, hiddenFromCatalog: false,
+      updatedAt: new Date().toISOString() }).where(eq(media.id, canonical.id));
+    for (const row of group.rows) {
+      const [linked] = await db.select().from(episodes)
+        .where(eq(episodes.filePath, row.item.filePath)).limit(1);
+      if (linked && linked.mediaId !== canonical.id) {
+        const [season] = await db.select().from(seasons)
+          .where(and(eq(seasons.mediaId, canonical.id), eq(seasons.seasonNumber, row.season))).limit(1);
+        const seasonId = season?.id || uuidv4();
+        if (!season) await db.insert(seasons).values({ id: seasonId, mediaId: canonical.id,
+          seasonNumber: row.season, title: `Season ${row.season}`, createdAt: new Date().toISOString() });
+        await db.update(episodes).set({ mediaId: canonical.id, seasonId })
+          .where(eq(episodes.id, linked.id));
+      } else if (!linked) {
+        await addEpisode(canonical.id, null, row.season, row.episode,
+          row.item.filePath, null, row.item.thumbnailPath);
+      }
+      if (row.item.id === canonical.id) continue;
+      const history = await db.select().from(watchHistory)
+        .where(eq(watchHistory.mediaId, row.item.id));
+      const [episode] = await db.select({ id: episodes.id }).from(episodes)
+        .where(eq(episodes.filePath, row.item.filePath)).limit(1);
+      for (const entry of history) {
+        await db.update(watchHistory).set({ mediaId: canonical.id,
+          episodeId: episode?.id || entry.episodeId }).where(eq(watchHistory.id, entry.id));
+      }
+      await db.update(myList).set({ mediaId: canonical.id })
+        .where(eq(myList.mediaId, row.item.id));
+      await db.update(media).set({ hiddenFromCatalog: true,
+        updatedAt: new Date().toISOString() }).where(eq(media.id, row.item.id));
+    }
+  }
 }
 
 function updateScanCounter(scanId: string, type: "found" | "added" | "updated" | "skipped") {
