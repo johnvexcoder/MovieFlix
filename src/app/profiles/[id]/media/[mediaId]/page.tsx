@@ -37,6 +37,7 @@ interface Episode {
   title: string | null;
   overview: string | null;
   stillUrl: string | null;
+  thumbnailPath: string | null;
   durationMinutes: number | null;
 }
 
@@ -228,9 +229,9 @@ export default function MediaDetailPage() {
                 {media.type === "series" ? (
                   <span className="badge-quality border-purple-500/40 text-purple-300 bg-purple-950/40">
                     <Tv className="mr-1 h-3 w-3" /> TV SERIES
-                  </span>
-                ) : (
-                  <span className="badge-quality border-blue-500/40 text-blue-300 bg-blue-950/40">
+</span>
+                 ) : (
+                   <span className="badge-quality border-blue-500/40 text-blue-300 bg-blue-950/40">
                     <Film className="mr-1 h-3 w-3" /> MOVIE
                   </span>
                 )}
@@ -337,58 +338,60 @@ export default function MediaDetailPage() {
 
           {/* Episode Cards */}
           <div className="space-y-4">
-            {seasonEpisodes.length > 0 ? (
-seasonEpisodes.map((episode) => (
-                 const thumbnailUrl = episode.thumbnailPath ? `/api/media/${media.id}/image?episode=${episode.id}&kind=thumbnail` : episode.stillUrl;
-                 <div
-                  key={episode.id}
-                  onClick={() =>
-                    router.push(
-                      `/profiles/${profileId}/watch/${media.id}?episode=${episode.id}`
-                    )
-                  }
-                  className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-2xl border border-white/10 bg-card/80 p-4 transition-all duration-200 hover:border-cyan-300/30 hover:bg-secondary cursor-pointer"
-                >
-                  {/* Episode Thumbnail */}
-                  <div className="relative aspect-video w-full sm:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-900 shadow-md">
-{thumbnailUrl ? (
-                       <img
-                         src={thumbnailUrl}
-                         alt={episode.title || ""}
-                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                       />
-                     ) : (
-                       <div className="flex h-full w-full items-center justify-center bg-neutral-800">
-                         <Tv className="h-6 w-6 text-neutral-600" />
-                       </div>
-                     )}
-                    {/* Hover Play Circle */}
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg text-primary-foreground">
-                        <Play className="h-5 w-5 fill-white text-white ml-0.5" />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Episode Info */}
-                  <div className="flex-1 min-w-0 space-y-1">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">
-                        {episode.episodeNumber}. {episode.title || "Episode"}
-                      </h3>
-                      {episode.durationMinutes && (
-                        <span className="text-xs font-semibold text-neutral-400">
-                          {episode.durationMinutes}m
-                        </span>
-                      )}
-                    </div>
-                    <p className="line-clamp-2 text-xs text-neutral-400 leading-relaxed">
-                      {episode.overview || "No episode summary available."}
-                    </p>
-                  </div>
-                </div>
-              ))
-            ) : (
+{seasonEpisodes.length > 0 ? (
+   seasonEpisodes.map((episode) => {
+    const thumbnailUrl = episode.thumbnailPath ? `/api/media/${media.id}/image?episode=${episode.id}&kind=thumbnail` : episode.stillUrl;
+    return (
+      <div
+        key={episode.id}
+        onClick={() =>
+          router.push(
+            `/profiles/${profileId}/watch/${media.id}?episode=${episode.id}`
+          )
+        }
+        className="group relative flex flex-col sm:flex-row items-start sm:items-center gap-4 rounded-2xl border border-white/10 bg-card/80 p-4 transition-all duration-200 hover:border-cyan-300/30 hover:bg-secondary cursor-pointer"
+      >
+        {/* Episode Thumbnail */}
+        <div className="relative aspect-video w-full sm:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-900 shadow-md">
+          {thumbnailUrl ? (
+            <img
+              src={thumbnailUrl}
+              alt={episode.title || ""}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-neutral-800">
+              <Tv className="h-6 w-6 text-neutral-600" />
+            </div>
+          )}
+        </div>
+        {/* Hover Play Circle */}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg text-primary-foreground">
+            <Play className="h-5 w-5 fill-white text-white ml-0.5" />
+          </div>
+        </div>
+        {/* Episode Info */}
+        <div className="flex-1 min-w-0 space-y-1">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-white group-hover:text-cyan-300 transition-colors">
+              {episode.episodeNumber}. {episode.title || "Episode"}
+            </h3>
+            {episode.durationMinutes && (
+              <span className="text-xs font-semibold text-neutral-400">
+                {episode.durationMinutes}m
+              </span>
+            )}
+          </div>
+          <p className="line-clamp-2 text-xs text-neutral-400 leading-relaxed">
+            {episode.overview || "No episode summary available."}
+          </p>
+        </div>
+      </div>
+    );
+  })
+)
+: (
               <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-12 text-center text-sm text-neutral-400">
                 No episode files scanned for Season {selectedSeason} yet.
               </div>
