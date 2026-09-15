@@ -25,7 +25,7 @@ const IMAGE_MIME: Record<string, string> = {
  * 3. TMDB remote URL (302 redirect)
  * 4. 404
  *
- * ?kind=poster (default) | backdrop
+ * ?kind=poster (default) | backdrop | thumbnail
  * ?episode=<episodeId> for episode-specific images
  */
 export async function GET(
@@ -43,7 +43,8 @@ export async function GET(
       return new NextResponse("Invalid token", { status: 401 });
     }
 
-    const kind = request.nextUrl.searchParams.get("kind") === "backdrop" ? "backdrop" : "poster";
+    const kindParam = request.nextUrl.searchParams.get("kind");
+    const kind = kindParam === "backdrop" ? "backdrop" : kindParam === "thumbnail" ? "thumbnail" : "poster";
     const episodeId = request.nextUrl.searchParams.get("episode");
 
     let mediaItem: any = null;
@@ -83,7 +84,41 @@ export async function GET(
       return new NextResponse("Media not found", { status: 404 });
     }
 
-    // 1. Try stored local path from DB
+    if (kind === "thumbnail") {
+       let thumbnailPath = null;
+       if (episodeId) {
+         const [episode] = await db
+           .select()
+           .from(episodes)
+           .where(eq(episodes.id, episodeId))
+           .limit(1);
+         if (episode) {
+           thumbnailPath = episode.thumbnailPath;
+         }
+       } else {
+         // fallback to media thumbnail? maybe not needed
+         thumbnailPath = mediaItem.thumbnailPath;
+       }
+       if (thumbnailPath) {
+         const resolved = resolveLocalFile(thumbnailPath);
+         if (resolved && fs.existsSync(resolved)) {
+           const ext = path.extname(resolved).toLowerCase();
+           const mime = IMAGE_MIME[ext] || "image/jpeg";
+           const buf = fs.readFileSync(resolved);
+           return new NextResponse(new Uint8Array(buf), {
+             headers: {
+               "Content-Type": mime,
+               "Cache-Control": "private, max-age=86400",
+               "X-Content-Type-Options": "nosniff",
+             },
+           });
+         }
+       }
+       // If not found, fall back to 404.
+       return new NextResponse("No thumbnail available", { status: 404 });
+     }
+     
+     // 1. Try stored local path from DB
     const storedLocalPath = kind === "backdrop" ? mediaItem.backdropPath : mediaItem.posterPath;
     const resolvedStored = storedLocalPath ? resolveLocalFile(storedLocalPath) : null;
     if (resolvedStored && fs.existsSync(resolvedStored)) {

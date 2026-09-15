@@ -338,8 +338,9 @@ export default function MediaDetailPage() {
           {/* Episode Cards */}
           <div className="space-y-4">
             {seasonEpisodes.length > 0 ? (
-              seasonEpisodes.map((episode) => (
-                <div
+seasonEpisodes.map((episode) => (
+                 const thumbnailUrl = episode.thumbnailPath ? `/api/media/${media.id}/image?episode=${episode.id}&kind=thumbnail` : episode.stillUrl;
+                 <div
                   key={episode.id}
                   onClick={() =>
                     router.push(
@@ -350,17 +351,17 @@ export default function MediaDetailPage() {
                 >
                   {/* Episode Thumbnail */}
                   <div className="relative aspect-video w-full sm:w-48 flex-shrink-0 overflow-hidden rounded-xl bg-neutral-900 shadow-md">
-                    {episode.stillUrl ? (
-                      <img
-                        src={episode.stillUrl}
-                        alt={episode.title || ""}
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    ) : (
-                      <div className="flex h-full w-full items-center justify-center bg-neutral-800">
-                        <Tv className="h-6 w-6 text-neutral-600" />
-                      </div>
-                    )}
+{thumbnailUrl ? (
+                       <img
+                         src={thumbnailUrl}
+                         alt={episode.title || ""}
+                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                       />
+                     ) : (
+                       <div className="flex h-full w-full items-center justify-center bg-neutral-800">
+                         <Tv className="h-6 w-6 text-neutral-600" />
+                       </div>
+                     )}
                     {/* Hover Play Circle */}
                     <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity duration-200 group-hover:opacity-100">
                       <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg text-primary-foreground">
