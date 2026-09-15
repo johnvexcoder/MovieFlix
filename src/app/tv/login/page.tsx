@@ -320,7 +320,7 @@ export default function TvLoginPage() {
         <div className="absolute inset-0 bg-[radial-gradient(#ffffff08_1px,transparent_1px)] [background-size:24px_24px] opacity-40" />
       </div>
 
-      <div data-tv-login-content className="relative z-10 w-full max-w-2xl md:max-w-4xl tv:max-w-4xl">
+      <div data-tv-login-content className="relative z-10 w-full max-w-2xl md:max-w-4xl tv:max-w-4xl flex flex-col items-stretch flex-1">
         {/* Header */}
         <div className="mb-8 flex flex-col items-center text-center tv:mb-8">
           <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-black/40 p-2 shadow-2xl ring-1 ring-white/10 tv:h-16 tv:w-16">
@@ -335,7 +335,7 @@ export default function TvLoginPage() {
         </div>
 
         {/* QR panel (left) + Login form (right) */}
-        <div className="flex flex-col md:flex-row tv:flex-row tv:items-stretch tv:gap-6">
+        <div className="flex-1 flex flex-col md:flex-row tv:flex-row tv:items-stretch tv:gap-6">
           <div data-tv-qr-panel className="glass-panel flex h-full flex-col items-center justify-center rounded-3xl p-8 shadow-2xl shadow-black/60 tv:p-8 w-full md:w-1/2 tv:w-1/2">
             <div className="flex w-full max-w-xs flex-col items-center justify-center tv:min-w-[15rem]">{renderQrPanel()}</div>
           </div>
