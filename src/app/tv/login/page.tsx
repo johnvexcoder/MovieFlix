@@ -335,12 +335,12 @@ export default function TvLoginPage() {
         </div>
 
         {/* QR panel (left) + Login form (right) */}
-        <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 tv:grid-cols-2 tv:items-stretch tv:gap-6">
-          <div data-tv-qr-panel className="glass-panel flex h-full flex-col items-center justify-center rounded-3xl p-8 shadow-2xl shadow-black/60 tv:p-8">
+        <div className="flex flex-col md:flex-row tv:flex-row tv:items-stretch tv:gap-6">
+          <div data-tv-qr-panel className="glass-panel flex h-full flex-col items-center justify-center rounded-3xl p-8 shadow-2xl shadow-black/60 tv:p-8 w-full md:w-1/2 tv:w-1/2">
             <div className="flex w-full max-w-xs flex-col items-center justify-center tv:min-w-[15rem]">{renderQrPanel()}</div>
           </div>
 
-          <div data-tv-password-panel className="glass-panel flex h-full flex-col justify-center rounded-3xl p-8 shadow-2xl shadow-black/80 tv:p-8">
+          <div data-tv-password-panel className="glass-panel flex h-full flex-col justify-center rounded-3xl p-8 shadow-2xl shadow-black/80 tv:p-8 w-full md:w-1/2 tv:w-1/2">
             <div className="mb-6 flex flex-col items-center text-center tv:mb-8">
               <p className="text-xs font-semibold tracking-wider text-neutral-400 uppercase tv:text-lg">
                 Sign In to Watch
