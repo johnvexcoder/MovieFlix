@@ -1695,23 +1695,24 @@
     box.appendChild(statusLine);
 
     var current = primary;
-    var fallbackUsed = false;
-    var lastSave = 0;
-    var saved = false;
+var fallbackUsed = false;
+     var lastSave = 0;
+     var saved = false;
 
-    var state = {
-      mediaId: mediaId,
-      episodeId: episodeId,
-      mp4: mp4,
-      hls: hls,
-      primary: primary,
-      fallback: fallback,
-      fallbackUsed: false,
-      current: current,
-      firstFrame: false,
-      playingSince: 0
-    };
-    APP.player = state;
+     var state = {
+       mediaId: mediaId,
+       episodeId: episodeId,
+       mediaItem: mediaItem,
+       mp4: mp4,
+       hls: hls,
+       primary: primary,
+       fallback: fallback,
+       fallbackUsed: false,
+       current: current,
+       firstFrame: false,
+       playingSince: 0
+     };
+     APP.player = state;
 
     function setSource(url, markFallback) {
       current = url;
@@ -1846,7 +1847,42 @@
         durationSeconds: Math.floor((video.duration || 0)),
         episodeId: episodeId
       }, allowRefresh: true }, function () {
-        showTitle(mediaId);
+// After saving progress, decide what to show next
+         if (state.mediaItem && state.mediaItem.type === 'series' && state.mediaItem.episodes && state.mediaItem.episodes.length) {
+           // Find current episode index
+           var currentIndex = -1;
+           for (var i = 0; i < state.mediaItem.episodes.length; i++) {
+             if (state.mediaItem.episodes[i].id === state.episodeId) {
+               currentIndex = i;
+               break;
+             }
+           }
+           if (currentIndex >= 0 && currentIndex + 1 < state.mediaItem.episodes.length) {
+             var nextEp = state.mediaItem.episodes[currentIndex + 1];
+             // Show prompt to play next episode
+             var view = stage();
+             APP.screen = 'after-episode';
+             var box = banner('MOVIEFLIX', state.mediaItem.title || '');
+             view.appendChild(box);
+             box.appendChild(make('p', {}, 'Episode finished. What would you like to do next?'));
+             var btnNext = make('button', { class: 'btn' }, 'Play Next Episode');
+             bindClick(btnNext, function () { playMedia(state.mediaItem, nextEp); });
+             var btnReplay = make('button', { class: 'btn ghost' }, 'Replay');
+             bindClick(btnReplay, function () { openPlayer(state.mediaItem, state.mediaItem.episodes[currentIndex], 0); });
+             var btnBack = make('button', { class: 'btn ghost' }, 'Back to Series');
+             bindClick(btnBack, function () { showTitle(state.mediaItem.id); });
+             var btnGrid = [
+               [{ el: btnNext, action: function () { playMedia(state.mediaItem, nextEp); } }],
+               [{ el: btnReplay, action: function () { openPlayer(state.mediaItem, state.mediaItem.episodes[currentIndex], 0); } }],
+               [{ el: btnBack, action: function () { showTitle(state.mediaItem.id); } }]
+             ];
+             setGrid(btnGrid);
+             box.appendChild(make('div', { class: 'try' }, 'Use arrow keys and OK to choose.'));
+             return;
+           }
+         }
+         // Default: go back to title screen
+         showTitle(mediaId);
       });
     });
 
