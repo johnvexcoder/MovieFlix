@@ -24,6 +24,15 @@ services:
       - MEDIA_SERIES_PATH=/media/series
       - TRANSCODE_TEMP_DIR=./data/transcode-temp
       - TRANSCODE_MAX_CONCURRENT=2
+      # Streaming V2 packages live under the persistent ./data bind mount.
+      # Keep the feature off until the worker, secure delivery and player path
+      # have passed rollout checks.
+      - STREAMING_V2_ENABLED=${STREAMING_V2_ENABLED:-false}
+      - STREAMING_WORKER_ENABLED=${STREAMING_WORKER_ENABLED:-false}
+      - STREAMING_OUTPUT_DIR=./data/streaming
+      - STREAMING_SEGMENT_SECONDS=${STREAMING_SEGMENT_SECONDS:-4}
+      - STREAMING_WORKER_CONCURRENCY=${STREAMING_WORKER_CONCURRENCY:-1}
+      - STREAMING_MIN_FREE_DISK_GB=${STREAMING_MIN_FREE_DISK_GB:-20}
       # Session management (admin-tunable at runtime; these are defaults)
       - MAX_CONCURRENT_SESSIONS=3
       - SESSION_TIMEOUT_MINUTES=30
@@ -71,6 +80,34 @@ services:
       timeout: 10s
       retries: 3
       start_period: 60s
+
+  streaming-worker:
+    profiles: ["streaming-v2"]
+    build: .
+    image: movieflix-app
+    container_name: movieflix-streaming-worker
+    restart: unless-stopped
+    init: true
+    command: ["node", "streaming-worker.cjs"]
+    mem_limit: 1536m
+    memswap_limit: 3072m
+    environment:
+      - NODE_ENV=production
+      - DATABASE_PATH=./data/database.sqlite
+      - FFMPEG_PATH=/usr/bin/ffmpeg
+      - FFPROBE_PATH=/usr/bin/ffprobe
+      - STREAMING_WORKER_ENABLED=true
+      - STREAMING_OUTPUT_DIR=./data/streaming
+      - STREAMING_SEGMENT_SECONDS=${STREAMING_SEGMENT_SECONDS:-4}
+      - STREAMING_MIN_FREE_DISK_GB=${STREAMING_MIN_FREE_DISK_GB:-20}
+      - JWT_SECRET=${JWT_SECRET:?Set JWT_SECRET in .env}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:?Set JWT_REFRESH_SECRET in .env}
+    volumes:
+      - ./data:/app/data
+      - ${MEDIA_MOVIES_HOST:-/media/movies}:/media/movies:ro
+      - ${MEDIA_SERIES_HOST:-/media/series}:/media/series:ro
+    depends_on:
+      - app
 
   redis:
     image: redis:7-alpine

@@ -278,6 +278,47 @@ export const media = sqliteTable("media", {
   updatedAt: text("updated_at").notNull().default(""),
 });
 
+// Streaming V2 metadata is additive. Existing source media and legacy
+// compatibility transcodes remain untouched during rollout.
+export const mediaStreamPackages = sqliteTable("media_stream_packages", {
+  id: text("id").primaryKey(),
+  mediaId: text("media_id").notNull().references(() => media.id),
+  episodeId: text("episode_id"),
+  version: integer("version").notNull(),
+  status: text("status").notNull().default("UNPREPARED"),
+  sourceFingerprint: text("source_fingerprint").notNull(),
+  renditionsJson: text("renditions_json").notNull().default("[]"),
+  sizeBytes: integer("size_bytes"),
+  preparedAt: text("prepared_at"),
+  errorCode: text("error_code"),
+  createdAt: text("created_at").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const mediaStreamJobs = sqliteTable("media_stream_jobs", {
+  id: text("id").primaryKey(),
+  packageId: text("package_id").notNull().references(() => mediaStreamPackages.id),
+  status: text("status").notNull().default("QUEUED"),
+  progress: integer("progress").notNull().default(0),
+  stage: text("stage").notNull().default("QUEUED"),
+  attempts: integer("attempts").notNull().default(0),
+  leaseExpiresAt: text("lease_expires_at"),
+  errorCode: text("error_code"),
+  createdAt: text("created_at").notNull().default(""),
+  updatedAt: text("updated_at").notNull().default(""),
+});
+
+export const playbackSessions = sqliteTable("playback_sessions", {
+  id: text("id").primaryKey(),
+  packageId: text("package_id").notNull().references(() => mediaStreamPackages.id),
+  mediaId: text("media_id").notNull().references(() => media.id),
+  accountId: text("account_id").notNull().references(() => accounts.id),
+  profileId: text("profile_id").notNull().references(() => profiles.id),
+  expiresAt: text("expires_at").notNull(),
+  revokedAt: text("revoked_at"),
+  createdAt: text("created_at").notNull().default(""),
+});
+
 // ===========================================
 // SEASONS TABLE (for series)
 // ===========================================

@@ -51,6 +51,11 @@ RUN npm run build -- --webpack \
     # Ensure /app/data dirs exist inside the image so the runtime mounts cleanly
     && mkdir -p /app/data/thumbnails /app/data/artwork /app/data/transcode-temp
 
+# Bundle the background encoder separately from the Next.js request server.
+RUN ./node_modules/.bin/esbuild src/streaming/worker-main.ts \
+    --bundle --platform=node --format=cjs --target=node22 \
+    --external:better-sqlite3 --outfile=streaming-worker.cjs
+
 # ----------  Runtime ----------
 FROM node:22-alpine AS runner
 
@@ -72,10 +77,11 @@ COPY --from=builder /app/.next/standalone ./
 # Copy the static assets the standalone server references
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
+COPY --from=builder /app/streaming-worker.cjs ./streaming-worker.cjs
 COPY docker-entrypoint.sh /usr/local/bin/movieflix-entrypoint
 
 # Ensure writable directories exist for the SQLite DB / thumbnails / artwork
-RUN mkdir -p /app/data/thumbnails /app/data/artwork /app/data/transcode-temp \
+RUN mkdir -p /app/data/thumbnails /app/data/artwork /app/data/transcode-temp /app/data/streaming \
     && chown -R node:node /app/data \
     && chmod 755 /usr/local/bin/movieflix-entrypoint
 

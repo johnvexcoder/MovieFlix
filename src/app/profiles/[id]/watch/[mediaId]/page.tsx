@@ -148,7 +148,10 @@ export default function WatchPage() {
 
   // Adaptive quality state
   const [qualityHeights, setQualityHeights] = useState<number[]>([]);
-  const [activeQuality, setActiveQuality] = useState<number | "source" | null>(null);
+  const [activeQuality, setActiveQuality] = useState<number | "source" | "auto" | null>(null);
+  const [preparedQualities, setPreparedQualities] = useState<number[]>([]);
+  const [preparedManifest, setPreparedManifest] = useState<string | null>(null);
+  const [preparedNative, setPreparedNative] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
   const [preparingQuality, setPreparingQuality] = useState(false);
   const preparingAbortRef = useRef<AbortController | null>(null);
@@ -248,6 +251,60 @@ export default function WatchPage() {
     setQualityHeights(heights);
     setActiveQuality("source");
   }, [media?.videoHeight]);
+
+  // Prepared V2 is selected only when enabled and ready. The session endpoint
+  // returns a direct-play fallback for unprepared titles.
+  useEffect(() => {
+    if (!media || !videoRef.current) return;
+    let cancelled = false;
+    void (async () => {
+      try {
+        const response = await fetch("/api/playback/session", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ mediaId, episodeId: episodeParam, profileId }),
+        });
+        if (!response.ok || cancelled) return;
+        const data = await response.json();
+        if (cancelled || data.mode !== "hls" || !data.manifestUrl) return;
+        const video = videoRef.current;
+        if (!video) return;
+        const heights = (data.availableQualities as { height: number }[])
+          .map((entry) => entry.height).filter((height) => Number.isInteger(height));
+        const keepPos = video.currentTime || lastPositionRef.current || 0;
+        hlsRef.current?.destroy();
+        hlsRef.current = null;
+        setPreparedQualities(heights);
+        setPreparedManifest(data.manifestUrl);
+        setStreamUrl(data.manifestUrl);
+        setActiveQuality("auto");
+        lastPositionRef.current = keepPos;
+        if (Hls.isSupported()) {
+          setPreparedNative(false);
+          const hls = new Hls({ enableWorker: true, lowLatencyMode: false,
+            startLevel: 0, backBufferLength: 30 });
+          hlsRef.current = hls;
+          hls.loadSource(data.manifestUrl);
+          hls.attachMedia(video);
+        } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+          setPreparedNative(true);
+          video.src = data.manifestUrl;
+          video.load();
+        } else {
+          setPreparedManifest(null);
+          setActiveQuality("source");
+          video.src = streamSrc;
+          return;
+        }
+        const onMetadata = () => {
+          if (keepPos > 0 && Number.isFinite(video.duration)) video.currentTime = Math.min(keepPos, video.duration - 1);
+          if (desiredPlayingRef.current) void video.play().catch(() => {});
+          video.removeEventListener("loadedmetadata", onMetadata);
+        };
+        video.addEventListener("loadedmetadata", onMetadata);
+      } catch { /* Current direct-play path remains available. */ }
+    })();
+    return () => { cancelled = true; };
+  }, [media, mediaId, episodeParam, profileId, streamSrc]);
 
   async function checkAuth() {
     try {
@@ -449,9 +506,14 @@ export default function WatchPage() {
     };
 
     const onPlay = () => {
-      setPlaying(true);
       userPausedRef.current = false;
       desiredPlayingRef.current = true;
+    };
+    // `play` can fire while the browser is still buffering. The button should
+    // report actual playback only after the media element reaches `playing`.
+    const onPlaying = () => {
+      setPlaying(true);
+      setBuffering(false);
     };
     const onPause = () => {
       setPlaying(false);
@@ -595,6 +657,7 @@ export default function WatchPage() {
     video.addEventListener("timeupdate", onTimeUpdate);
     video.addEventListener("loadedmetadata", onLoadedMetadata);
     video.addEventListener("play", onPlay);
+    video.addEventListener("playing", onPlaying);
     video.addEventListener("pause", onPause);
     video.addEventListener("ended", onEnded);
     video.addEventListener("stalled", onStalled);
@@ -607,6 +670,7 @@ export default function WatchPage() {
       video.removeEventListener("timeupdate", onTimeUpdate);
       video.removeEventListener("loadedmetadata", onLoadedMetadata);
       video.removeEventListener("play", onPlay);
+      video.removeEventListener("playing", onPlaying);
       video.removeEventListener("pause", onPause);
       video.removeEventListener("ended", onEnded);
       video.removeEventListener("stalled", onStalled);
@@ -652,6 +716,9 @@ export default function WatchPage() {
   const togglePlay = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
+
+    // A second click while play() is pending must not cancel the first one.
+    if (playPromiseRef.current && video.paused) return;
 
     // Android can leave a pending play() promise that hasn't resolved yet, which
     // makes video.paused report stale until then. If a play is in flight, treat
@@ -851,6 +918,15 @@ export default function WatchPage() {
     async (height: number) => {
       const video = videoRef.current;
       if (!video) return;
+      if (preparedManifest && hlsRef.current && preparedQualities.includes(height)) {
+        const level = hlsRef.current.levels.findIndex((entry) => entry.height === height);
+        if (level >= 0) {
+          hlsRef.current.currentLevel = level;
+          setActiveQuality(height);
+          setShowQualityMenu(false);
+          return;
+        }
+      }
       const keepPos = video.currentTime || lastPositionRef.current || 0;
 
       preparingAbortRef.current?.abort();
@@ -955,11 +1031,13 @@ export default function WatchPage() {
           : "Could not prepare a compatible stream. Tap to retry.");
       }
     },
-    [transcodeBase, episodeParam, refreshSession]
+    [transcodeBase, episodeParam, refreshSession, preparedManifest, preparedQualities]
   );
 
   // Switch back to the source stream (native range streaming)
   const switchToSource = useCallback(() => {
+    setPreparedManifest(null);
+    setPreparedQualities([]);
     requestedQualityRef.current = null;
     if (preparingAbortRef.current) preparingAbortRef.current.abort();
     preparingQualityRef.current = false;
@@ -1101,10 +1179,11 @@ export default function WatchPage() {
       : "HD";
 
   const formatQualityLabel = (
-    q: number | "source" | null,
+    q: number | "source" | "auto" | null,
     sourceH: number | null
   ): string => {
     if (preparingQuality) return "Preparing...";
+    if (q === "auto") return "Auto";
     if (q === "source" || q === null) return sourceH ? `${sourceH}p` : "HD";
     return `${q}p`;
   };
@@ -1139,7 +1218,7 @@ export default function WatchPage() {
       <video
         key={streamKey}
         ref={videoRef}
-        src={activeQuality === "source" || activeQuality === null ? streamUrl : undefined}
+        src={activeQuality === "source" || activeQuality === null || preparedNative ? streamUrl : undefined}
         poster={media.backdropUrl || media.posterUrl || `/api/media/${mediaId}/image?kind=backdrop`}
         className="h-full w-full object-cover"
         muted={muted}
@@ -1308,6 +1387,12 @@ export default function WatchPage() {
                       <div className="px-3 py-2 text-[11px] font-bold text-neutral-400 uppercase">
                         Quality
                       </div>
+                      {preparedManifest && hlsRef.current && (
+                        <button type="button" onClick={() => { hlsRef.current!.currentLevel = -1; setActiveQuality("auto"); setShowQualityMenu(false); }}
+                          className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold text-white hover:bg-white/10">
+                          <span>Auto (Recommended)</span>{activeQuality === "auto" && <Check className="h-4 w-4" />}
+                        </button>
+                      )}
                       <button
                         type="button"
                         onClick={switchToSource}
@@ -1320,7 +1405,7 @@ export default function WatchPage() {
                         <span>Source ({media.videoHeight ? `${media.videoHeight}p` : "Auto"})</span>
                         {activeQuality === "source" && <Check className="h-4 w-4" />}
                       </button>
-                      {qualityHeights.map((h) => {
+                      {(preparedManifest && hlsRef.current ? preparedQualities : qualityHeights).map((h) => {
                         const isSourceQuality = (media.videoHeight ?? 0) > 0 && h >= (media.videoHeight ?? 0);
                         return (
                           <button

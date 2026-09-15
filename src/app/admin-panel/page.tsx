@@ -411,8 +411,17 @@ export default function AdminPage() {
   const filteredAccounts = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return accounts;
-    return accounts.filter((a) => a.username.toLowerCase().includes(q));
-  }, [accounts, searchQuery]);
+    return accounts.filter((a) => {
+      const terms = [a.username, a.email || "", a.fullName || "",
+        a.isTemp ? "time limited limited" : "unlimited permanent",
+        a.isActive ? "active" : "expired",
+        a.durationHours == null ? "unlimited" : `${a.durationHours} hours`,
+        a.createdAt, new Date(a.createdAt).toLocaleString(),
+        a.expiresAt || "", a.expiresAt ? new Date(a.expiresAt).toLocaleString() : "",
+        a.expiresAt ? formatRemaining(a.expiresAt, now) : "unlimited"].join(" ").toLowerCase();
+      return terms.includes(q);
+    });
+  }, [accounts, searchQuery, now]);
 
   const durationPreview = useMemo(() => {
     const w = weeks || 0;
@@ -560,7 +569,7 @@ export default function AdminPage() {
                 <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-500" />
                 <Input
                   type="search"
-                  placeholder="Filter accounts…"
+                  placeholder="Search username, time, limited, unlimited, date…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="h-9 w-full rounded-xl border-white/10 bg-white/5 pl-9 text-xs text-white"

@@ -43,6 +43,10 @@ const PUBLIC_PATHS = [
   "/legacy-qrcode.js",
   "/legacy-tv.js",
   "/tv-compat.css",
+  // Prepared HLS files have their own scoped, short-lived playback session
+  // cookie. Segment requests must keep working after the 15-minute account
+  // access JWT expires; the route independently validates every request.
+  "/api/streaming",
 ];
 
 // Paths a user may still visit while required to change their password. These

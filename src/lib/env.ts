@@ -24,6 +24,12 @@ const envSchema = z.object({
   FFMPEG_PATH: z.string().default("ffmpeg"),
   TRANSCODE_TEMP_DIR: z.string().default("./data/transcode-temp"),
   TRANSCODE_MAX_CONCURRENT: z.coerce.number().default(2),
+  STREAMING_V2_ENABLED: z.enum(["true", "false"]).default("false"),
+  STREAMING_WORKER_ENABLED: z.enum(["true", "false"]).default("false"),
+  STREAMING_OUTPUT_DIR: z.string().default("./data/streaming"),
+  STREAMING_SEGMENT_SECONDS: z.coerce.number().int().min(2).max(10).default(4),
+  STREAMING_WORKER_CONCURRENCY: z.coerce.number().int().min(1).max(4).default(1),
+  STREAMING_MIN_FREE_DISK_GB: z.coerce.number().min(1).default(20),
 
   SCAN_INTERVAL_MINUTES: z.coerce.number().default(10),
   SCAN_ON_STARTUP: z.coerce.boolean().default(true),

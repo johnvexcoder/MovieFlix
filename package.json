@@ -14,7 +14,8 @@
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx src/db/seed.ts",
     "typecheck": "tsc --noEmit",
-    "test:billing": "tsx tests/billing-smoke.ts"
+    "test:billing": "tsx tests/billing-smoke.ts",
+    "worker:streaming": "tsx src/streaming/worker-main.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",

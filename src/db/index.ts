@@ -363,6 +363,55 @@ export function setupDatabase() {
     CREATE INDEX IF NOT EXISTS idx_promo_redemptions_account ON promo_redemptions(promo_id, account_id);
   `);
 
+  // Additive Streaming V2 migration. These records are durable even when the
+  // worker or Redis restarts; no existing media or transcode cache is changed.
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS media_stream_packages (
+      id TEXT PRIMARY KEY,
+      media_id TEXT NOT NULL REFERENCES media(id),
+      episode_id TEXT,
+      version INTEGER NOT NULL,
+      status TEXT NOT NULL DEFAULT 'UNPREPARED',
+      source_fingerprint TEXT NOT NULL,
+      renditions_json TEXT NOT NULL DEFAULT '[]',
+      size_bytes INTEGER,
+      prepared_at TEXT,
+      error_code TEXT,
+      created_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_stream_package_version
+      ON media_stream_packages(media_id, COALESCE(episode_id, ''), version);
+    CREATE INDEX IF NOT EXISTS idx_stream_package_ready
+      ON media_stream_packages(media_id, episode_id, status);
+    CREATE TABLE IF NOT EXISTS media_stream_jobs (
+      id TEXT PRIMARY KEY,
+      package_id TEXT NOT NULL REFERENCES media_stream_packages(id),
+      status TEXT NOT NULL DEFAULT 'QUEUED',
+      progress INTEGER NOT NULL DEFAULT 0,
+      stage TEXT NOT NULL DEFAULT 'QUEUED',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      lease_expires_at TEXT,
+      error_code TEXT,
+      created_at TEXT NOT NULL DEFAULT '',
+      updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_stream_jobs_status
+      ON media_stream_jobs(status, lease_expires_at, created_at);
+    CREATE TABLE IF NOT EXISTS playback_sessions (
+      id TEXT PRIMARY KEY,
+      package_id TEXT NOT NULL REFERENCES media_stream_packages(id),
+      media_id TEXT NOT NULL REFERENCES media(id),
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      profile_id TEXT NOT NULL REFERENCES profiles(id),
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_playback_sessions_expiry
+      ON playback_sessions(expires_at, profile_id);
+  `);
+
   // Ensure accounts table has email, full_name, is_locked, and must_change_password columns.
   // NOTE: SQLite forbids ADD COLUMN with a UNIQUE constraint, so we add a plain
   // TEXT column and enforce uniqueness with a partial index (NULLs stay unique-free).

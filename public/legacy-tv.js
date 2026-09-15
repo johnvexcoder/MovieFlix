@@ -370,7 +370,7 @@
 
     var box = banner('MOVIEFLIX', 'Sign in with the MovieFlix app on your phone');
     var panel = make('div');
-    addClass(panel, 'panel');
+    addClass(panel, 'panel login-panel');
     var root = make('div'); // contains qr + code + status + refresh button
     panel.appendChild(root);
     box.appendChild(panel);
@@ -556,6 +556,7 @@
     APP.history = [];
     APP.screen = 'profiles';
     var box = banner('MOVIEFLIX', 'Who\u2019s watching?');
+    addClass(box, 'profiles-view');
     view.appendChild(box);
     box.appendChild(make('div', { class: 'status ' }, 'Loading profiles\u2026'));
 
@@ -1684,7 +1685,7 @@
       ctrlWrap.appendChild(b);
       return b;
     }
-    var btnPlay = ctrl('\u25B6 / \u2759\u2759', togglePlay);
+    var btnPlay = ctrl('\u25B6 Play', togglePlay);
     var btnBack15 = ctrl('\u21A4 15s', function () { seekRel(-15); });
     var btnFwd15 = ctrl('15s \u21A6', function () { seekRel(15); });
     var btnStop = ctrl('\u2190 Exit', exit);
@@ -1737,6 +1738,15 @@
         else video.pause();
       } catch (e) { /* ignore */ }
     }
+    video.addEventListener('playing', function () {
+      btnPlay.textContent = '\u2759\u2759 Pause';
+    });
+    video.addEventListener('pause', function () {
+      btnPlay.textContent = '\u25B6 Play';
+    });
+    video.addEventListener('ended', function () {
+      btnPlay.textContent = '\u25B6 Replay';
+    });
     function seekRel(d) {
       try {
         var t = Number(video.currentTime || 0) + d;
