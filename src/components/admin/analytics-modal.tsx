@@ -158,7 +158,7 @@ function AnalyticsModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="glass-panel max-w-[90%] mx-auto my-4 border-white/15">
+      <DialogContent className="glass-panel max-w-[90%] lg:max-w-6xl mx-auto my-4 border-white/15">
         {/* Header with close button and range selector */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6">
           <div className="space-y-2">
@@ -199,7 +199,7 @@ function AnalyticsModal({
         </div>
         
         {/* Main content: 30/70 layout on desktop, stacked on mobile */}
-        <div className="grid gap-6 p-6">
+        <div className="grid gap-6 p-6 lg:grid-cols-3">
           {/* Information Panel (30%) */}
           <div className="col-span-1 lg:col-span-1">
             <div className="space-y-4">

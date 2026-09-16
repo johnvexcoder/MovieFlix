@@ -1075,30 +1075,38 @@ export default function AdminPage() {
         </DialogContent>
 </Dialog>
        {/* Analytics Modals */}
-       <AnalyticsModal
-         type="subscribers"
-         range={analyticsRange}
-         onRangeChange={setAnalyticsRange}
-         onClose={() => setSubscribersModalOpen(false)}
-       />
-       <AnalyticsModal
-         type="revenue"
-         range={analyticsRange}
-         onRangeChange={setAnalyticsRange}
-         onClose={() => setRevenueModalOpen(false)}
-       />
-       <AnalyticsModal
-         type="expirations"
-         range={analyticsRange}
-         onRangeChange={setAnalyticsRange}
-         onClose={() => setExpirationsModalOpen(false)}
-       />
-       <AnalyticsModal
-         type="streaming"
-         range={analyticsRange}
-         onRangeChange={setAnalyticsRange}
-         onClose={() => setStreamingModalOpen(false)}
-       />
+       {subscribersModalOpen && (
+         <AnalyticsModal
+           type="subscribers"
+           range={analyticsRange}
+           onRangeChange={setAnalyticsRange}
+           onClose={() => setSubscribersModalOpen(false)}
+         />
+       )}
+       {revenueModalOpen && (
+         <AnalyticsModal
+           type="revenue"
+           range={analyticsRange}
+           onRangeChange={setAnalyticsRange}
+           onClose={() => setRevenueModalOpen(false)}
+         />
+       )}
+       {expirationsModalOpen && (
+         <AnalyticsModal
+           type="expirations"
+           range={analyticsRange}
+           onRangeChange={setAnalyticsRange}
+           onClose={() => setExpirationsModalOpen(false)}
+         />
+       )}
+       {streamingModalOpen && (
+         <AnalyticsModal
+           type="streaming"
+           range={analyticsRange}
+           onRangeChange={setAnalyticsRange}
+           onClose={() => setStreamingModalOpen(false)}
+         />
+       )}
      </div>
   );
 }
