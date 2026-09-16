@@ -322,14 +322,12 @@ function AnalyticsModal({
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-neutral-400">
                       <span>Watch Time</span>
-                      <span>{
-                        // Convert minutes to hours/minutes format
+                      <span>{(() => {
                         const minutes = data.metrics.watchTime ?? 0;
                         const hours = Math.floor(minutes / 60);
                         const mins = minutes % 60;
                         return `${hours}h ${mins}m`;
-                      }</span>
-                    </div>
+                      })()}</span>
                   </>
                 )}
               </div>

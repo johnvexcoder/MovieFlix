@@ -267,8 +267,9 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
 </button>
 <button
   type="button"
-  onClick={() => setProfileDropdown(false);
-  router.push("/change-password");
+  onClick={() => {
+    setProfileDropdown(false);
+    router.push("/change-password");
   }}
   aria-label="Change Password"
   className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
