@@ -320,22 +320,23 @@ function AnalyticsModal({
                       <span>Streaming Sessions</span>
                       <span>{data.metrics.streamingSessions}</span>
                     </div>
-                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
-                      <span>Watch Time</span>
-                      <span>{(() => {
-                        const minutes = data.metrics.watchTime ?? 0;
-                        const hours = Math.floor(minutes / 60);
-                        const mins = minutes % 60;
-                        return `${hours}h ${mins}m`;
-                      })()}</span>
+<div className="flex items-center justify-between text-[10px] text-neutral-400">
+  <span>Watch Time</span>
+  <span>{(() => {
+    const minutes = data.metrics.watchTime ?? 0;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  })()}</span>
+</div>
                   </>
                 )}
-              </div>
+              )}
             </div>
-          </div>
-          
-          {/* Chart Panel (70%) */}
-          <div className="col-span-1 lg:col-span-2">
+           </div>
+           
+           {/* Chart Panel (70%) */}
+           <div className="col-span-1 lg:col-span-2">
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-white">
                 {type === "subscribers"
@@ -357,7 +358,7 @@ function AnalyticsModal({
                     margin={{ top: 20, right: 30, left: 0, bottom: 5 }}
                   >
                     <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5} />
-                    <XAxis dataKey="name" tick={false} axisLine=false />
+                    <XAxis dataKey="name" tick={false} axisLine={false} />
                     <YAxis tickFormatter={(val) => 
                       type === "revenue" ? `₱${(val / 100).toLocaleString()}` : val
                     }/>
