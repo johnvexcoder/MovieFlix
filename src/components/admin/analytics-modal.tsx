@@ -16,7 +16,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 interface AnalyticsModalProps {
   type: "subscribers" | "revenue" | "expirations" | "streaming";
   range: "1m" | "3m" | "6m" | "1y";
-  onRangeChange: (range: string) => void;
+  onRangeChange: (range: "1m" | "3m" | "6m" | "1y") => void;
   onClose: () => void;
 }
 
@@ -178,7 +178,7 @@ function AnalyticsModal({
                     variant={range === value ? "outline" : "ghost"}
                     size="sm"
                     className={`${range === value ? "bg-white/15 text-white" : "text-neutral-400 hover:text-white"} rounded-xl px-3 py-1.5 text-[12px]`}
-                    onClick={() => onRangeChange(value)}
+                    onClick={() => onRangeChange(value as "1m" | "3m" | "6m" | "1y")}
                   >
                     {label}
                   </Button>
@@ -320,22 +320,21 @@ function AnalyticsModal({
                       <span>Streaming Sessions</span>
                       <span>{data.metrics.streamingSessions}</span>
                     </div>
-<div className="flex items-center justify-between text-[10px] text-neutral-400">
-  <span>Watch Time</span>
-  <span>{(() => {
-    const minutes = data.metrics.watchTime ?? 0;
-    const hours = Math.floor(minutes / 60);
-    const mins = minutes % 60;
-    return `${hours}h ${mins}m`;
-  })()}</span>
-</div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Watch Time</span>
+                      <span>{(() => {
+                        const minutes = data.metrics.watchTime ?? 0;
+                        const hours = Math.floor(minutes / 60);
+                        const mins = minutes % 60;
+                        return `${hours}h ${mins}m`;
+                      })()}</span>
+                    </div>
                   </>
                 )}
-              )}
+              </div>
             </div>
-           </div>
-           
-           {/* Chart Panel (70%) */}
+            
+            {/* Chart Panel (70%) */}
            <div className="col-span-1 lg:col-span-2">
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-white">
@@ -360,11 +359,11 @@ function AnalyticsModal({
                     <CartesianGrid strokeDasharray="3 3" strokeOpacity={0.5} />
                     <XAxis dataKey="name" tick={false} axisLine={false} />
                     <YAxis tickFormatter={(val) => 
-                      type === "revenue" ? `₱${(val / 100).toLocaleString()}` : val
+                      type === "revenue" ? `₱${(Number(val) / 100).toLocaleString()}` : val
                     }/>
                     <Tooltip
                       formatter={(val) => 
-                        type === "revenue" ? `₱${(val / 100).toLocaleString()}` : val
+                        type === "revenue" ? `₱${(Number(val) / 100).toLocaleString()}` : val
                       }
                       contentStyle={{ backgroundColor: "rgba(0,0,0,0.8)", padding: "8px" }}
                       labelStyle={{ color: "#fff", fontSize: 12 }}
@@ -376,7 +375,7 @@ function AnalyticsModal({
                       dataKey="value"
                       stroke="var(--brand)"
                       strokeWidth={2}
-                      point={false}
+                      dot={false}
                       activeDot={{ r: 8 }}
                     />
                   </LineChart>
@@ -387,6 +386,7 @@ function AnalyticsModal({
                 </div>
               )}
             </div>
+          </div>
           </div>
         </div>
       </DialogContent>

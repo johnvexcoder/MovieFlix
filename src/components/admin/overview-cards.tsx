@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Activity, Clock, Megaphone, Timer, Users } from "lucide-react";
 import { formatPHP, formatPercentage } from "@/lib/analytics";
 
 interface OverviewCardProps {
@@ -16,7 +17,7 @@ function OverviewCard({
   title,
   value,
   change,
-  icon,
+  icon: Icon,
   iconBg = "bg-white/5",
   iconText = "text-neutral-400",
   secondaryText,
@@ -61,7 +62,7 @@ function OverviewCard({
           )}
         </div>
         <div className={`flex h-10 w-10 items-center justify-center rounded-xl ${iconBg} ${iconText}`}>
-          <icon className="h-5 w-5" />
+          <Icon className="h-5 w-5" />
         </div>
       </div>
     </div>

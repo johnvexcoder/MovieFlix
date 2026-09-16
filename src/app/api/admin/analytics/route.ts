@@ -7,7 +7,7 @@ import {
   playbackSessions,
   profiles
 } from "@/db/schema";
-import { eq, gt, lt, gte, lte, and, sql, count, sum, avg } from "drizzle-orm";
+import { eq, gt, lt, gte, lte, and, sql, isNull, count, sum, avg } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-response";
 
@@ -176,7 +176,7 @@ export async function GET(request: NextRequest) {
       .where(
         and(
           gt(playbackSessions.expiresAt, now.toISOString()),
-          eq(playbackSessions.revokedAt, null)
+          isNull(playbackSessions.revokedAt)
         )
       );
 

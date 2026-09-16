@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/db";
 import { accounts, billingOrders } from "@/db/schema";
-import { eq, and, gte, lt } from "drizzle-orm";
+import { eq, and, gte, lt, gt } from "drizzle-orm";
 import { sendEmail } from "@/lib/email";
 import { emailLayout, escapeHtml, greeting } from "@/lib/email-templates";
 
@@ -24,6 +24,7 @@ export async function GET(request: NextRequest) {
       id: accounts.id,
       email: accounts.email,
       fullName: accounts.fullName,
+      username: accounts.username,
       expiresAt: accounts.expiresAt,
     })
     .from(accounts)
@@ -63,6 +64,7 @@ export async function GET(request: NextRequest) {
       id: accounts.id,
       email: accounts.email,
       fullName: accounts.fullName,
+      username: accounts.username,
       expiresAt: accounts.expiresAt,
     })
     .from(accounts)

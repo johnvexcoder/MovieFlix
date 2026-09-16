@@ -45,7 +45,7 @@ import { MessageHistory } from "@/components/admin/message-history";
 import { ContactSubmissionsAdmin } from "@/components/admin/contact-submissions";
 import { EmailBroadcastAdmin } from "@/components/admin/email-broadcast";
 import OverviewCards from "@/components/admin/overview-cards";
-import { AnalyticsModal } from "@/components/admin/analytics-modal";
+import AnalyticsModal from "@/components/admin/analytics-modal";
 
 interface AdminUser {
   id: string;

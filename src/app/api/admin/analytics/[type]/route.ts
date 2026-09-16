@@ -9,7 +9,7 @@ import {
   promoRedemptions,
   subscriptionPlans
 } from "@/db/schema";
-import { eq, gt, lt, gte, lte, and, sql, count, sum, avg } from "drizzle-orm";
+import { eq, gt, lt, gte, lte, and, sql, isNull, count, sum, avg } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-response";
 
@@ -137,7 +137,7 @@ export async function GET(request: NextRequest) {
 
     return successResponse(response);
   } catch (error) {
-    console.error(`Get ${type} analytics error:`, error);
+    console.error("Get analytics error:", error);
     return errorResponse("Internal server error", 500);
   }
 }
@@ -508,7 +508,7 @@ async function getStreamingAnalytics(
     .where(
       and(
         gt(playbackSessions.expiresAt, now.toISOString()),
-        eq(playbackSessions.revokedAt, null)
+        isNull(playbackSessions.revokedAt)
       )
     );
 
@@ -526,7 +526,7 @@ async function getStreamingAnalytics(
       and(
         gt(playbackSessions.expiresAt, prevStart.toISOString()),
         lt(playbackSessions.expiresAt, prevEnd.toISOString()),
-        eq(playbackSessions.revokedAt, null)
+        isNull(playbackSessions.revokedAt)
       )
     );
 
@@ -560,7 +560,7 @@ async function getStreamingAnalytics(
           and(
             gt(playbackSessions.expiresAt, group.start.toISOString()),
             lt(playbackSessions.expiresAt, group.end.toISOString()),
-            eq(playbackSessions.revokedAt, null)
+            isNull(playbackSessions.revokedAt)
           )
         );
       
