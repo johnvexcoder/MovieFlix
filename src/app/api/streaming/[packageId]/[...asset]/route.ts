@@ -74,5 +74,8 @@ export async function GET(request: NextRequest,
     "Content-Type": contentType, "Content-Length": String(end - start + 1),
     "Accept-Ranges": "bytes", ...(status === 206 ? { "Content-Range": `bytes ${start}-${end}/${stat.size}` } : {}),
     "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET, OPTIONS",
+    "Access-Control-Allow-Headers": "Range",
   } });
 }
