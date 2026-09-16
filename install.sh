@@ -355,6 +355,19 @@ tune_media_env() {
   done
 }
 
+setup_analytics_cron() {
+  # Add a daily cron job to run a lightweight analytics aggregation placeholder.
+  # The job appends a timestamp to a log file in the project directory.
+  local cron_line="0 3 * * * cd \"$PWD\" && mkdir -p logs && echo \"[\$(date -u +%Y-%m-%dT%H:%M:%SZ)] MovieFlix analytics aggregation ran\" >> \"$PWD\"/logs/analytics.log 2>&1"
+  # Check if the line already exists in the user's crontab
+  if ! crontab -l 2>/dev/null | grep -Fx "$cron_line" > /dev/null; then
+    (crontab -l 2>/dev/null; echo "$cron_line") | crontab -
+    info "Installed daily analytics aggregation cron job (runs at 03:00 UTC)."
+  else
+    info "Analytics aggregation cron job already installed; skipping."
+  fi
+}
+
 backup_live_database() {
   # Use SQLite's online backup API through the running app. This produces a
   # transactionally consistent copy even while WAL mode is active.
@@ -382,6 +395,8 @@ do_update() {
   ensure_env
   tune_media_env
   provision_paymongo_webhook
+
+  setup_analytics_cron
 
   info "Stopping the running stack to free RAM for the build (runtime container limits are up to ~1.7GB)."
   $DC stop 2>/dev/null || true
@@ -443,6 +458,8 @@ do_wipeout() {
   reset_env
   tune_media_env
   provision_paymongo_webhook
+
+  setup_analytics_cron
 
   info "Building the fresh image (this takes a while on low-RAM hosts)."
   $DC build
@@ -518,9 +535,8 @@ do_uninstall() {
 
 banner() {
   echo
-  echo "================================"
-  echo "   MovieFlix  Docker Installer"
-  echo "================================"
+  echo "================================   MovieFlix  Docker Installer"
+  echo "=================================="
 }
 
 main() {
@@ -531,7 +547,7 @@ main() {
   banner
   echo "  Choose an installation mode:"
   echo "    1) Update only    — keep data + settings, fastest"
-  echo "    2) Complete wipeout — FRESH installation (erases everything)"
+  echo "    2) Install / Reinstall — FRESH installation (erases everything)"
   echo "    3) Uninstall      — remove containers, data, images from this host"
   echo "    4) Quit"
   echo
