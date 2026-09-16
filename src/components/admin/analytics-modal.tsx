@@ -158,7 +158,7 @@ function AnalyticsModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="glass-panel max-w-[90%] lg:max-w-6xl mx-auto my-4 border-white/15">
+      <DialogContent className="glass-panel w-[95%] max-w-[calc(100%-1.5rem)] sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto my-4 border-white/15">
         {/* Header with close button and range selector */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6">
           <div className="space-y-2">
@@ -171,8 +171,8 @@ function AnalyticsModal({
           <div className="flex flex-wrap items-center gap-2 sm:gap-4">
             {/* Range Selector */}
             <div className="flex items-center gap-2">
-              {[["1m", "1 Month"], ["3m", "3 Months"], ["6m", "6 Months"], ["1y", "1 Year"]].map(
-                ([value, label]) => (
+              {[["1m", "1 Month", "1M"], ["3m", "3 Months", "3M"], ["6m", "6 Months", "6M"], ["1y", "1 Year", "1Y"]].map(
+                ([value, label, shortLabel]) => (
                   <Button
                     key={value}
                     variant={range === value ? "outline" : "ghost"}
@@ -180,7 +180,8 @@ function AnalyticsModal({
                     className={`${range === value ? "bg-white/15 text-white" : "text-neutral-400 hover:text-white"} rounded-xl px-3 py-1.5 text-[12px]`}
                     onClick={() => onRangeChange(value as "1m" | "3m" | "6m" | "1y")}
                   >
-                    {label}
+                    <span className="hidden sm:inline">{label}</span>
+                    <span className="sm:hidden">{shortLabel}</span>
                   </Button>
                 )
               )}
@@ -199,9 +200,9 @@ function AnalyticsModal({
         </div>
         
         {/* Main content: 30/70 layout on desktop, stacked on mobile */}
-        <div className="grid gap-6 p-6 lg:grid-cols-3">
+        <div className="grid gap-6 p-6 md:grid-cols-3">
           {/* Information Panel (30%) */}
-          <div className="col-span-1 lg:col-span-1">
+          <div className="col-span-1 min-w-0 md:col-span-1">
             <div className="space-y-4">
               {/* Main metric */}
               <div className="space-y-2">
@@ -279,6 +280,21 @@ function AnalyticsModal({
                       <span>{formatPHP(data.metrics.discounts ?? 0)}</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Promo Discounts</span>
+                      <span>{formatPHP(data.metrics.promoDiscounts ?? 0)}</span>
+                    </div>
+                    {data.metrics.topPlan && (
+                      <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                        <span>Top Plan</span>
+                        <span className="text-right">
+                          {data.metrics.topPlan.name}
+                          <span className="ml-1 text-neutral-500">
+                            {formatPHP(data.metrics.topPlan.net ?? 0)}
+                          </span>
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
                       <span>Net Revenue</span>
                       <span className="font-medium">
                         {formatPHP(data.metrics.netRevenue ?? 0)}
@@ -291,21 +307,15 @@ function AnalyticsModal({
                   <>
                     <div className="flex items-center justify-between text-[10px] text-neutral-400">
                       <span>Next 24 Hours</span>
-                      <span>{
-                        // This would come from a more detailed API call
-                        Math.max(0, data.metrics.expiringSoon - 2) // Placeholder
-                      }</span>
+                      <span>{data.metrics.within24Hours ?? 0}</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-neutral-400">
                       <span>Next 3 Days</span>
-                      <span>{
-                        // This would come from a more detailed API call
-                        Math.max(0, data.metrics.expiringSoon - 5) // Placeholder
-                      }</span>
+                      <span>{data.metrics.within3Days ?? 0}</span>
                     </div>
                     <div className="flex items-center justify-between text-[10px] text-neutral-400">
                       <span>Next 7 Days</span>
-                      <span>{data.metrics.expiringSoon}</span>
+                      <span>{data.metrics.within7Days ?? data.metrics.expiringSoon ?? 0}</span>
                     </div>
                   </>
                 )}
@@ -329,13 +339,21 @@ function AnalyticsModal({
                         return `${hours}h ${mins}m`;
                       })()}</span>
                     </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Peak Concurrent</span>
+                      <span>{data.metrics.peakConcurrentStreams ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Avg Concurrent</span>
+                      <span>{data.metrics.averageConcurrentStreams ?? 0}</span>
+                    </div>
                   </>
                 )}
               </div>
             </div>
             
             {/* Chart Panel (70%) */}
-           <div className="col-span-1 lg:col-span-2">
+           <div className="col-span-1 min-w-0 md:col-span-2">
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-white">
                 {type === "subscribers"

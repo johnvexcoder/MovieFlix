@@ -9,7 +9,7 @@ import {
   promoRedemptions,
   subscriptionPlans
 } from "@/db/schema";
-import { eq, gt, lt, gte, lte, and, sql, isNull, count, sum, avg } from "drizzle-orm";
+import { eq, gt, lt, gte, lte, and, sql, isNull, isNotNull, desc, count, sum, avg } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-response";
 
@@ -299,59 +299,72 @@ async function getRevenueAnalytics(
   startDate: Date,
   endDate: Date
 ): Promise<AnalyticsResponse> {
-  // Get current period revenue
-  const [currentResult] = await db
-    .select({ total: sum(billingOrders.finalAmountMinor) })
-    .from(billingOrders)
-    .where(
-      and(
-        eq(billingOrders.status, "SUCCEEDED"),
-        gte(billingOrders.paidAt, startDate.toISOString()),
-        lt(billingOrders.paidAt, endDate.toISOString())
-      )
-    );
+  const paidInPeriod = and(
+    eq(billingOrders.status, "PAID"),
+    gte(billingOrders.paidAt, startDate.toISOString()),
+    lt(billingOrders.paidAt, endDate.toISOString())
+  );
 
-  const currentTotal = Number(currentResult.total ?? 0) || 0;
-  
-  // Get previous period revenue for comparison
+  // Current-period aggregates. Money is stored in minor units (centavos).
+  const [currentResult] = await db
+    .select({
+      gross: sum(billingOrders.originalAmountMinor),
+      discounts: sum(billingOrders.discountAmountMinor),
+      net: sum(billingOrders.finalAmountMinor),
+      transactions: count(),
+    })
+    .from(billingOrders)
+    .where(paidInPeriod);
+
+  const grossRevenue = Number(currentResult?.gross ?? 0) || 0;
+  const discountTotal = Number(currentResult?.discounts ?? 0) || 0;
+  const netRevenue = Number(currentResult?.net ?? 0) || 0;
+  const transactionCount = Number(currentResult?.transactions ?? 0) || 0;
+  const averageTransactionValue = transactionCount > 0 ? netRevenue / transactionCount : 0;
+
+  // Promo-specific discount total.
+  const [promoDiscountResult] = await db
+    .select({ total: sum(billingOrders.discountAmountMinor) })
+    .from(billingOrders)
+    .where(and(paidInPeriod, isNotNull(billingOrders.promoId)));
+  const promoDiscountTotal = Number(promoDiscountResult?.total ?? 0) || 0;
+
+  // Top plan by net revenue in period.
+  const topPlanRows = await db
+    .select({
+      planName: billingOrders.planNameSnapshot,
+      total: sum(billingOrders.finalAmountMinor),
+    })
+    .from(billingOrders)
+    .where(paidInPeriod)
+    .groupBy(billingOrders.planNameSnapshot)
+    .orderBy(desc(sum(billingOrders.finalAmountMinor)))
+    .limit(1);
+  const topPlan = topPlanRows.length
+    ? { name: topPlanRows[0].planName, net: Number(topPlanRows[0].total ?? 0) || 0 }
+    : null;
+
+  // Refunds: the provider billing path records failed/expired orders but does not
+  // persist refund records, so refund totals are reported as 0 (documented limitation).
+  const refunds = 0;
+
+  // Previous equivalent period (same length, immediately preceding).
   const prevStart = new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime()));
-  const prevEnd = new Date(startDate.getTime());
-  
+  const prevEnd = startDate;
   const [prevResult] = await db
-    .select({ total: sum(billingOrders.finalAmountMinor) })
+    .select({ net: sum(billingOrders.finalAmountMinor) })
     .from(billingOrders)
     .where(
       and(
-        eq(billingOrders.status, "SUCCEEDED"),
+        eq(billingOrders.status, "PAID"),
         gte(billingOrders.paidAt, prevStart.toISOString()),
         lt(billingOrders.paidAt, prevEnd.toISOString())
       )
     );
+  const prevNetRevenue = Number(prevResult?.net ?? 0) || 0;
+  const change = prevNetRevenue > 0 ? ((netRevenue - prevNetRevenue) / prevNetRevenue) * 100 : 0;
 
-  const prevTotal = Number(prevResult.total ?? 0) || 0;
-  const change = prevTotal > 0 ? ((currentTotal - prevTotal) / prevTotal) * 100 : 0;
-  
-  // Get metrics: transaction count, average value, refunds, discounts
-  const [txCountResult] = await db
-    .select({ count: count() })
-    .from(billingOrders)
-    .where(
-      and(
-        eq(billingOrders.status, "SUCCEEDED"),
-        gte(billingOrders.paidAt, startDate.toISOString()),
-        lt(billingOrders.paidAt, endDate.toISOString())
-      )
-    );
-
-  const transactionCount = Number(txCountResult.count) || 0;
-  const averageTransactionValue = transactionCount > 0 ? currentTotal / transactionCount : 0;
-  
-  // For refunds and discounts, we'd need to look at billing_events or similar
-  // For now, we'll use placeholder values since the schema doesn't explicitly track these separately
-  const refunds = 0; // Would need to query billing_events for refunds
-  const discounts = 0; // Would need to calculate from original vs final amounts
-  
-  // Build time series data (daily revenue)
+  // Time series: net revenue per group.
   const series = await Promise.all(
     dateGroups.map(async (group) => {
       const [result] = await db
@@ -359,15 +372,14 @@ async function getRevenueAnalytics(
         .from(billingOrders)
         .where(
           and(
-            eq(billingOrders.status, "SUCCEEDED"),
+            eq(billingOrders.status, "PAID"),
             gte(billingOrders.paidAt, group.start.toISOString()),
             lt(billingOrders.paidAt, group.end.toISOString())
           )
         );
-      
       return {
         date: formatDate(group.start),
-        value: Number(result.total ?? 0) || 0
+        value: Number(result?.total ?? 0) || 0,
       };
     })
   );
@@ -375,21 +387,24 @@ async function getRevenueAnalytics(
   return {
     range,
     summary: {
-      grossRevenue: currentTotal, // Assuming all successful payments are gross
-      netRevenue: currentTotal - refunds - discounts
+      grossRevenue,
+      netRevenue,
     },
     comparison: {
-      previous: prevTotal,
-      change: Math.round(change * 10) / 10
+      previous: prevNetRevenue,
+      change: Math.round(change * 10) / 10,
+      changeAmount: netRevenue - prevNetRevenue,
     },
     metrics: {
       transactionCount,
       averageTransactionValue,
       refunds,
-      discounts,
-      netRevenue: currentTotal - refunds - discounts
+      discounts: discountTotal,
+      promoDiscounts: promoDiscountTotal,
+      netRevenue,
+      topPlan,
     },
-    series
+    series,
   };
 }
 
@@ -417,6 +432,25 @@ async function getExpirationsAnalytics(
     );
 
   const expiringSoonCount = Number(expiringSoonResult.count) || 0;
+
+  // Real countdown buckets for the expirations panel.
+  async function countExpiringWithin(days: number): Promise<number> {
+    const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
+    const [result] = await db
+      .select({ count: count() })
+      .from(subscriptions)
+      .where(
+        and(
+          eq(subscriptions.isLifetime, false),
+          gt(subscriptions.currentPeriodEnd, now.toISOString()),
+          lte(subscriptions.currentPeriodEnd, until.toISOString())
+        )
+      );
+    return Number(result.count) || 0;
+  }
+
+  const within24Hours = await countExpiringWithin(1);
+  const within3Days = await countExpiringWithin(3);
   
   // Get expired count in period
   const [expiredInPeriodResult] = await db
@@ -483,10 +517,53 @@ async function getExpirationsAnalytics(
     metrics: {
       expiringSoon: expiringSoonCount,
       expiredInPeriod,
-      renewedInPeriod
+      renewedInPeriod,
+      within24Hours,
+      within3Days,
+      within7Days: expiringSoonCount
     },
     series
   };
+}
+
+// Peak and time-weighted average concurrent streams over a window, computed via
+// a sweep-line over session lifetimes (no heartbeat data available).
+function concurrencyStats(
+  sessions: Array<{ createdAt: string; expiresAt: string; revokedAt: string | null }>,
+  windowStart: number,
+  windowEnd: number
+): { peak: number; average: number } {
+  if (windowEnd <= windowStart) return { peak: 0, average: 0 };
+
+  const events: Array<[number, number]> = [];
+  for (const s of sessions) {
+    const startMs = Math.max(Date.parse(s.createdAt), windowStart);
+    const hardEnd = s.revokedAt
+      ? Math.min(Date.parse(s.revokedAt), Date.parse(s.expiresAt))
+      : Date.parse(s.expiresAt);
+    const endMs = Math.min(hardEnd, windowEnd);
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+      events.push([startMs, 1]);
+      events.push([endMs, -1]);
+    }
+  }
+
+  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+
+  let peak = 0;
+  let running = 0;
+  let area = 0;
+  let prevTime = windowStart;
+  for (const [time, delta] of events) {
+    area += running * (time - prevTime);
+    prevTime = time;
+    running += delta;
+    if (running > peak) peak = running;
+  }
+  area += running * (windowEnd - prevTime);
+
+  const duration = windowEnd - windowStart;
+  return { peak, average: duration > 0 ? area / duration : 0 };
 }
 
 // Streaming analytics
@@ -507,6 +584,7 @@ async function getStreamingAnalytics(
     .from(playbackSessions)
     .where(
       and(
+        lt(playbackSessions.createdAt, now.toISOString()),
         gt(playbackSessions.expiresAt, now.toISOString()),
         isNull(playbackSessions.revokedAt)
       )
@@ -545,28 +623,48 @@ async function getStreamingAnalytics(
     );
 
   const sessionCount = Number(sessionsCountResult.count) || 0;
-  
-  // For watch time, we'd need to look at watchHistory or similar
-  // For now, placeholder
-  const watchTimeMinutes = 0; // Would need to calculate from actual watch history
-  
-  // Build time series data (daily peak concurrent streams - simplified)
+
+  // Sessions overlapping the reporting window, clipped to "now".
+  const periodEndMs = Math.min(endDate.getTime(), now.getTime());
+  const overlappingSessions = await db
+    .select({
+      createdAt: playbackSessions.createdAt,
+      expiresAt: playbackSessions.expiresAt,
+      revokedAt: playbackSessions.revokedAt,
+    })
+    .from(playbackSessions)
+    .where(
+      and(
+        lt(playbackSessions.createdAt, new Date(periodEndMs).toISOString()),
+        gt(playbackSessions.expiresAt, startDate.toISOString())
+      )
+    );
+
+  // Watch time is approximated by summing session lifetimes within the window.
+  // playback_sessions has no heartbeat, so true watch time is not available.
+  let watchTimeMs = 0;
+  for (const s of overlappingSessions) {
+    const startMs = Math.max(Date.parse(s.createdAt), startDate.getTime());
+    const hardEnd = s.revokedAt
+      ? Math.min(Date.parse(s.revokedAt), Date.parse(s.expiresAt))
+      : Date.parse(s.expiresAt);
+    const endMs = Math.min(hardEnd, periodEndMs);
+    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+      watchTimeMs += endMs - startMs;
+    }
+  }
+  const watchTimeMinutes = Math.round(watchTimeMs / 60000);
+
+  const concurrency = concurrencyStats(overlappingSessions, startDate.getTime(), periodEndMs);
+
+  // Build time series: peak concurrent streams per group.
   const series = await Promise.all(
     dateGroups.map(async (group) => {
-      const [result] = await db
-        .select({ count: count() })
-        .from(playbackSessions)
-        .where(
-          and(
-            gt(playbackSessions.expiresAt, group.start.toISOString()),
-            lt(playbackSessions.expiresAt, group.end.toISOString()),
-            isNull(playbackSessions.revokedAt)
-          )
-        );
-      
+      const groupEnd = Math.min(group.end.getTime(), now.getTime());
+      const stats = concurrencyStats(overlappingSessions, group.start.getTime(), groupEnd);
       return {
         date: formatDate(group.start),
-        value: Number(result.count) || 0
+        value: stats.peak
       };
     })
   );
@@ -584,7 +682,8 @@ async function getStreamingAnalytics(
     metrics: {
       streamingSessions: sessionCount,
       watchTime: watchTimeMinutes,
-      averageConcurrentStreams: currentCount // Simplified
+      averageConcurrentStreams: Math.round(concurrency.average * 10) / 10,
+      peakConcurrentStreams: concurrency.peak
     },
     series
   };

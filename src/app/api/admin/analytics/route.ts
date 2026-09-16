@@ -7,7 +7,7 @@ import {
   playbackSessions,
   profiles
 } from "@/db/schema";
-import { eq, gt, lt, gte, lte, and, sql, isNull, count, sum, avg } from "drizzle-orm";
+import { eq, gt, lt, gte, lte, and, or, sql, isNull, count, sum } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-response";
 
@@ -18,7 +18,8 @@ interface OverviewResponse {
   };
   monthlyRevenue: {
     value: number; // in PHP minor units (cents)
-    change: number; // percentage change
+    change: number; // percentage change vs previous month
+    changeAmount: number; // absolute change in minor units vs previous month
   };
   expiringSoon: {
     value: number;
@@ -44,10 +45,10 @@ function getStartOfPreviousMonth(): Date {
   return new Date(prevMonth.getFullYear(), prevMonth.getMonth(), 1);
 }
 
-// Helper to get end of previous month
+// Helper to get end of previous month (exclusive upper bound = start of current month)
 function getEndOfPreviousMonth(): Date {
   const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), 0); // Last day of previous month
+  return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
 export async function GET(request: NextRequest) {
@@ -82,7 +83,9 @@ export async function GET(request: NextRequest) {
 
     const activeSubscribersCount = Number(activeSubscribersResult.count) || 0;
 
-    // Previous month active subscribers for change calculation
+    // Previous-month active subscribers: subscriptions whose entitlement period
+    // covered the last instant of the previous calendar month.
+    const prevMonthEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
     const [prevActiveSubscribersResult] = await db
       .select({ count: count() })
       .from(accounts)
@@ -91,8 +94,11 @@ export async function GET(request: NextRequest) {
         and(
           eq(subscriptions.status, "ACTIVE"),
           eq(subscriptions.isLifetime, false),
-          gt(subscriptions.currentPeriodEnd, startOfPrevMonth.toISOString()),
-          lt(subscriptions.currentPeriodEnd, now.toISOString()) // Ended in prev month
+          gt(subscriptions.currentPeriodEnd, prevMonthEnd.toISOString()),
+          or(
+            isNull(subscriptions.currentPeriodStart),
+            lte(subscriptions.currentPeriodStart, prevMonthEnd.toISOString())
+          )
         )
       );
 
@@ -107,7 +113,7 @@ export async function GET(request: NextRequest) {
       .from(billingOrders)
       .where(
         and(
-          eq(billingOrders.status, "SUCCEEDED"),
+          eq(billingOrders.status, "PAID"),
           gte(billingOrders.paidAt, startOfMonth.toISOString()),
           lt(billingOrders.paidAt, now.toISOString())
         )
@@ -121,7 +127,7 @@ export async function GET(request: NextRequest) {
       .from(billingOrders)
       .where(
         and(
-          eq(billingOrders.status, "SUCCEEDED"),
+          eq(billingOrders.status, "PAID"),
           gte(billingOrders.paidAt, startOfPrevMonth.toISOString()),
           lt(billingOrders.paidAt, endOfPrevMonth.toISOString())
         )
@@ -131,6 +137,7 @@ export async function GET(request: NextRequest) {
     const monthlyRevenueChange = prevMonthlyRevenue > 0
       ? ((monthlyRevenue - prevMonthlyRevenue) / prevMonthlyRevenue) * 100
       : 0;
+    const monthlyRevenueChangeAmount = monthlyRevenue - prevMonthlyRevenue;
 
     // Expiring Soon: subscriptions expiring within next 7 days (non-lifetime)
     const [expiringSoonResult] = await db
@@ -183,9 +190,43 @@ export async function GET(request: NextRequest) {
     const streamingNowCount = Number(streamingNowResult.count) || 0;
     const streamingNowAccounts = Number(streamingNowResult.accounts) || 0;
 
-    // Peak today: need to calculate from historical data or approximate
-    // For now, we'll use current count as peak today (can be improved with proper tracking)
-    const peakToday = streamingNowCount; // Placeholder - should be calculated from historical data
+    // Peak concurrent streams today: sweep-line over sessions overlapping today.
+    // playback_sessions only record creation/expiry/revocation (no heartbeat), so
+    // this approximates concurrency from those windows.
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todaysSessions = await db
+      .select({
+        createdAt: playbackSessions.createdAt,
+        expiresAt: playbackSessions.expiresAt,
+        revokedAt: playbackSessions.revokedAt,
+      })
+      .from(playbackSessions)
+      .where(
+        and(
+          lt(playbackSessions.createdAt, now.toISOString()),
+          gt(playbackSessions.expiresAt, startOfToday.toISOString())
+        )
+      );
+
+    const boundaries: Array<[number, number]> = [];
+    for (const s of todaysSessions) {
+      const startMs = Math.max(Date.parse(s.createdAt), startOfToday.getTime());
+      const hardEnd = s.revokedAt
+        ? Math.min(Date.parse(s.revokedAt), Date.parse(s.expiresAt))
+        : Date.parse(s.expiresAt);
+      const endMs = Math.min(hardEnd, now.getTime());
+      if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
+        boundaries.push([startMs, 1]);
+        boundaries.push([endMs, -1]);
+      }
+    }
+    boundaries.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    let peakToday = 0;
+    let running = 0;
+    for (const [, delta] of boundaries) {
+      running += delta;
+      if (running > peakToday) peakToday = running;
+    }
 
     const response: OverviewResponse = {
       activeSubscribers: {
@@ -195,6 +236,7 @@ export async function GET(request: NextRequest) {
       monthlyRevenue: {
         value: monthlyRevenue,
         change: Math.round(monthlyRevenueChange * 10) / 10, // Round to 1 decimal
+        changeAmount: monthlyRevenueChangeAmount,
       },
       expiringSoon: {
         value: expiringSoonCount,
