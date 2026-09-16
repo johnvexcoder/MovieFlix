@@ -44,6 +44,8 @@ import { AdminNavigation } from "@/components/admin/admin-navigation";
 import { MessageHistory } from "@/components/admin/message-history";
 import { ContactSubmissionsAdmin } from "@/components/admin/contact-submissions";
 import { EmailBroadcastAdmin } from "@/components/admin/email-broadcast";
+import { OverviewCards } from "@/components/admin/overview-cards";
+import { AnalyticsModal } from "@/components/admin/analytics-modal";
 
 interface AdminUser {
   id: string;
@@ -158,10 +160,17 @@ export default function AdminPage() {
   const [broadcastOpen, setBroadcastOpen] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
 
-  // Per-account delete guard: prevents double-submits while a delete request
-  // is in flight (a duplicate DELETE from a double click would otherwise hit
-  // the server twice and surface a confusing error on the second call).
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+// Per-account delete guard: prevents double-submits while a delete request
+   // is in flight (a duplicate DELETE from a double click would otherwise hit
+   // the server twice and surface a confusing error on the second call).
+   const [deletingId, setDeletingId] = useState<string | null>(null);
+
+   // Analytics modals
+   const [subscribersModalOpen, setSubscribersModalOpen] = useState(false);
+   const [revenueModalOpen, setRevenueModalOpen] = useState(false);
+   const [expirationsModalOpen, setExpirationsModalOpen] = useState(false);
+   const [streamingModalOpen, setStreamingModalOpen] = useState(false);
+   const [analyticsRange, setAnalyticsRange] = useState<"1m" | "3m" | "6m" | "1y">("1m");
 
   useEffect(() => {
     checkAuth();
@@ -489,69 +498,13 @@ export default function AdminPage() {
           </div>
         </div>
 
-        {/* Telemetry Stat Cards */}
-        <div className="mb-8 grid gap-3 grid-cols-2 sm:gap-4 lg:grid-cols-4">
-          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                  Total Accounts
-                </p>
-                <p className="mt-1 text-2xl font-black text-white">{accounts.length}</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-neutral-400">
-                <Users className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                  Active Subscriptions
-                </p>
-                <p className="mt-1 text-2xl font-black text-emerald-400">{activeCount}</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-                <Activity className="h-5 w-5" />
-              </div>
-            </div>
-            <p className="mt-1.5 text-[10px] text-neutral-400">
-              {expiredCount} expired / inactive
-            </p>
-          </div>
-
-          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                  Total Profiles
-                </p>
-                <p className="mt-1 text-2xl font-black text-white">{totalProfiles}</p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
-                <Film className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-
-          <div className="glass-panel rounded-2xl p-4 border border-white/10 shadow-lg">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
-                  Profiles per Account
-                </p>
-                <p className="mt-1 text-2xl font-black text-white">
-                  {accounts.length ? (totalProfiles / accounts.length).toFixed(1) : "0"}
-                </p>
-              </div>
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-white/5 text-neutral-400">
-                <Timer className="h-5 w-5" />
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Overview Cards */}
+        <OverviewCards
+          onActiveSubscribersClick={() => setSubscribersModalOpen(true)}
+          onMonthlyRevenueClick={() => setRevenueModalOpen(true)}
+          onExpiringSoonClick={() => setExpirationsModalOpen(true)}
+          onStreamingNowClick={() => setStreamingModalOpen(true)}
+        />
 
         {/* Account Manager Section */}
         <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-2xl">
@@ -1120,7 +1073,32 @@ export default function AdminPage() {
             </Button>
           </div>
         </DialogContent>
-      </Dialog>
-    </div>
+</Dialog>
+       {/* Analytics Modals */}
+       <AnalyticsModal
+         type="subscribers"
+         range={analyticsRange}
+         onRangeChange={setAnalyticsRange}
+         onClose={() => setSubscribersModalOpen(false)}
+       />
+       <AnalyticsModal
+         type="revenue"
+         range={analyticsRange}
+         onRangeChange={setAnalyticsRange}
+         onClose={() => setRevenueModalOpen(false)}
+       />
+       <AnalyticsModal
+         type="expirations"
+         range={analyticsRange}
+         onRangeChange={setAnalyticsRange}
+         onClose={() => setExpirationsModalOpen(false)}
+       />
+       <AnalyticsModal
+         type="streaming"
+         range={analyticsRange}
+         onRangeChange={setAnalyticsRange}
+         onClose={() => setStreamingModalOpen(false)}
+       />
+     </div>
   );
 }
