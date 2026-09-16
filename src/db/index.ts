@@ -410,6 +410,30 @@ export function setupDatabase() {
     );
     CREATE INDEX IF NOT EXISTS idx_playback_sessions_expiry
       ON playback_sessions(expires_at, profile_id);
+    CREATE TABLE IF NOT EXISTS analytics_daily (
+      date TEXT PRIMARY KEY,
+      new_subscribers INTEGER NOT NULL DEFAULT 0,
+      renewed_subscriptions INTEGER NOT NULL DEFAULT 0,
+      expired_subscriptions INTEGER NOT NULL DEFAULT 0,
+      cancelled_subscriptions INTEGER NOT NULL DEFAULT 0,
+      active_subscribers INTEGER NOT NULL DEFAULT 0,
+      revenue_gross_minor INTEGER NOT NULL DEFAULT 0,
+      revenue_discount_minor INTEGER NOT NULL DEFAULT 0,
+      revenue_net_minor INTEGER NOT NULL DEFAULT 0,
+      revenue_refund_minor INTEGER NOT NULL DEFAULT 0,
+      transactions INTEGER NOT NULL DEFAULT 0,
+      streaming_sessions INTEGER NOT NULL DEFAULT 0,
+      unique_viewers INTEGER NOT NULL DEFAULT 0,
+      streaming_peak INTEGER NOT NULL DEFAULT 0,
+      watch_time_minutes INTEGER NOT NULL DEFAULT 0,
+      auto_renew_enabled INTEGER NOT NULL DEFAULT 0,
+      auto_renew_potential_value_minor INTEGER NOT NULL DEFAULT 0,
+      auto_renew_churn_risk_24h INTEGER NOT NULL DEFAULT 0,
+      auto_renew_churn_risk_3d INTEGER NOT NULL DEFAULT 0,
+      auto_renew_churn_risk_7d INTEGER NOT NULL DEFAULT 0,
+      updated_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_analytics_daily_date ON analytics_daily(date DESC);
   `);
 
   // Ensure accounts table has email, full_name, is_locked, and must_change_password columns.
@@ -442,6 +466,9 @@ export function setupDatabase() {
   ensureColumn("payment_methods", "account_name", "TEXT");
   ensureColumn("media", "hidden_from_catalog", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("signup_sessions", "receipt_path", "TEXT");
+  ensureColumn("billing_orders", "refund_amount_minor", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("billing_orders", "refunded_at", "TEXT");
+  ensureColumn("playback_sessions", "last_seen_at", "TEXT");
   try {
     _sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admins_email ON admins(email) WHERE email IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;`);

@@ -356,16 +356,17 @@ tune_media_env() {
 }
 
 setup_analytics_cron() {
-  # Add a daily cron job to run a lightweight analytics aggregation placeholder.
-  # The job appends a timestamp to a log file in the project directory.
-  local cron_line="0 3 * * * cd \"$PWD\" && mkdir -p logs && echo \"[\$(date -u +%Y-%m-%dT%H:%M:%SZ)] MovieFlix analytics aggregation ran\" >> \"$PWD\"/logs/analytics.log 2>&1"
-  # Check if the line already exists in the user's crontab
-  if ! crontab -l 2>/dev/null | grep -Fx "$cron_line" > /dev/null; then
-    (crontab -l 2>/dev/null; echo "$cron_line") | crontab -
-    info "Installed daily analytics aggregation cron job (runs at 03:00 UTC)."
-  else
-    info "Analytics aggregation cron job already installed; skipping."
+  # Analytics aggregation runs inside the app itself: instrumentation.ts performs
+  # an initial backfill on startup and refreshes recent days hourly, so no
+  # external cron job is required. This hook remains so an existing installer
+  # crontab line is not duplicated, and reports the built-in schedule.
+  local old
+  old=$(crontab -l 2>/dev/null | grep -F "MovieFlix analytics aggregation ran" || true)
+  if [ -n "$old" ]; then
+    info "Removed obsolete analytics cron line (aggregation is built into the app)."
+    crontab -l 2>/dev/null | grep -vF "MovieFlix analytics aggregation ran" | crontab - 2>/dev/null || true
   fi
+  info "Analytics aggregation runs inside the app (backfill on boot + hourly refresh of recent days)."
 }
 
 backup_live_database() {

@@ -158,6 +158,11 @@ export default function WatchPage() {
   const preparingQualityRef = useRef(false);
   const requestedQualityRef = useRef<number | null>(null);
   const hlsRef = useRef<Hls | null>(null);
+  // Prepared (V2) playback fallback: if the prepared HLS stream dies we drop
+  // back to direct playback rather than surfacing a terminal "interrupted"
+  // error. Bounded retry counter prevents an infinite error loop.
+  const preparedActiveRef = useRef(false);
+  const preparedErrorCountRef = useRef(0);
   // Latest values for the error-recovery handler: keeps the <video> listener
   // effect's dependency list stable while still avoiding stale closures.
   const latestValuesRef = useRef({ activeQuality, qualityHeights });
@@ -257,6 +262,7 @@ export default function WatchPage() {
   useEffect(() => {
     if (!media || !videoRef.current) return;
     let cancelled = false;
+    preparedActiveRef.current = false;
     void (async () => {
       try {
         const response = await fetch("/api/playback/session", {
@@ -281,14 +287,39 @@ export default function WatchPage() {
         if (Hls.isSupported()) {
           setPreparedNative(false);
           const hls = new Hls({ enableWorker: true, lowLatencyMode: false,
-            startLevel: 0, backBufferLength: 30 });
+            startLevel: 0, backBufferLength: 30,
+            manifestLoadingMaxRetry: 6, fragLoadingMaxRetry: 6 });
           hlsRef.current = hls;
           hls.loadSource(data.manifestUrl);
           hls.attachMedia(video);
+          hls.on(Hls.Events.ERROR, (_event, errorData) => {
+            if (!errorData.fatal) return;
+            if (errorData.type === Hls.ErrorTypes.NETWORK_ERROR && preparedErrorCountRef.current < 3) {
+              preparedErrorCountRef.current += 1;
+              hls.startLoad();
+              return;
+            }
+            if (errorData.type === Hls.ErrorTypes.MEDIA_ERROR && preparedErrorCountRef.current < 3) {
+              preparedErrorCountRef.current += 1;
+              hls.recoverMediaError();
+              return;
+            }
+            // Unrecoverable prepared stream: fall back to direct playback, which
+            // owns its own codec/compatibility fallback.
+            preparedActiveRef.current = false;
+            hls.destroy();
+            hlsRef.current = null;
+            setPreparedManifest(null);
+            actionRefs.current?.switchToSource();
+          });
+          preparedActiveRef.current = true;
+          preparedErrorCountRef.current = 0;
         } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
           setPreparedNative(true);
           video.src = data.manifestUrl;
           video.load();
+          preparedActiveRef.current = true;
+          preparedErrorCountRef.current = 0;
         } else {
           setPreparedManifest(null);
           setActiveQuality("source");
@@ -593,6 +624,18 @@ export default function WatchPage() {
       // the abandoned source and must not replace the preparation screen with
       // a terminal playback error.
       if (preparingQualityRef.current) return;
+
+      // A prepared (V2) stream that dies must not become a terminal error:
+      // hand off to the direct source, which owns its own codec fallback.
+      if (preparedActiveRef.current) {
+        preparedActiveRef.current = false;
+        hlsRef.current?.destroy();
+        hlsRef.current = null;
+        setPreparedManifest(null);
+        actionRefs.current?.switchToSource();
+        return;
+      }
+
       setBuffering(false);
       setPlaying(false);
       const failedPos = video.currentTime || lastPositionRef.current;
@@ -958,6 +1001,7 @@ export default function WatchPage() {
             const prev = video.currentTime;
             hlsRef.current?.destroy();
             hlsRef.current = null;
+            preparedActiveRef.current = false;
             setStreamUrl(url);
             setActiveQuality(height);
             // Wait for metadata then restore position
@@ -1043,6 +1087,7 @@ export default function WatchPage() {
     preparingQualityRef.current = false;
     hlsRef.current?.destroy();
     hlsRef.current = null;
+    preparedActiveRef.current = false;
     const video = videoRef.current;
     if (!video) return;
     const keepPos = video.currentTime || lastPositionRef.current || 0;

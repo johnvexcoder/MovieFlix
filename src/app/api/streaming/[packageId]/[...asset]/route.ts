@@ -39,6 +39,15 @@ export async function GET(request: NextRequest,
   const [pkg] = await db.select().from(mediaStreamPackages)
     .where(and(eq(mediaStreamPackages.id, packageId), eq(mediaStreamPackages.status, "READY"))).limit(1);
   if (!pkg || pkg.mediaId !== session.mediaId) return new NextResponse("Not found", { status: 404 });
+  // Heartbeat: segment fetches are frequent, so this doubles as aliveness
+  // telemetry for "Streaming Now" metrics without a separate heartbeat API.
+  try {
+    await db.update(playbackSessions)
+      .set({ lastSeenAt: new Date().toISOString() })
+      .where(eq(playbackSessions.id, sessionId));
+  } catch {
+    // Telemetry is best-effort; never fail stream delivery over it.
+  }
   const dir = packageDirectory(pkg.mediaId, pkg.episodeId, pkg.version);
   const file = path.join(dir, ...asset);
   if (!fs.existsSync(file)) return new NextResponse("Not found", { status: 404 });

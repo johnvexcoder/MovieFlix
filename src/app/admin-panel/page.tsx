@@ -652,69 +652,84 @@ export default function AdminPage() {
 
                       {/* Action Controls */}
                       <div className="flex flex-wrap items-center gap-1.5 w-full sm:w-auto sm:flex-shrink-0 justify-start sm:justify-end">
-                        <Button variant="outline" size="sm" className="h-8 rounded-xl border-cyan-300/20 bg-cyan-300/5 px-3 text-[10px]" onClick={()=>setViewAccount(account)}><Eye className="mr-1 h-3 w-3 text-cyan-300"/>Details</Button>
                         <Button
                           variant="outline"
-                          size="sm"
-                          className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
-                          onClick={() => handleToggleLock(account)}
+                          size="icon"
+                          className="h-9 w-9 rounded-xl border-cyan-300/20 bg-cyan-300/5"
+                          onClick={() => setViewAccount(account)}
+                          title="Details"
+                          aria-label="View account details"
                         >
-                          <Lock className={`mr-1 h-3 w-3 ${account.isLocked ? 'text-red-400' : 'text-neutral-400'}`} />
-                          {account.isLocked ? "Unlock" : "Lock"}
+                          <Eye className="h-4 w-4 text-cyan-300" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="icon"
+                          className="h-9 w-9 rounded-xl border-white/15 bg-white/5 hover:bg-white/15"
+                          onClick={() => handleToggleLock(account)}
+                          title={account.isLocked ? "Unlock" : "Lock"}
+                          aria-label={account.isLocked ? "Unlock account" : "Lock account"}
+                        >
+                          <Lock className={`h-4 w-4 ${account.isLocked ? 'text-red-400' : 'text-neutral-400'}`} />
                         </Button>
 
                         {account.isTemp && (
                           <Button
                             variant="outline"
-                            size="sm"
-                            className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
+                            size="icon"
+                            className="h-9 w-9 rounded-xl border-white/15 bg-white/5 hover:bg-white/15"
                             onClick={() => {
                               setExtendAccount(account);
                               setAdditionalHours(24);
                             }}
+                            title="Extend"
+                            aria-label="Extend account"
                           >
-                            <Clock className="mr-1 h-3 w-3 text-[var(--brand)]" />
-                            Extend
+                            <Clock className="h-4 w-4 text-[var(--brand)]" />
                           </Button>
                         )}
 
                         <Button
                           variant="outline"
-                          size="sm"
-                          className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
+                          size="icon"
+                          className="h-9 w-9 rounded-xl border-white/15 bg-white/5 hover:bg-white/15"
                           onClick={() => {
                             setResetAccount(account);
                             setResetPassword("");
                           }}
+                          title="Reset password"
+                          aria-label="Reset account password"
                         >
-                          <KeyRound className="mr-1 h-3 w-3 text-amber-400" />
-                          Password
+                          <KeyRound className="h-4 w-4 text-amber-400" />
                         </Button>
 
                         <Button
                           variant="outline"
-                          size="sm"
-                          className="rounded-xl border-white/15 bg-white/5 text-[10px] font-semibold hover:bg-white/15 h-8 px-3"
+                          size="icon"
+                          className="h-9 w-9 rounded-xl border-white/15 bg-white/5 hover:bg-white/15"
                           onClick={() => {
                             setMessageText("");
                             setMessageDialog({ account });
                           }}
+                          title="Message"
+                          aria-label="Send message to account"
                         >
-                          <Megaphone className="mr-1 h-3 w-3 text-[var(--brand)]" />
-                          Message
+                          <Megaphone className="h-4 w-4 text-[var(--brand)]" />
                         </Button>
 
                         <Button
                           variant="destructive"
-                          size="sm"
+                          size="icon"
                           disabled={deletingId !== null}
-                          className="rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50 h-8 px-3"
+                          className="h-9 w-9 rounded-xl border border-red-500/20 bg-red-500/10 text-red-400 hover:bg-red-500/20 disabled:cursor-not-allowed disabled:opacity-50"
                           onClick={() => handleDeleteAccount(account.id, account.username)}
+                          title="Delete account"
+                          aria-label="Delete account"
                         >
                           {deletingId === account.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <Loader2 className="h-4 w-4 animate-spin" />
                           ) : (
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           )}
                         </Button>
                       </div>

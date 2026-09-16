@@ -173,7 +173,8 @@ export async function GET(request: NextRequest) {
 
     const expiringSoon48hCount = Number(expiringSoon48hResult.count) || 0;
 
-    // Streaming Now: count of active playback sessions (not expired/revoked)
+    // Streaming Now: playback sessions with a recent heartbeat (within 2 min).
+    const heartbeatCutoff = new Date(now.getTime() - 2 * 60 * 1000).toISOString();
     const [streamingNowResult] = await db
       .select({ 
         count: count(),
@@ -182,8 +183,10 @@ export async function GET(request: NextRequest) {
       .from(playbackSessions)
       .where(
         and(
+          lt(playbackSessions.createdAt, now.toISOString()),
           gt(playbackSessions.expiresAt, now.toISOString()),
-          isNull(playbackSessions.revokedAt)
+          isNull(playbackSessions.revokedAt),
+          gt(playbackSessions.lastSeenAt, heartbeatCutoff)
         )
       );
 
@@ -191,14 +194,15 @@ export async function GET(request: NextRequest) {
     const streamingNowAccounts = Number(streamingNowResult.accounts) || 0;
 
     // Peak concurrent streams today: sweep-line over sessions overlapping today.
-    // playback_sessions only record creation/expiry/revocation (no heartbeat), so
-    // this approximates concurrency from those windows.
+    // A session's effective end is the earliest of expiry, revocation and its
+    // last heartbeat, so stalled sessions stop contributing.
     const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const todaysSessions = await db
       .select({
         createdAt: playbackSessions.createdAt,
         expiresAt: playbackSessions.expiresAt,
         revokedAt: playbackSessions.revokedAt,
+        lastSeenAt: playbackSessions.lastSeenAt,
       })
       .from(playbackSessions)
       .where(
@@ -211,9 +215,10 @@ export async function GET(request: NextRequest) {
     const boundaries: Array<[number, number]> = [];
     for (const s of todaysSessions) {
       const startMs = Math.max(Date.parse(s.createdAt), startOfToday.getTime());
-      const hardEnd = s.revokedAt
-        ? Math.min(Date.parse(s.revokedAt), Date.parse(s.expiresAt))
-        : Date.parse(s.expiresAt);
+      const expiresMs = Date.parse(s.expiresAt);
+      const revokedMs = s.revokedAt ? Date.parse(s.revokedAt) : Infinity;
+      const lastSeenMs = s.lastSeenAt ? Date.parse(s.lastSeenAt) : Infinity;
+      const hardEnd = Math.min(expiresMs, revokedMs, lastSeenMs);
       const endMs = Math.min(hardEnd, now.getTime());
       if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
         boundaries.push([startMs, 1]);

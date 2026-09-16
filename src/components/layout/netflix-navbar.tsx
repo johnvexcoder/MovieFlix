@@ -240,97 +240,97 @@ export function NetflixNavbar({ profile, accountExpiresAt }: NetflixNavbarProps)
                         </p>
                       </div>
                     )}
-<button
-  type="button"
-  onClick={() => {
-    setProfileDropdown(false);
-    router.push("/profiles");
-  }}
-  aria-label="Switch Profile"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
->
-  <User className="h-5 w-5 text-neutral-400" />
-</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/profiles");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                    >
+                      <User className="h-4 w-4 shrink-0 text-neutral-400" />
+                      <span>Switch Profile</span>
+                    </button>
                   </div>
 
                   <div className="py-1 pt-1 space-y-0.5 border-t border-white/10">
-<button
-  type="button"
-  onClick={() => {
-    setProfileDropdown(false);
-    router.push("/account/update-payment");
-  }}
-  aria-label="Payment / Renew"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
->
-  <CreditCard className="h-5 w-5 text-emerald-400" />
-</button>
-<button
-  type="button"
-  onClick={() => {
-    setProfileDropdown(false);
-    router.push("/change-password");
-  }}
-  aria-label="Change Password"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
->
-  <KeyRound className="h-5 w-5 text-neutral-400" />
-</button>
-<button
-  type="button"
-  onClick={() => {
-    setProfileDropdown(false);
-    router.push("/account/report");
-  }}
-  aria-label="Report a Problem"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
->
-  <AlertTriangle className="h-5 w-5 text-red-400" />
-</button>
-<button
-  type="button"
-  onClick={() => {
-    setProfileDropdown(false);
-    router.push("/account/feedback");
-  }}
-  aria-label="Give Feedback"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
->
-  <MessageSquareHeart className="h-5 w-5 text-emerald-400" />
-</button>
-<button
-  type="button"
-  onClick={() => {
-    setProfileDropdown(false);
-    setSuggestionOpen(true);
-  }}
-  aria-label="Send a Suggestion"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
->
-  <Lightbulb className="h-5 w-5 text-amber-400" />
-</button>
-<button
-  type="button"
-  onClick={() => {
-    setProfileDropdown(false);
-    router.push("/account/about");
-  }}
-  aria-label="About MovieFlix"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-white/10"
->
-  <Info className="h-5 w-5 text-sky-400" />
-</button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/update-payment");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                    >
+                      <CreditCard className="h-4 w-4 shrink-0 text-emerald-400" />
+                      <span>Payment / Renew</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/change-password");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                    >
+                      <KeyRound className="h-4 w-4 shrink-0 text-neutral-400" />
+                      <span>Change Password</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/report");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                    >
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-red-400" />
+                      <span>Report a Problem</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/feedback");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                    >
+                      <MessageSquareHeart className="h-4 w-4 shrink-0 text-emerald-400" />
+                      <span>Give Feedback</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        setSuggestionOpen(true);
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                    >
+                      <Lightbulb className="h-4 w-4 shrink-0 text-amber-400" />
+                      <span>Send a Suggestion</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setProfileDropdown(false);
+                        router.push("/account/about");
+                      }}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-neutral-300 transition-all duration-200 hover:bg-white/10 hover:text-white"
+                    >
+                      <Info className="h-4 w-4 shrink-0 text-sky-400" />
+                      <span>About MovieFlix</span>
+                    </button>
                   </div>
 
                   <div className="pt-1 border-t border-white/10">
-<button
-  type="button"
-  onClick={handleLogout}
-  aria-label="Sign Out"
-  className="flex h-8 w-8 items-center justify-center rounded-xl p-0 transition-all duration-200 hover:bg-red-500/10"
->
-  <LogOut className="h-5 w-5" />
-</button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-sm font-medium text-red-300 transition-all duration-200 hover:bg-red-500/10 hover:text-red-200"
+                    >
+                      <LogOut className="h-4 w-4 shrink-0" />
+                      <span>Sign Out</span>
+                    </button>
                   </div>
                 </motion.div>
               )}

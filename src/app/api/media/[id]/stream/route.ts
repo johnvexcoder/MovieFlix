@@ -129,6 +129,7 @@ export async function GET(
 
     let start: number;
     let requestedEnd: number;
+    const isOpenEnded = Boolean(match[1]) && !match[2];
     if (!match[1]) {
       const suffixLength = Number(match[2]);
       if (!Number.isSafeInteger(suffixLength) || suffixLength <= 0) {
@@ -151,7 +152,14 @@ export async function GET(
       });
     }
 
-    const end = Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
+    // Open-ended ranges (bytes=N-) must return the entire remainder. Some Smart
+    // TV engines ignore Content-Range and treat a truncated 206 body as the
+    // whole asset, firing `ended` a few seconds in. Only explicit, client
+    // bounded ranges are capped for download protection; the client already
+    // declared how much it wants there.
+    const end = isOpenEnded
+      ? fileSize - 1
+      : Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
 
     const chunkSize = end - start + 1;
     const fileStream = fs.createReadStream(/*turbopackIgnore: true*/ targetFilePath, { start, end });

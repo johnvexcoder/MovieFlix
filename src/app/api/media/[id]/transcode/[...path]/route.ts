@@ -167,17 +167,20 @@ export async function GET(
     }
 
     let start = 0;
-    let end = Math.min(start + MAX_CHUNK_BYTES - 1, fileSize - 1);
+    let end = fileSize - 1;
 
     if (range) {
       const parts = range.replace(/bytes=/, "").split("-");
       const requestedStart = parts[0] ? parseInt(parts[0], 10) : 0;
-      const requestedEnd = parts[1]
-        ? parseInt(parts[1], 10)
-        : Math.min(requestedStart + 1024 * 1024 * 4 - 1, fileSize - 1);
+      const hasExplicitEnd = Boolean(parts[1]);
+      const requestedEnd = hasExplicitEnd ? parseInt(parts[1], 10) : fileSize - 1;
 
       start = Math.min(requestedStart, fileSize - 1);
-      end = Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1);
+      // Open-ended ranges must cover the full remainder so Smart TV engines do
+      // not mistake a truncated body for the entire asset and stop early.
+      end = hasExplicitEnd
+        ? Math.min(requestedEnd, start + MAX_CHUNK_BYTES - 1, fileSize - 1)
+        : fileSize - 1;
 
       if (start > end || start >= fileSize) {
         return new NextResponse("Range not satisfiable", {

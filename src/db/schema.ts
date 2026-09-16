@@ -194,6 +194,8 @@ export const billingOrders = sqliteTable("billing_orders", {
   expiresAt: text("expires_at"),
   entitlementStart: text("entitlement_start"),
   entitlementEnd: text("entitlement_end"),
+  refundAmountMinor: integer("refund_amount_minor").notNull().default(0),
+  refundedAt: text("refunded_at"),
   createdAt: text("created_at").notNull().default(""),
   updatedAt: text("updated_at").notNull().default(""),
 });
@@ -317,7 +319,37 @@ export const playbackSessions = sqliteTable("playback_sessions", {
   profileId: text("profile_id").notNull().references(() => profiles.id),
   expiresAt: text("expires_at").notNull(),
   revokedAt: text("revoked_at"),
+  lastSeenAt: text("last_seen_at"),
   createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
+// DAILY ANALYTICS AGGREGATION TABLE
+// Computed by src/lib/analytics-aggregate.ts. One row per UTC day; updated
+// idempotently (upsert by date) so backfills can safely re-run any range.
+// ===========================================
+export const analyticsDaily = sqliteTable("analytics_daily", {
+  date: text("date").primaryKey(),
+  newSubscribers: integer("new_subscribers").notNull().default(0),
+  renewedSubscriptions: integer("renewed_subscriptions").notNull().default(0),
+  expiredSubscriptions: integer("expired_subscriptions").notNull().default(0),
+  cancelledSubscriptions: integer("cancelled_subscriptions").notNull().default(0),
+  activeSubscribers: integer("active_subscribers").notNull().default(0),
+  revenueGrossMinor: integer("revenue_gross_minor").notNull().default(0),
+  revenueDiscountMinor: integer("revenue_discount_minor").notNull().default(0),
+  revenueNetMinor: integer("revenue_net_minor").notNull().default(0),
+  revenueRefundMinor: integer("revenue_refund_minor").notNull().default(0),
+  transactions: integer("transactions").notNull().default(0),
+  streamingSessions: integer("streaming_sessions").notNull().default(0),
+  uniqueViewers: integer("unique_viewers").notNull().default(0),
+  streamingPeak: integer("streaming_peak").notNull().default(0),
+  watchTimeMinutes: integer("watch_time_minutes").notNull().default(0),
+  autoRenewEnabled: integer("auto_renew_enabled").notNull().default(0),
+  autoRenewPotentialValueMinor: integer("auto_renew_potential_value_minor").notNull().default(0),
+  autoRenewChurnRisk24h: integer("auto_renew_churn_risk_24h").notNull().default(0),
+  autoRenewChurnRisk3d: integer("auto_renew_churn_risk_3d").notNull().default(0),
+  autoRenewChurnRisk7d: integer("auto_renew_churn_risk_7d").notNull().default(0),
+  updatedAt: text("updated_at").notNull().default(""),
 });
 
 // ===========================================

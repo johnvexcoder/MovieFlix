@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db, setupDatabase } from "@/db";
-import { mediaStreamJobs, mediaStreamPackages } from "@/db/schema";
+import { episodes, media, mediaStreamJobs, mediaStreamPackages } from "@/db/schema";
 import { verifyToken } from "@/lib/auth";
 import { enqueuePreparation } from "@/streaming/jobs";
 
@@ -18,7 +18,24 @@ export async function GET(request: NextRequest) {
     .orderBy(desc(mediaStreamPackages.createdAt)).limit(200);
   const jobs = await db.select().from(mediaStreamJobs)
     .orderBy(desc(mediaStreamJobs.createdAt)).limit(200);
-  return NextResponse.json({ packages, jobs });
+  // Lightweight catalog options so the preparation form can use selectors
+  // instead of requiring admins to paste raw media/episode IDs.
+  const mediaOptions = await db
+    .select({ id: media.id, title: media.title, type: media.type })
+    .from(media)
+    .orderBy(media.title)
+    .limit(1000);
+  const episodeOptions = await db
+    .select({
+      id: episodes.id,
+      mediaId: episodes.mediaId,
+      episodeNumber: episodes.episodeNumber,
+      title: episodes.title,
+    })
+    .from(episodes)
+    .orderBy(episodes.mediaId, episodes.episodeNumber)
+    .limit(5000);
+  return NextResponse.json({ packages, jobs, media: mediaOptions, episodes: episodeOptions });
 }
 
 export async function POST(request: NextRequest) {

@@ -13,6 +13,11 @@ import { formatPHP, formatPercentage, getRangeLabel, getMobileRangeLabel } from 
 import { Activity, Megaphone, Clock, Timer, Loader2, X } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
+const SHEET_BASE =
+  "glass-panel border-white/15 items-start inset-x-0 bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0 " +
+  "sm:translate-x-1/2 sm:translate-y-1/2 sm:top-1/2 sm:left-1/2 sm:bottom-auto w-full sm:w-[95%] max-w-full sm:max-w-2xl md:max-w-4xl lg:max-w-6xl " +
+  "sm:mx-auto my-0 sm:my-4 sm:rounded-2xl rounded-t-3xl rounded-b-none max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto";
+
 interface AnalyticsModalProps {
   type: "subscribers" | "revenue" | "expirations" | "streaming";
   range: "1m" | "3m" | "6m" | "1y";
@@ -107,7 +112,7 @@ function AnalyticsModal({
   if (loading && !data) {
     return (
       <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="glass-panel max-w-2xl mx-auto my-4 border-white/15 p-6">
+        <DialogContent className={`${SHEET_BASE} p-6`}>
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">{getTitle()}</DialogTitle>
             <DialogDescription className="text-neutral-400">{getDescription()}</DialogDescription>
@@ -124,7 +129,7 @@ function AnalyticsModal({
   if (error) {
     return (
       <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="glass-panel max-w-2xl mx-auto my-4 border-white/15 p-6">
+        <DialogContent className={`${SHEET_BASE} p-6`}>
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">{getTitle()}</DialogTitle>
             <DialogDescription className="text-neutral-400">{getDescription()}</DialogDescription>
@@ -143,7 +148,7 @@ function AnalyticsModal({
   if (!data) {
     return (
       <Dialog open={true} onOpenChange={onClose}>
-        <DialogContent className="glass-panel max-w-2xl mx-auto my-4 border-white/15 p-6">
+        <DialogContent className={`${SHEET_BASE} p-6`}>
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">{getTitle()}</DialogTitle>
             <DialogDescription className="text-neutral-400">{getDescription()}</DialogDescription>
@@ -158,7 +163,9 @@ function AnalyticsModal({
 
   return (
     <Dialog open={true} onOpenChange={onClose}>
-      <DialogContent className="glass-panel w-[95%] max-w-[calc(100%-1.5rem)] sm:max-w-2xl md:max-w-4xl lg:max-w-6xl mx-auto my-4 border-white/15">
+      <DialogContent className={`${SHEET_BASE} p-0`}>
+        {/* Mobile grab handle */}
+        <div className="mx-auto mt-3 block h-1 w-10 shrink-0 rounded-full bg-white/20 sm:hidden" />
         {/* Header with close button and range selector */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-6">
           <div className="space-y-2">
@@ -256,6 +263,14 @@ function AnalyticsModal({
                         {data.metrics.netChange}
                       </span>
                     </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Auto-Renew Enabled</span>
+                      <span>{data.metrics.autoRenewEnabled ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Auto-Renew Value</span>
+                      <span>{formatPHP(data.metrics.autoRenewPotentialValueMinor ?? 0)}</span>
+                    </div>
                   </>
                 )}
                 
@@ -317,6 +332,18 @@ function AnalyticsModal({
                       <span>Next 7 Days</span>
                       <span>{data.metrics.within7Days ?? data.metrics.expiringSoon ?? 0}</span>
                     </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Auto-Renewing (24h)</span>
+                      <span>{data.metrics.within24HoursAutoRenew ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Auto-Renewing (3d)</span>
+                      <span>{data.metrics.within3DaysAutoRenew ?? 0}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Auto-Renewing (7d)</span>
+                      <span>{data.metrics.within7DaysAutoRenew ?? 0}</span>
+                    </div>
                   </>
                 )}
                 
@@ -347,13 +374,19 @@ function AnalyticsModal({
                       <span>Avg Concurrent</span>
                       <span>{data.metrics.averageConcurrentStreams ?? 0}</span>
                     </div>
+                    <div className="flex items-center justify-between text-[10px] text-neutral-400">
+                      <span>Unique Viewers</span>
+                      <span>{data.metrics.uniqueViewers ?? 0}</span>
+                    </div>
                   </>
                 )}
               </div>
             </div>
             
-            {/* Chart Panel (70%) */}
-           <div className="col-span-1 min-w-0 md:col-span-2">
+          </div>
+
+          {/* Chart Panel (70%) */}
+          <div className="col-span-1 min-w-0 md:col-span-2">
             <div className="space-y-4">
               <h3 className="text-xl font-bold text-white">
                 {type === "subscribers"
@@ -404,7 +437,6 @@ function AnalyticsModal({
                 </div>
               )}
             </div>
-          </div>
           </div>
         </div>
       </DialogContent>

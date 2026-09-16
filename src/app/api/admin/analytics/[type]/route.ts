@@ -5,13 +5,15 @@ import {
   subscriptions, 
   billingOrders,
   playbackSessions,
+  analyticsDaily,
   promoCodes,
   promoRedemptions,
   subscriptionPlans
 } from "@/db/schema";
-import { eq, gt, lt, gte, lte, and, sql, isNull, isNotNull, desc, count, sum, avg } from "drizzle-orm";
+import { eq, gt, lt, gte, lte, and, sql, isNull, isNotNull, desc, count, sum } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { errorResponse, successResponse } from "@/lib/api-response";
+import { concurrencyStats } from "@/lib/concurrency";
 
 interface AnalyticsResponse {
   range: string;
@@ -120,16 +122,16 @@ export async function GET(request: NextRequest) {
 
     switch (type) {
       case "subscribers":
-        response = await getSubscribersAnalytics(db, dateGroups, range, start, end);
+        response = await getSubscribersAnalytics(dateGroups, range, start, end);
         break;
       case "revenue":
-        response = await getRevenueAnalytics(db, dateGroups, range, start, end);
+        response = await getRevenueAnalytics(dateGroups, range, start, end);
         break;
       case "expirations":
-        response = await getExpirationsAnalytics(db, dateGroups, range, start, end);
+        response = await getExpirationsAnalytics(dateGroups, range, start, end);
         break;
       case "streaming":
-        response = await getStreamingAnalytics(db, dateGroups, range, start, end);
+        response = await getStreamingAnalytics(dateGroups, range, start, end);
         break;
       default:
         return errorResponse("Invalid analytics type", 400);
@@ -144,7 +146,6 @@ export async function GET(request: NextRequest) {
 
 // Subscribers analytics
 async function getSubscribersAnalytics(
-  db: any,
   dateGroups: Array<{ start: Date; end: Date }>,
   range: string,
   startDate: Date,
@@ -246,29 +247,54 @@ async function getSubscribersAnalytics(
     );
 
   const cancelled = Number(cancelledResult.count) || 0;
+
+  // Auto-renew enabled accounts plus potential renewal value (sum of each
+  // account's most recent PAID order amount).
+  const autoRenewSubs = await db
+    .select({ accountId: subscriptions.accountId })
+    .from(subscriptions)
+    .where(and(eq(subscriptions.autoRenew, true), eq(subscriptions.status, "ACTIVE")));
+  let autoRenewPotentialValueMinor = 0;
+  if (autoRenewSubs.length > 0) {
+    const paidRows = await db.all<{ account_id: string; final_amount_minor: number; paid_at: string }>(
+      sql`SELECT account_id, final_amount_minor, paid_at FROM billing_orders WHERE status = 'PAID'`
+    );
+    const lastByAccount = new Map<string, { minor: number; paidMs: number }>();
+    for (const r of paidRows) {
+      const paidMs = Date.parse(r.paid_at);
+      const cur = lastByAccount.get(r.account_id);
+      if (!cur || paidMs > cur.paidMs) {
+        lastByAccount.set(r.account_id, { minor: Number(r.final_amount_minor) || 0, paidMs });
+      }
+    }
+    for (const s of autoRenewSubs) autoRenewPotentialValueMinor += lastByAccount.get(s.accountId)?.minor || 0;
+  }
   
-  // Build time series data (new subscriptions per period)
-  const series = await Promise.all(
-    dateGroups.map(async (group) => {
-      const [result] = await db
-        .select({ count: count() })
-        .from(accounts)
-        .innerJoin(subscriptions, eq(accounts.id, subscriptions.accountId))
-        .where(
-          and(
-            eq(subscriptions.status, "ACTIVE"),
-            eq(subscriptions.isLifetime, false),
-            gte(subscriptions.createdAt, group.start.toISOString()),
-            lt(subscriptions.createdAt, group.end.toISOString())
-          )
-        );
-      
-      return {
-        date: formatDate(group.start),
-        value: Number(result.count) || 0
-      };
-    })
-  );
+  // Build time series data (new subscriptions per period, daily aggregate first)
+  const dailySeries = await seriesFromDaily(db, "subscribers", dateGroups);
+  const series =
+    dailySeries ??
+    (await Promise.all(
+      dateGroups.map(async (group) => {
+        const [result] = await db
+          .select({ count: count() })
+          .from(accounts)
+          .innerJoin(subscriptions, eq(accounts.id, subscriptions.accountId))
+          .where(
+            and(
+              eq(subscriptions.status, "ACTIVE"),
+              eq(subscriptions.isLifetime, false),
+              gte(subscriptions.createdAt, group.start.toISOString()),
+              lt(subscriptions.createdAt, group.end.toISOString())
+            )
+          );
+
+        return {
+          date: formatDate(group.start),
+          value: Number(result.count) || 0,
+        };
+      })
+    ));
 
   return {
     range,
@@ -285,7 +311,9 @@ async function getSubscribersAnalytics(
       renewals,
       expired,
       cancelled,
-      netChange: newSubscribers + renewals - expired - cancelled
+      netChange: newSubscribers + renewals - expired - cancelled,
+      autoRenewEnabled: autoRenewSubs.length,
+      autoRenewPotentialValueMinor,
     },
     series
   };
@@ -293,7 +321,6 @@ async function getSubscribersAnalytics(
 
 // Revenue analytics
 async function getRevenueAnalytics(
-  db: any,
   dateGroups: Array<{ start: Date; end: Date }>,
   range: string,
   startDate: Date,
@@ -344,9 +371,17 @@ async function getRevenueAnalytics(
     ? { name: topPlanRows[0].planName, net: Number(topPlanRows[0].total ?? 0) || 0 }
     : null;
 
-  // Refunds: the provider billing path records failed/expired orders but does not
-  // persist refund records, so refund totals are reported as 0 (documented limitation).
-  const refunds = 0;
+  // Refunds booked (admin-recorded) within the period.
+  const [refundRow] = await db
+    .select({ total: sum(billingOrders.refundAmountMinor) })
+    .from(billingOrders)
+    .where(
+      and(
+        gte(billingOrders.refundedAt, startDate.toISOString()),
+        lt(billingOrders.refundedAt, endDate.toISOString())
+      )
+    );
+  const refunds = Number(refundRow?.total ?? 0) || 0;
 
   // Previous equivalent period (same length, immediately preceding).
   const prevStart = new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime()));
@@ -364,25 +399,28 @@ async function getRevenueAnalytics(
   const prevNetRevenue = Number(prevResult?.net ?? 0) || 0;
   const change = prevNetRevenue > 0 ? ((netRevenue - prevNetRevenue) / prevNetRevenue) * 100 : 0;
 
-  // Time series: net revenue per group.
-  const series = await Promise.all(
-    dateGroups.map(async (group) => {
-      const [result] = await db
-        .select({ total: sum(billingOrders.finalAmountMinor) })
-        .from(billingOrders)
-        .where(
-          and(
-            eq(billingOrders.status, "PAID"),
-            gte(billingOrders.paidAt, group.start.toISOString()),
-            lt(billingOrders.paidAt, group.end.toISOString())
-          )
-        );
-      return {
-        date: formatDate(group.start),
-        value: Number(result?.total ?? 0) || 0,
-      };
-    })
-  );
+  // Time series: net revenue per group (from the daily aggregate when available).
+  const dailySeries = await seriesFromDaily(db, "revenue", dateGroups);
+  const series =
+    dailySeries ??
+    (await Promise.all(
+      dateGroups.map(async (group) => {
+        const [result] = await db
+          .select({ total: sum(billingOrders.finalAmountMinor) })
+          .from(billingOrders)
+          .where(
+            and(
+              eq(billingOrders.status, "PAID"),
+              gte(billingOrders.paidAt, group.start.toISOString()),
+              lt(billingOrders.paidAt, group.end.toISOString())
+            )
+          );
+        return {
+          date: formatDate(group.start),
+          value: Number(result?.total ?? 0) || 0,
+        };
+      })
+    ));
 
   return {
     range,
@@ -410,7 +448,6 @@ async function getRevenueAnalytics(
 
 // Expirations analytics
 async function getExpirationsAnalytics(
-  db: any,
   dateGroups: Array<{ start: Date; end: Date }>,
   range: string,
   startDate: Date,
@@ -434,7 +471,7 @@ async function getExpirationsAnalytics(
   const expiringSoonCount = Number(expiringSoonResult.count) || 0;
 
   // Real countdown buckets for the expirations panel.
-  async function countExpiringWithin(days: number): Promise<number> {
+  async function countExpiringWithin(days: number, autoRenewOnly = false): Promise<number> {
     const until = new Date(now.getTime() + days * 24 * 60 * 60 * 1000);
     const [result] = await db
       .select({ count: count() })
@@ -443,7 +480,10 @@ async function getExpirationsAnalytics(
         and(
           eq(subscriptions.isLifetime, false),
           gt(subscriptions.currentPeriodEnd, now.toISOString()),
-          lte(subscriptions.currentPeriodEnd, until.toISOString())
+          lte(subscriptions.currentPeriodEnd, until.toISOString()),
+          autoRenewOnly
+            ? and(eq(subscriptions.autoRenew, true), eq(subscriptions.cancelAtPeriodEnd, false))
+            : undefined
         )
       );
     return Number(result.count) || 0;
@@ -451,6 +491,9 @@ async function getExpirationsAnalytics(
 
   const within24Hours = await countExpiringWithin(1);
   const within3Days = await countExpiringWithin(3);
+  const within24HoursAutoRenew = await countExpiringWithin(1, true);
+  const within3DaysAutoRenew = await countExpiringWithin(3, true);
+  const within7DaysAutoRenew = await countExpiringWithin(7, true);
   
   // Get expired count in period
   const [expiredInPeriodResult] = await db
@@ -482,26 +525,44 @@ async function getExpirationsAnalytics(
 
   const renewedInPeriod = Number(renewedInPeriodResult.count) || 0;
   
-  // Build time series data (expirations per period)
-  const series = await Promise.all(
-    dateGroups.map(async (group) => {
-      const [result] = await db
-        .select({ count: count() })
-        .from(subscriptions)
-        .where(
-          and(
-            eq(subscriptions.isLifetime, false),
-            lt(subscriptions.currentPeriodEnd, group.end.toISOString()),
-            gte(subscriptions.currentPeriodEnd, group.start.toISOString())
-          )
-        );
-      
-      return {
-        date: formatDate(group.start),
-        value: Number(result.count) || 0
-      };
-    })
-  );
+  // Build time series data (expirations per period, daily aggregate first)
+  const dailySeries = await seriesFromDaily(db, "expirations", dateGroups);
+  const series =
+    dailySeries ??
+    (await Promise.all(
+      dateGroups.map(async (group) => {
+        const [result] = await db
+          .select({ count: count() })
+          .from(subscriptions)
+          .where(
+            and(
+              eq(subscriptions.isLifetime, false),
+              lt(subscriptions.currentPeriodEnd, group.end.toISOString()),
+              gte(subscriptions.currentPeriodEnd, group.start.toISOString())
+            )
+          );
+        return {
+          date: formatDate(group.start),
+          value: Number(result.count) || 0,
+        };
+      })
+    ));
+
+  // Previous equal-length window for the change percentage.
+  const prevStart = new Date(startDate.getTime() - (endDate.getTime() - startDate.getTime()));
+  const prevEnd = startDate;
+  const [prevExpiredResult] = await db
+    .select({ count: count() })
+    .from(subscriptions)
+    .where(
+      and(
+        eq(subscriptions.isLifetime, false),
+        lt(subscriptions.currentPeriodEnd, prevEnd.toISOString()),
+        gte(subscriptions.currentPeriodEnd, prevStart.toISOString())
+      )
+    );
+  const prevExpired = Number(prevExpiredResult.count) || 0;
+  const expChange = prevExpired > 0 ? ((expiredInPeriod - prevExpired) / prevExpired) * 100 : 0;
 
   return {
     range,
@@ -511,8 +572,8 @@ async function getExpirationsAnalytics(
       renewedInPeriod
     },
     comparison: {
-      previous: expiredInPeriod, // Simplified
-      change: 0
+      previous: prevExpired,
+      change: Math.round(expChange * 10) / 10
     },
     metrics: {
       expiringSoon: expiringSoonCount,
@@ -520,62 +581,68 @@ async function getExpirationsAnalytics(
       renewedInPeriod,
       within24Hours,
       within3Days,
-      within7Days: expiringSoonCount
+      within7Days: expiringSoonCount,
+      within24HoursAutoRenew,
+      within3DaysAutoRenew,
+      within7DaysAutoRenew,
     },
     series
   };
 }
 
-// Peak and time-weighted average concurrent streams over a window, computed via
-// a sweep-line over session lifetimes (no heartbeat data available).
-function concurrencyStats(
-  sessions: Array<{ createdAt: string; expiresAt: string; revokedAt: string | null }>,
-  windowStart: number,
-  windowEnd: number
-): { peak: number; average: number } {
-  if (windowEnd <= windowStart) return { peak: 0, average: 0 };
+// Time series from the pre-aggregated analytics_daily table. Returns null when
+// the table has no rows in the window so callers can fall back to raw scans.
+// Rendering kind: subscribers=newSubscribers, revenue=revenueNetMinor,
+// expirations=expiredSubscriptions, streaming=streamingPeak (max per bucket).
+async function seriesFromDaily(
+  dbh: any,
+  kind: "subscribers" | "revenue" | "expirations" | "streaming",
+  dateGroups: Array<{ start: Date; end: Date }>
+): Promise<Array<{ date: string; value: number }> | null> {
+  const rows = await dbh.select().from(analyticsDaily);
+  if (!rows.length) return null;
 
-  const events: Array<[number, number]> = [];
-  for (const s of sessions) {
-    const startMs = Math.max(Date.parse(s.createdAt), windowStart);
-    const hardEnd = s.revokedAt
-      ? Math.min(Date.parse(s.revokedAt), Date.parse(s.expiresAt))
-      : Date.parse(s.expiresAt);
-    const endMs = Math.min(hardEnd, windowEnd);
-    if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
-      events.push([startMs, 1]);
-      events.push([endMs, -1]);
+  const startMs = dateGroups[0]?.start.getTime();
+  const endMs = dateGroups[dateGroups.length - 1]?.end.getTime();
+  if (startMs === undefined || endMs === undefined) return [];
+
+  const pick = (r: (typeof rows)[number]): number =>
+    kind === "subscribers"
+      ? r.newSubscribers
+      : kind === "revenue"
+      ? r.revenueNetMinor
+      : kind === "expirations"
+      ? r.expiredSubscriptions
+      : r.streamingPeak;
+
+  const isMax = kind === "streaming";
+  return dateGroups.map((group) => {
+    const gs = group.start.getTime();
+    const ge = group.end.getTime();
+    let acc = 0;
+    if (isMax) acc = -Infinity;
+    for (const row of rows) {
+      const d0 = Date.parse(row.date);
+      const d1 = d0 + 86400000;
+      if (d0 < ge && d1 > gs) {
+        acc = isMax ? Math.max(acc, pick(row)) : acc + pick(row);
+      }
     }
-  }
-
-  events.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
-
-  let peak = 0;
-  let running = 0;
-  let area = 0;
-  let prevTime = windowStart;
-  for (const [time, delta] of events) {
-    area += running * (time - prevTime);
-    prevTime = time;
-    running += delta;
-    if (running > peak) peak = running;
-  }
-  area += running * (windowEnd - prevTime);
-
-  const duration = windowEnd - windowStart;
-  return { peak, average: duration > 0 ? area / duration : 0 };
+    return { date: formatDate(group.start), value: isMax && acc === -Infinity ? 0 : acc };
+  });
 }
 
 // Streaming analytics
 async function getStreamingAnalytics(
-  db: any,
   dateGroups: Array<{ start: Date; end: Date }>,
   range: string,
   startDate: Date,
   endDate: Date
 ): Promise<AnalyticsResponse> {
-  // Get current active streams
+  // Get current active streams: sessions with a recent heartbeat (last seen
+  // within 2 minutes) so stale sessions are not counted as still streaming.
   const now = new Date();
+  const heartbeatCutoff = new Date(now.getTime() - 2 * 60 * 1000).toISOString();
   const [currentResult] = await db
     .select({ 
       count: count(),
@@ -586,7 +653,8 @@ async function getStreamingAnalytics(
       and(
         lt(playbackSessions.createdAt, now.toISOString()),
         gt(playbackSessions.expiresAt, now.toISOString()),
-        isNull(playbackSessions.revokedAt)
+        isNull(playbackSessions.revokedAt),
+        gt(playbackSessions.lastSeenAt, heartbeatCutoff)
       )
     );
 
@@ -611,7 +679,7 @@ async function getStreamingAnalytics(
   const prevCount = Number(prevResult.count) || 0;
   const change = prevCount > 0 ? ((currentCount - prevCount) / prevCount) * 100 : 0;
   
-  // Get metrics: total sessions, watch time (approximated)
+  // Get metrics: total sessions, watch time (heartbeat-derived)
   const [sessionsCountResult] = await db
     .select({ count: count() })
     .from(playbackSessions)
@@ -624,13 +692,17 @@ async function getStreamingAnalytics(
 
   const sessionCount = Number(sessionsCountResult.count) || 0;
 
-  // Sessions overlapping the reporting window, clipped to "now".
+  // Sessions overlapping the reporting window, clipped to "now". The effective
+  // end of a watched session is its last heartbeat when present, otherwise its
+  // hard expiry/revocation, always capped at "now".
   const periodEndMs = Math.min(endDate.getTime(), now.getTime());
   const overlappingSessions = await db
     .select({
+      accountId: playbackSessions.accountId,
       createdAt: playbackSessions.createdAt,
       expiresAt: playbackSessions.expiresAt,
       revokedAt: playbackSessions.revokedAt,
+      lastSeenAt: playbackSessions.lastSeenAt,
     })
     .from(playbackSessions)
     .where(
@@ -640,15 +712,22 @@ async function getStreamingAnalytics(
       )
     );
 
-  // Watch time is approximated by summing session lifetimes within the window.
-  // playback_sessions has no heartbeat, so true watch time is not available.
+  const startStr = startDate.toISOString();
+  const periodEndStr = new Date(periodEndMs).toISOString();
+  const uniqueViewers = new Set(
+    overlappingSessions
+      .filter((s) => s.createdAt >= startStr && s.createdAt < periodEndStr)
+      .map((s) => s.accountId)
+  ).size;
+
   let watchTimeMs = 0;
   for (const s of overlappingSessions) {
     const startMs = Math.max(Date.parse(s.createdAt), startDate.getTime());
     const hardEnd = s.revokedAt
       ? Math.min(Date.parse(s.revokedAt), Date.parse(s.expiresAt))
       : Date.parse(s.expiresAt);
-    const endMs = Math.min(hardEnd, periodEndMs);
+    const heartbeatEnd = s.lastSeenAt ? Date.parse(s.lastSeenAt) : hardEnd;
+    const endMs = Math.min(heartbeatEnd, hardEnd, periodEndMs);
     if (Number.isFinite(startMs) && Number.isFinite(endMs) && endMs > startMs) {
       watchTimeMs += endMs - startMs;
     }
@@ -657,17 +736,20 @@ async function getStreamingAnalytics(
 
   const concurrency = concurrencyStats(overlappingSessions, startDate.getTime(), periodEndMs);
 
-  // Build time series: peak concurrent streams per group.
-  const series = await Promise.all(
-    dateGroups.map(async (group) => {
-      const groupEnd = Math.min(group.end.getTime(), now.getTime());
-      const stats = concurrencyStats(overlappingSessions, group.start.getTime(), groupEnd);
-      return {
-        date: formatDate(group.start),
-        value: stats.peak
-      };
-    })
-  );
+  // Build time series: peak concurrent streams per group (daily aggregate first).
+  const dailySeries = await seriesFromDaily(db, "streaming", dateGroups);
+  const series =
+    dailySeries ??
+    (await Promise.all(
+      dateGroups.map(async (group) => {
+        const groupEnd = Math.min(group.end.getTime(), now.getTime());
+        const stats = concurrencyStats(overlappingSessions, group.start.getTime(), groupEnd);
+        return {
+          date: formatDate(group.start),
+          value: stats.peak
+        };
+      })
+    ));
 
   return {
     range,
@@ -683,7 +765,8 @@ async function getStreamingAnalytics(
       streamingSessions: sessionCount,
       watchTime: watchTimeMinutes,
       averageConcurrentStreams: Math.round(concurrency.average * 10) / 10,
-      peakConcurrentStreams: concurrency.peak
+      peakConcurrentStreams: concurrency.peak,
+      uniqueViewers,
     },
     series
   };
