@@ -64,8 +64,22 @@
   .panel { max-width: 640px; margin: 40px auto 0; background: #0b1629;
     border: 1px solid #243955; border-radius: 20px; padding: 34px;
     text-align: center; }
-  .login-panel { max-width: 760px; border-color: #28536a;
+  .login-panel { max-width: 1120px; border-color: #28536a;
     box-shadow: 0 24px 80px rgba(0,0,0,.45); }
+  /* Two-card login layout (QR left + form right) — table layout for
+     old Smart TV engines that cannot rely on flexbox/grid. */
+  .login-cols { display: table; width: 100%; table-layout: fixed;
+    border-spacing: 18px 0; }
+  .login-col { display: table-cell; vertical-align: top; text-align: center;
+    width: 50%; }
+  .login-card { background: #0e1a30; border: 1px solid #2a4a68;
+    border-radius: 18px; padding: 26px 22px; height: 100%; }
+  .login-card h2 { margin: 0 0 6px; font-size: 26px; color: #fff; }
+  .login-card .hint { color: #94a3b8; font-size: 17px; margin: 0 0 16px; line-height: 1.45; }
+  @media (max-width: 900px) {
+    .login-cols { display: block; }
+    .login-col { display: block; width: 100%; margin: 0 0 18px; }
+  }
   .panel h1 { margin: 0 0 8px; font-size: 30px; }
   .panel p.hint { color: #94a3b8; font-size: 16px; margin: 0 0 22px; }
   .qrbox { display: inline-block; background: #fff; padding: 16px;

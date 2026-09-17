@@ -368,19 +368,91 @@
     APP.qr = null;
     var gen = 0;
 
-    var box = banner('MOVIEFLIX', 'Sign in with the MovieFlix app on your phone');
+    var box = banner('MOVIEFLIX', 'Sign in to your TV with your phone or account');
     var panel = make('div');
     addClass(panel, 'panel login-panel');
-    var root = make('div'); // contains qr + code + status + refresh button
-    panel.appendChild(root);
+    var cols = make('div');
+    addClass(cols, 'login-cols');
+    panel.appendChild(cols);
     box.appendChild(panel);
     view.appendChild(box);
 
+    // Left card — QR / device code
+    var qrCol = make('div');
+    addClass(qrCol, 'login-col');
+    var qrCard = make('div');
+    addClass(qrCard, 'login-card');
+    qrCol.appendChild(qrCard);
+    cols.appendChild(qrCol);
+
+    // Right card — username/password
+    var formCol = make('div');
+    addClass(formCol, 'login-col');
+    var formCard = make('div');
+    addClass(formCard, 'login-card');
+    formCol.appendChild(formCard);
+    cols.appendChild(formCol);
+
+    // Build the password form once (right card)
+    formCard.appendChild(make('h2', {}, 'Sign In to Watch'));
+    formCard.appendChild(make('p', { class: 'hint' }, 'Use your MovieFlix username and password.'));
+    var fname = DOC.createElement('input');
+    fname.type = 'text';
+    fname.className = 'tvin';
+    fname.placeholder = 'Username or email';
+    fname.setAttribute('autocomplete', 'username');
+    var fpass = DOC.createElement('input');
+    fpass.type = 'password';
+    fpass.className = 'tvin';
+    fpass.placeholder = 'Password';
+    fpass.setAttribute('autocomplete', 'current-password');
+    var formStatus = make('div', { class: 'status' }, '');
+    var signin = make('button', { class: 'btn' }, 'Sign In');
+    formCard.appendChild(fname);
+    formCard.appendChild(fpass);
+    formCard.appendChild(formStatus);
+    formCard.appendChild(signin);
+    var formStatusEl = formStatus;
+    function submitLogin() {
+      var u = String(fname.value || '').trim();
+      var p = String(fpass.value || '');
+      if (!u || !p) {
+        formStatusEl.textContent = 'Enter your username and password.';
+        formStatusEl.className = 'status err';
+        return;
+      }
+      formStatusEl.textContent = 'Signing in\u2026';
+      formStatusEl.className = 'status';
+      http({ method: 'POST', url: '/api/auth/account-login', body: { username: u, password: p }, allowRefresh: true }, function (res) {
+        if (res.ok && res.data && res.data.success) {
+          var d = res.data.data || {};
+          if (d.requiresPayment) { showPayment(); return; }
+          showProfiles();
+          return;
+        }
+        formStatusEl.textContent = (res.data && res.data.error) || 'Sign-in failed. Try again.';
+        formStatusEl.className = 'status err';
+      });
+    }
+    bindClick(signin, submitLogin);
+    fname.addEventListener('keydown', function (e) {
+      if (e.keyCode === 13 || e.keyCode === 108) submitLogin();
+    });
+    fpass.addEventListener('keydown', function (e) {
+      if (e.keyCode === 13 || e.keyCode === 108) submitLogin();
+    });
+
+    function setStatus(text, cls) {
+      var st = qrCard.querySelector('.status');
+      if (!st) return;
+      st.textContent = text;
+      st.className = 'status' + (cls ? ' ' + cls : '');
+    }
+
     function buildQr(qr) {
-      clear(root);
-      var title = make('h1', {}, 'Sign in to your TV');
-      root.appendChild(title);
-      root.appendChild(make('p', { class: 'hint' }, 'Open the MovieFlix website on your phone and scan this code, or visit the sign-in page and enter the code below.'));
+      clear(qrCard);
+      qrCard.appendChild(make('h2', {}, 'Scan to Sign In'));
+      qrCard.appendChild(make('p', { class: 'hint' }, 'Open the MovieFlix site on your phone and scan this code, or enter the code below.'));
       var qrBox = make('div');
       addClass(qrBox, 'qrbox');
       try {
@@ -402,68 +474,15 @@
         APP.lastError = 'QR render failed: ' + String(e && e.message || e);
         qrBox.appendChild(make('div', { class: 'err' }, 'QR could not render on this device.'));
       }
-      root.appendChild(qrBox);
-      root.appendChild(make('div', { class: 'code' }, qr.code));
+      qrCard.appendChild(qrBox);
+      qrCard.appendChild(make('div', { class: 'code' }, qr.code));
       var count = make('div', { class: 'count' }, '');
-      root.appendChild(count);
-      root.appendChild(make('div', { class: 'status' }, ''));
+      qrCard.appendChild(count);
+      qrCard.appendChild(make('div', { class: 'status' }, ''));
       var refresh = make('button', { class: 'btn ghost' }, 'Generate New Code');
-      root.appendChild(refresh);
+      qrCard.appendChild(refresh);
       bindClick(refresh, startQr);
 
-      /* Classic username/password login — works on any old TV engine, no
-       * phone required. Lives on the same sign-in panel as the QR code. */
-      var divider = make('div', { class: 'divider' }, 'OR');
-      root.appendChild(divider);
-      var formWrap = make('div');
-      addClass(formWrap, 'loginform');
-      root.appendChild(formWrap);
-      formWrap.appendChild(make('p', { class: 'hint' }, 'Sign in with your username and password:'));
-      var fname = DOC.createElement('input');
-      fname.type = 'text';
-      fname.className = 'tvin';
-      fname.placeholder = 'Username or email';
-      fname.setAttribute('autocomplete', 'username');
-      var fpass = DOC.createElement('input');
-      fpass.type = 'password';
-      fpass.className = 'tvin';
-      fpass.placeholder = 'Password';
-      fpass.setAttribute('autocomplete', 'current-password');
-      var formStatus = make('div', { class: 'status' }, '');
-      var signin = make('button', { class: 'btn' }, 'Sign In');
-      formWrap.appendChild(fname);
-      formWrap.appendChild(fpass);
-      formWrap.appendChild(formStatus);
-      formWrap.appendChild(signin);
-      var formStatusEl = formStatus;
-      function submitLogin() {
-        var u = String(fname.value || '').trim();
-        var p = String(fpass.value || '');
-        if (!u || !p) {
-          formStatusEl.textContent = 'Enter your username and password.';
-          formStatusEl.className = 'status err';
-          return;
-        }
-        formStatusEl.textContent = 'Signing in\u2026';
-        formStatusEl.className = 'status';
-        http({ method: 'POST', url: '/api/auth/account-login', body: { username: u, password: p }, allowRefresh: true }, function (res) {
-          if (res.ok && res.data && res.data.success) {
-            var d = res.data.data || {};
-            if (d.requiresPayment) { showPayment(); return; }
-            showProfiles();
-            return;
-          }
-          formStatusEl.textContent = (res.data && res.data.error) || 'Sign-in failed. Try again.';
-          formStatusEl.className = 'status err';
-        });
-      }
-      bindClick(signin, submitLogin);
-      fname.addEventListener('keydown', function (e) {
-        if (e.keyCode === 13 || e.keyCode === 108) submitLogin();
-      });
-      fpass.addEventListener('keydown', function (e) {
-        if (e.keyCode === 13 || e.keyCode === 108) submitLogin();
-      });
       setGrid([
         [{ el: refresh, action: startQr }],
         [{ el: fname, action: function () { try { fname.focus(); } catch (e) { /* ignore */ } } }],
@@ -489,12 +508,6 @@
         stopPoll();
         setStatus('Code expired — getting a new one\u2026', '');
         startQr();
-      }
-      function setStatus(text, cls) {
-        var st = root.querySelector('.status');
-        if (!st) return;
-        st.textContent = text;
-        st.className = 'status' + (cls ? ' ' + cls : '');
       }
       var poll = window.setInterval(function () {
         if (myGen !== gen) { window.clearInterval(poll); return; }
@@ -528,18 +541,18 @@
       gen++;
       for (var i = 0; i < timers.length; i++) { window.clearInterval(timers[i]); }
       timers.length = 0;
-      clear(root);
-      root.appendChild(make('div', { class: 'status' }, 'Getting a code\u2026'));
+      clear(qrCard);
+      qrCard.appendChild(make('div', { class: 'status' }, 'Getting a code\u2026'));
       http({ method: 'POST', url: '/api/auth/tv/qr', body: {}, allowRefresh: false }, function (res) {
         if (res.ok && res.data && res.data.success && res.data.data) {
           APP.qr = res.data.data;
           buildQr(APP.qr);
         } else {
-          clear(root);
-          root.appendChild(make('h1', {}, 'Could not reach the server'));
-          root.appendChild(make('p', { class: 'hint' }, 'Check that this TV can reach the MovieFlix server, then try again.'));
+          clear(qrCard);
+          qrCard.appendChild(make('h2', {}, 'Could not reach the server'));
+          qrCard.appendChild(make('p', { class: 'hint' }, 'Check that this TV can reach the MovieFlix server, then try again.'));
           var retry = make('button', { class: 'btn' }, 'Try Again');
-          root.appendChild(retry);
+          qrCard.appendChild(retry);
           bindClick(retry, showLogin);
         }
       });
