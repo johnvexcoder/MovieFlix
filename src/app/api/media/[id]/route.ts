@@ -70,10 +70,16 @@ export async function GET(
         seasonNumberMap.set(season.id, season.seasonNumber);
       }
 
-      mediaEpisodes = rawEpisodes.map((ep) => ({
-        ...ep,
-        seasonNumber: seasonNumberMap.get(ep.seasonId) || 0,
-      }));
+      mediaEpisodes = rawEpisodes
+        .map((ep) => ({
+          ...ep,
+          seasonNumber: seasonNumberMap.get(ep.seasonId) || 0,
+        }))
+        // Chronological order: season first, then episode within the season.
+        // Ordering by episodeNumber alone would interleave seasons (S1E10 before S2E1).
+        .sort(
+          (a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber
+        );
     }
 
     const sourceGenres = parseGenres(mediaItem.genres);

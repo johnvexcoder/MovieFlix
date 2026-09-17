@@ -80,6 +80,61 @@ swap_check() {
   fi
 }
 
+# --------------------- registry / build resilience --------------------------
+
+# Base images required by the Dockerfile and docker-compose. Update mode reuses
+# the local layers when present; when they are missing (fresh host, pruned
+# cache) the rebuild must reach the registry. A single DNS blip on a home-lab
+# host must not abort an update, so probe/pull with backoff BEFORE we stop the
+# running stack.
+BASE_IMAGES=(node:22-alpine redis:7-alpine)
+
+base_images_present() {
+  local img
+  for img in "${BASE_IMAGES[@]}"; do
+    docker image inspect "$img" >/dev/null 2>&1 || return 1
+  done
+  return 0
+}
+
+preflight_registry() {
+  # Returns 0 when the base images are available (locally or after a pull).
+  if base_images_present; then
+    info "Base images already present locally; skipping registry preflight."
+    return 0
+  fi
+  local img attempt max=6
+  for img in "${BASE_IMAGES[@]}"; do
+    attempt=1
+    until docker pull "$img" >/dev/null 2>&1; do
+      if [ "$attempt" -ge "$max" ]; then
+        warn "Could not pull base image '$img' after ${max} attempts."
+        return 1
+      fi
+      warn "Registry unreachable while pulling '$img' (attempt ${attempt}/${max}); retrying in $((attempt * 5))s..."
+      sleep $((attempt * 5))
+      attempt=$((attempt + 1))
+    done
+  done
+  return 0
+}
+
+build_image_with_retry() {
+  # Docker/BuildKit resolves the base-image manifest from the registry on every
+  # build. Transient DNS/timeout failures there are common on small hosts, so
+  # retry the build (layers are cached, so retries are cheap) before aborting.
+  local attempt=1 max=3
+  until $DC build; do
+    if [ "$attempt" -ge "$max" ]; then
+      return 1
+    fi
+    warn "docker compose build failed (attempt ${attempt}/${max}); this is often a transient registry/DNS timeout, retrying in $((attempt * 10))s..."
+    sleep $((attempt * 10))
+    attempt=$((attempt + 1))
+  done
+  return 0
+}
+
 # ----------------------------- .env handling --------------------------------
 
 write_env_template() {
@@ -399,11 +454,22 @@ do_update() {
 
   setup_analytics_cron
 
+  # Confirm the base images are reachable/cached BEFORE stopping the running
+  # stack. The Dockerfile build resolves node:22-alpine from Docker Hub on every
+  # build; a transient DNS timeout there would otherwise take the service down
+  # for nothing.
+  if ! preflight_registry; then
+    warn "Cannot reach the Docker registry and the base images are not cached locally."
+    warn "The running stack was left untouched. Check DNS/network and retry, or pre-pull:"
+    warn "  docker pull node:22-alpine && docker pull redis:7-alpine"
+    die "Update aborted before stopping the running stack."
+  fi
+
   info "Stopping the running stack to free RAM for the build (runtime container limits are up to ~1.7GB)."
   $DC stop 2>/dev/null || true
 
   info "Rebuilding the Docker image (this takes a while on low-RAM hosts)."
-  if ! $DC build; then
+  if ! build_image_with_retry; then
     warn "Build failed — restarting the previous stack so the service stays up."
     $DC up -d --force-recreate 2>/dev/null || true
     die "docker compose build failed. See the error above."
@@ -463,7 +529,7 @@ do_wipeout() {
   setup_analytics_cron
 
   info "Building the fresh image (this takes a while on low-RAM hosts)."
-  $DC build
+  build_image_with_retry || die "docker compose build failed. See the error above."
 
   info "Starting the stack."
   $DC up -d

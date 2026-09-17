@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -24,6 +24,7 @@ import {
   Sparkles,
   Captions,
   Check,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MessageToast } from "@/components/account/message-toast";
@@ -45,6 +46,7 @@ interface Episode {
   overview: string | null;
   stillPath: string | null;
   durationMinutes: number | null;
+  videoHeight?: number | null;
 }
 
 interface MediaDetail extends Media {
@@ -60,6 +62,13 @@ export default function WatchPage() {
   const mediaId = params.mediaId as string;
   const episodeParam = searchParams.get("episode");
 
+  // The episode the player currently has loaded. Seeded from the URL and kept
+  // in sync by transitionToEpisode(). The URL remains the canonical record, but
+  // the media source is driven by this state so a route change can never update
+  // the labels while leaving the previous episode's stream attached.
+  const [activeEpisodeId, setActiveEpisodeId] = useState<string | null>(episodeParam);
+  const activeEpisodeIdRef = useRef<string | null>(episodeParam);
+
   // "Play Now" navigation arrives with ?autoplay=1. Browsers block unmuted
   // autoplay after navigation, so we start muted and try to unmute best-effort
   // once playback is running — the video always starts.
@@ -68,7 +77,7 @@ export default function WatchPage() {
 
   // Base URLs for the two stream modes (raw source vs transcoded rendition).
   // Defined early so autoplay/fallback logic can reference them cleanly.
-  const streamSrc = `/api/media/${mediaId}/stream${episodeParam ? `?episode=${episodeParam}` : ""}`;
+  const streamSrc = `/api/media/${mediaId}/stream${activeEpisodeId ? `?episode=${activeEpisodeId}` : ""}`;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -112,6 +121,7 @@ export default function WatchPage() {
   const [showSettings, setShowSettings] = useState(false);
   const [showShortcuts, setShowShortcuts] = useState(false);
   const [showEpisodesDrawer, setShowEpisodesDrawer] = useState(false);
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
 
   // Hover Seek Bar Tooltip
   const [hoverTime, setHoverTime] = useState<number | null>(null);
@@ -155,9 +165,20 @@ export default function WatchPage() {
   const [showSubtitleMenu, setShowSubtitleMenu] = useState(false);
 
   // Adaptive quality state
-  const [qualityHeights, setQualityHeights] = useState<number[]>([]);
   const [activeQuality, setActiveQuality] = useState<number | "source" | "auto" | null>(null);
   const [preparedQualities, setPreparedQualities] = useState<number[]>([]);
+
+  // Available adaptive quality heights derive from the ACTIVE episode's own
+  // source resolution (series episodes can differ), falling back to the
+  // title's. Derived (not setState-in-effect) so an episode change recomputes
+  // the list without fighting the transition that already reset the UI.
+  const qualityHeights = useMemo(() => {
+    const ladder = [2160, 1440, 1080, 720, 480, 360];
+    if (!media) return ladder;
+    const episode = media.episodes?.find((ep) => ep.id === activeEpisodeId);
+    const sourceHeight = episode?.videoHeight ?? media.videoHeight ?? 1080;
+    return ladder.filter((h) => h <= sourceHeight);
+  }, [media, activeEpisodeId]);
   const [preparedManifest, setPreparedManifest] = useState<string | null>(null);
   const [preparedNative, setPreparedNative] = useState(false);
   const [showQualityMenu, setShowQualityMenu] = useState(false);
@@ -174,6 +195,12 @@ export default function WatchPage() {
   // Latest values for the error-recovery handler: keeps the <video> listener
   // effect's dependency list stable while still avoiding stale closures.
   const latestValuesRef = useRef({ activeQuality, qualityHeights });
+  // The single episode-transition entry point. Stored in a ref so player event
+  // listeners (bound before the callback is declared) always call the latest
+  // implementation without re-registering.
+  const transitionRef = useRef<
+    ((episode: Episode | undefined, opts?: { reason?: string; updateUrl?: boolean; replace?: boolean }) => void) | null
+  >(null);
 
   // Handle fullscreen change (e.g., user presses ESC, uses browser menu)
   useEffect(() => {
@@ -233,7 +260,7 @@ export default function WatchPage() {
   // Fetch available subtitles when media/episode is known
   useEffect(() => {
     if (!media) return;
-    const epQuery = episodeParam ? `?episode=${episodeParam}` : "";
+    const epQuery = activeEpisodeId ? `?episode=${activeEpisodeId}` : "";
     fetch(`/api/media/${mediaId}/subtitles${epQuery}`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -242,7 +269,7 @@ export default function WatchPage() {
         }
       })
       .catch(() => {});
-  }, [media, mediaId, episodeParam]);
+  }, [media, mediaId, activeEpisodeId]);
 
   // Close subtitle / settings menus on escape
   useEffect(() => {
@@ -256,16 +283,6 @@ export default function WatchPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  // Compute available adaptive quality heights from the source resolution
-  useEffect(() => {
-    const ladder = [2160, 1440, 1080, 720, 480, 360];
-    if (!media) return;
-    const heights = ladder.filter((h) => h <= (media.videoHeight ?? 1080));
-    setQualityHeights(heights);
-    setActiveQuality("source");
-    manualQualityRef.current = false;
-  }, [media?.videoHeight]);
-
   // Prepared V2 is selected only when enabled and ready. The session endpoint
   // returns a direct-play fallback for unprepared titles.
   useEffect(() => {
@@ -276,7 +293,7 @@ export default function WatchPage() {
       try {
         const response = await fetch("/api/playback/session", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ mediaId, episodeId: episodeParam, profileId }),
+          body: JSON.stringify({ mediaId, episodeId: activeEpisodeId, profileId }),
         });
         if (!response.ok || cancelled) return;
         const data = await response.json();
@@ -350,7 +367,7 @@ export default function WatchPage() {
       } catch { /* Current direct-play path remains available. */ }
     })();
     return () => { cancelled = true; };
-  }, [media, mediaId, episodeParam, profileId, streamSrc]);
+  }, [media, mediaId, activeEpisodeId, profileId, streamSrc]);
 
   async function checkAuth() {
     try {
@@ -442,13 +459,18 @@ export default function WatchPage() {
     };
   }, [refreshSession]);
 
-  // Restore watch progress on metadata load
+  // Restore watch progress on metadata load. Progress is always episode-specific:
+  // the episode id is read from the live ref so a late response from the previous
+  // episode can never seek the new episode.
   const restoreProgress = useCallback(async () => {
     if (initialSeekDoneRef.current) return;
+    const forEpisode = activeEpisodeIdRef.current;
     try {
-      const epQuery = episodeParam ? `?episode=${episodeParam}` : "";
+      const epQuery = forEpisode ? `?episode=${forEpisode}` : "";
       const res = await fetch(`/api/media/${mediaId}/progress${epQuery}`);
       const data = await res.json();
+      // A transition happened while this fetch was in flight: discard it.
+      if (activeEpisodeIdRef.current !== forEpisode) return;
       if (data.success && data.data && data.data.positionSeconds > 10 && !data.data.completed) {
         const rawPosition = Number(data.data.positionSeconds);
         if (videoRef.current) {
@@ -468,7 +490,7 @@ export default function WatchPage() {
         }
       }
     } catch {}
-  }, [mediaId, episodeParam]);
+  }, [mediaId]);
 
   // Periodic watch progress saving (every 5 seconds)
   const saveProgress = useCallback(async () => {
@@ -487,11 +509,11 @@ export default function WatchPage() {
         body: JSON.stringify({
           positionSeconds: safePosition,
           durationSeconds: safeDuration,
-          episodeId: episodeParam || null,
+          episodeId: activeEpisodeIdRef.current || null,
         }),
       });
     } catch {}
-  }, [mediaId, episodeParam]);
+  }, [mediaId]);
 
   useEffect(() => {
     if (!playing) return;
@@ -501,13 +523,64 @@ export default function WatchPage() {
     return () => clearInterval(interval);
   }, [playing, saveProgress]);
 
-  // Current Episode computation
-  const currentEpisode = media?.episodes?.find((ep) => ep.id === episodeParam) || media?.episodes?.[0];
-  const nextEpisode = media?.episodes?.find(
-    (ep) =>
-      ep.seasonNumber === currentEpisode?.seasonNumber &&
-      ep.episodeNumber === (currentEpisode?.episodeNumber ?? 0) + 1
+  // Episodes sorted chronologically by (season, episode) — never by raw string
+  // or episode-number-only order, so S1E10 precedes S2E1 and 2 < 10.
+  const orderedEpisodes = useMemo(() => {
+    const list = media?.episodes ? [...media.episodes] : [];
+    list.sort(
+      (a, b) => a.seasonNumber - b.seasonNumber || a.episodeNumber - b.episodeNumber
+    );
+    return list;
+  }, [media?.episodes]);
+
+  // Distinct seasons (numeric, ascending) for the episode-panel season selector.
+  const episodeSeasonNumbers = useMemo(
+    () => Array.from(new Set(orderedEpisodes.map((ep) => ep.seasonNumber))).sort((a, b) => a - b),
+    [orderedEpisodes]
   );
+
+  // The episode the player is actually loading, derived from the active id.
+  const currentEpisode = useMemo(
+    () => orderedEpisodes.find((ep) => ep.id === activeEpisodeId) ?? orderedEpisodes[0],
+    [orderedEpisodes, activeEpisodeId]
+  );
+  const currentEpisodeIndex = currentEpisode
+    ? orderedEpisodes.findIndex((ep) => ep.id === currentEpisode.id)
+    : -1;
+  // The next chronological episode, crossing season boundaries; undefined at the
+  // end of the series (so the Next Episode action is hidden, not looping).
+  const nextEpisode =
+    currentEpisodeIndex >= 0 ? orderedEpisodes[currentEpisodeIndex + 1] : undefined;
+  // Quality variants belong to the active episode's own source resolution.
+  const currentSourceHeight = currentEpisode?.videoHeight ?? media?.videoHeight ?? null;
+
+  // Route <-> player reconciliation. Handles three cases atomically through the
+  // same transition path:
+  //   - a series URL with no/invalid ?episode  -> canonicalize to episode 1
+  //   - browser back/forward or a direct link   -> load that episode
+  //   - a valid initial URL                     -> no-op (already loaded)
+  useEffect(() => {
+    if (!media) return;
+    if (media.type !== "series" || orderedEpisodes.length === 0) return;
+
+    const urlEpisodeValid = Boolean(
+      episodeParam && orderedEpisodes.some((ep) => ep.id === episodeParam)
+    );
+
+    if (!urlEpisodeValid) {
+      const first = orderedEpisodes[0];
+      if (activeEpisodeIdRef.current !== first.id) {
+        transitionRef.current?.(first, { reason: "ROUTE", updateUrl: false });
+      }
+      router.replace(`/profiles/${profileId}/watch/${mediaId}?episode=${first.id}`);
+      return;
+    }
+
+    if (episodeParam && episodeParam !== activeEpisodeIdRef.current) {
+      const target = orderedEpisodes.find((ep) => ep.id === episodeParam);
+      transitionRef.current?.(target, { reason: "ROUTE", updateUrl: false });
+    }
+  }, [episodeParam, media, orderedEpisodes, router, profileId, mediaId]);
 
   // Video event listeners
   useEffect(() => {
@@ -585,7 +658,9 @@ export default function WatchPage() {
       }
       hlsFastFailArmedRef.current = false;
       if (nextEpisode) {
-        router.push(`/profiles/${profileId}/watch/${mediaId}?episode=${nextEpisode.id}`);
+        // Autoplay-next uses the SAME episode-transition path as the menu and
+        // the Next Episode button — never a separate implementation.
+        transitionRef.current?.(nextEpisode, { reason: "AUTOPLAY", replace: true });
       }
     };
 
@@ -767,7 +842,7 @@ export default function WatchPage() {
       video.removeEventListener("loadeddata", onLoadedData);
       video.removeEventListener("error", onError);
     };
-  }, [media, nextEpisode, profileId, mediaId, router, recoverAttempts]);
+  }, [media, nextEpisode, profileId, mediaId, router, recoverAttempts, streamKey]);
 
   // Keep the error-recovery handler in sync with the latest quality state and
   // the switch/refresh actions (declared below this effect) without forcing
@@ -1031,7 +1106,7 @@ export default function WatchPage() {
       setShowQualityMenu(false);
       setBuffering(true);
 
-      const url = `${transcodeBase}/${height}/index.m3u8${episodeParam ? `?episode=${encodeURIComponent(episodeParam)}` : ""}`;
+      const url = `${transcodeBase}/${height}/index.m3u8${activeEpisodeId ? `?episode=${encodeURIComponent(activeEpisodeId)}` : ""}`;
       const abort = new AbortController();
       preparingAbortRef.current = abort;
 
@@ -1154,7 +1229,7 @@ export default function WatchPage() {
           : "Could not prepare a compatible stream. Tap to retry.");
       }
     },
-    [transcodeBase, episodeParam, refreshSession, preparedManifest, preparedQualities]
+    [transcodeBase, activeEpisodeId, refreshSession, preparedManifest, preparedQualities]
   );
 
   // Switch back to the source stream (native range streaming)
@@ -1191,6 +1266,103 @@ export default function WatchPage() {
     };
     video.addEventListener("loadedmetadata", onMeta);
   }, [streamSrc]);
+
+  // THE single episode-transition path. Used by the Episodes menu, the Next
+  // Episode button, autoplay-next, and external URL/route changes. It guarantees
+  // route, UI state, player source, quality list and watch progress all move to
+  // the SAME episode in one coherent step, and that the previous media pipeline
+  // is torn down rather than left attached.
+  const transitionToEpisode = useCallback(
+    (
+      episode: Episode | undefined,
+      opts: { reason?: string; updateUrl?: boolean; replace?: boolean } = {}
+    ) => {
+      setShowEpisodesDrawer(false);
+      if (!episode) return;
+
+      const fromId = activeEpisodeIdRef.current;
+      if (episode.id === fromId) return; // already the loaded episode
+
+      const oldSource = activeEpisodeIdRef.current
+        ? `/api/media/${mediaId}/stream?episode=${activeEpisodeIdRef.current}`
+        : `/api/media/${mediaId}/stream`;
+      const newSource = `/api/media/${mediaId}/stream?episode=${episode.id}`;
+
+      // 1) Persist the OUTGOING episode's progress before anything changes.
+      void saveProgress();
+
+      // 2) Tear down the previous media pipeline (HLS/MSE, pending readiness
+      //    polling, in-flight quality switches) so it cannot keep playing or
+      //    overwrite the new selection later.
+      preparingAbortRef.current?.abort();
+      preparingAbortRef.current = null;
+      switchGenerationRef.current++;
+      hlsRef.current?.destroy();
+      hlsRef.current = null;
+      preparedActiveRef.current = false;
+      preparingQualityRef.current = false;
+      setPreparingQuality(false);
+      setPreparedManifest(null);
+      setPreparedQualities([]);
+
+      // 3) Reset all per-episode resume/autoplay/quality state. Progress MUST
+      //    NOT carry over from the previous episode.
+      initialSeekDoneRef.current = false;
+      lastPositionRef.current = 0;
+      autoFallbackDoneRef.current = false;
+      lowerFallbackDoneRef.current = false;
+      manualQualityRef.current = false;
+      autoPlayAttemptedRef.current = false;
+      hlsFastFailArmedRef.current = false;
+      hlsFastFailStartRef.current = null;
+      userPausedRef.current = false;
+      desiredPlayingRef.current = true;
+      setRecoverAttempts(0);
+      setStreamError(null);
+      setBuffering(true);
+      setShowNextCountdown(false);
+      setShowQualityMenu(false);
+      setActiveSubtitle(null);
+      setSubtitles([]);
+      setActiveQuality("source");
+
+      // 4) Point the player at the new episode and force a brand-new <video>
+      //    element so no listener/buffer/source from the old episode survives.
+      activeEpisodeIdRef.current = episode.id;
+      setActiveEpisodeId(episode.id);
+      setStreamUrl(newSource);
+      setStreamKey((k) => k + 1);
+
+      // 5) Keep the URL canonical. Programmatic transitions push the new route;
+      //    when the route change itself triggered us, we do not push again.
+      if (opts.updateUrl !== false) {
+        const url = `/profiles/${profileId}/watch/${mediaId}?episode=${episode.id}`;
+        if (opts.replace) router.replace(url);
+        else router.push(url);
+      }
+
+      if (process.env.NODE_ENV !== "production") {
+        console.log("[Episode Transition]", {
+          trigger: opts.reason ?? "EPISODES_MENU",
+          fromEpisodeId: fromId,
+          toEpisodeId: episode.id,
+          fromSeason: currentEpisode?.seasonNumber,
+          toSeason: episode.seasonNumber,
+          fromEpisodeNumber: currentEpisode?.episodeNumber,
+          toEpisodeNumber: episode.episodeNumber,
+          oldSourceUrl: oldSource,
+          newSourceUrl: newSource,
+          qualityBefore: activeQuality,
+          restoredProgress: "episode-specific (0 unless saved)",
+        });
+      }
+    },
+    [mediaId, profileId, router, saveProgress, currentEpisode, activeQuality]
+  );
+
+  // Keep the ref-based entry point current. Assigned during render so it is
+  // already available to effects declared earlier in this component.
+  transitionRef.current = transitionToEpisode;
 
   // Global Keyboard Shortcuts
   useEffect(() => {
@@ -1361,7 +1533,7 @@ export default function WatchPage() {
           return (
           <track
             kind="subtitles"
-            src={`/api/media/${mediaId}/subtitles?${subtitleQuery}${episodeParam ? `&episode=${episodeParam}` : ""}`}
+            src={`/api/media/${mediaId}/subtitles?${subtitleQuery}${activeEpisodeId ? `&episode=${activeEpisodeId}` : ""}`}
             srcLang={selectedTrack?.lang || "und"}
             label={selectedTrack?.label || "Subtitles"}
             default
@@ -1502,7 +1674,7 @@ export default function WatchPage() {
                     className="badge-quality border-white/20 text-neutral-300 hover:bg-white/10"
                     title="Quality"
                   >
-                    {formatQualityLabel(activeQuality, media.videoHeight)}
+                    {formatQualityLabel(activeQuality, currentSourceHeight)}
                   </button>
 
                   {showQualityMenu && !preparingQuality && (
@@ -1528,11 +1700,11 @@ export default function WatchPage() {
                             : "text-white hover:bg-white/10"
                         }`}
                       >
-                        <span>Source ({media.videoHeight ? `${media.videoHeight}p` : "Auto"})</span>
+                        <span>Source ({currentSourceHeight ? `${currentSourceHeight}p` : "Auto"})</span>
                         {activeQuality === "source" && <Check className="h-4 w-4" />}
                       </button>
                       {(preparedManifest && hlsRef.current ? preparedQualities : qualityHeights).map((h) => {
-                        const isSourceQuality = (media.videoHeight ?? 0) > 0 && h >= (media.videoHeight ?? 0);
+                        const isSourceQuality = (currentSourceHeight ?? 0) > 0 && h >= (currentSourceHeight ?? 0);
                         return (
                           <button
                             key={h}
@@ -1556,7 +1728,12 @@ export default function WatchPage() {
                 {media.type === "series" && media.episodes && media.episodes.length > 1 && (
                   <Button
                     variant="ghost"
-                    onClick={() => setShowEpisodesDrawer(!showEpisodesDrawer)}
+                    aria-haspopup="dialog"
+                    aria-expanded={showEpisodesDrawer}
+                    onClick={() => {
+                      setSelectedSeason(currentEpisode?.seasonNumber ?? null);
+                      setShowEpisodesDrawer(true);
+                    }}
                     className="flex items-center gap-1.5 rounded-xl border border-white/15 bg-black/50 px-3.5 py-1.5 text-xs font-semibold text-white backdrop-blur-md hover:bg-white/15"
                   >
                     <Tv className="h-4 w-4 text-[var(--brand)]" />
@@ -1775,13 +1952,13 @@ export default function WatchPage() {
                     </div>
                   )}
 
-                  {/* Next Episode Button */}
+                  {/* Next Episode Button — hidden at the end of the series */}
                   {nextEpisode && (
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() =>
-                        router.push(`/profiles/${profileId}/watch/${mediaId}?episode=${nextEpisode.id}`)
+                        transitionToEpisode(nextEpisode, { reason: "NEXT_EPISODE" })
                       }
                       className="gap-1.5 text-xs font-bold text-white hover:bg-white/15"
                     >
@@ -1842,12 +2019,127 @@ export default function WatchPage() {
             <Button
               className="btn-brand h-9 rounded-xl px-4 text-xs font-bold"
               onClick={() =>
-                router.push(`/profiles/${profileId}/watch/${mediaId}?episode=${nextEpisode.id}`)
+                transitionToEpisode(nextEpisode, { reason: "AUTOPLAY" })
               }
             >
               Play Now
             </Button>
           </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Episodes Drawer — right-side panel on desktop, full-height on mobile.
+          Sits above the video, HUD, quality menu and error overlay but is a
+          plain overlay so it stays remote/D-pad navigable on Smart TVs. */}
+      <AnimatePresence>
+        {showEpisodesDrawer && media.type === "series" && orderedEpisodes.length > 0 && (
+          <>
+            <motion.div
+              key="episodes-backdrop"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              onClick={() => setShowEpisodesDrawer(false)}
+              className="absolute inset-0 z-[55] bg-black/60 backdrop-blur-sm"
+              aria-hidden="true"
+            />
+            <motion.aside
+              key="episodes-panel"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Episodes"
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "tween", duration: 0.25, ease: "easeOut" }}
+              onClick={(e) => e.stopPropagation()}
+              className="absolute right-0 top-0 z-[60] flex h-full w-full flex-col border-l border-white/10 bg-[#0f0f12]/95 shadow-2xl backdrop-blur-xl sm:w-[400px]"
+            >
+              <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+                <div>
+                  <h2 className="text-sm font-bold uppercase tracking-wider text-neutral-400">Episodes</h2>
+                  <p className="text-base font-semibold text-white">{media.title}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowEpisodesDrawer(false)}
+                  aria-label="Close episodes"
+                  className="flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-neutral-300 transition-colors hover:bg-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
+                >
+                  <X className="h-5 w-5" />
+                </button>
+              </div>
+
+              {episodeSeasonNumbers.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto border-b border-white/10 px-5 py-3">
+                  {episodeSeasonNumbers.map((seasonNumber) => {
+                    const active = (selectedSeason ?? currentEpisode?.seasonNumber) === seasonNumber;
+                    return (
+                      <button
+                        key={seasonNumber}
+                        type="button"
+                        onClick={() => setSelectedSeason(seasonNumber)}
+                        className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-bold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${
+                          active
+                            ? "bg-[var(--brand)] text-white"
+                            : "bg-white/10 text-neutral-300 hover:bg-white/20 hover:text-white"
+                        }`}
+                      >
+                        Season {seasonNumber}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              <div className="flex-1 overflow-y-auto px-3 py-3">
+                {orderedEpisodes
+                  .filter((ep) => ep.seasonNumber === (selectedSeason ?? currentEpisode?.seasonNumber))
+                  .map((ep) => {
+                    const isCurrent = ep.id === currentEpisode?.id;
+                    return (
+                      <button
+                        key={ep.id}
+                        type="button"
+                        autoFocus={isCurrent}
+                        aria-current={isCurrent ? "true" : undefined}
+                        onClick={() => transitionToEpisode(ep, { reason: "EPISODES_MENU" })}
+                        className={`mb-2 flex w-full items-center gap-3 rounded-xl border px-3 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)] ${
+                          isCurrent
+                            ? "border-[var(--brand)] bg-[var(--brand)]/15"
+                            : "border-white/10 bg-white/5 hover:bg-white/10"
+                        }`}
+                      >
+                        <span
+                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-extrabold ${
+                            isCurrent ? "bg-[var(--brand)] text-white" : "bg-black/50 text-neutral-300"
+                          }`}
+                        >
+                          {ep.episodeNumber}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="flex items-center gap-2">
+                            <span className="truncate text-sm font-semibold text-white">
+                              {ep.title || `Episode ${ep.episodeNumber}`}
+                            </span>
+                            {isCurrent && (
+                              <span className="shrink-0 rounded bg-[var(--brand)]/20 px-1.5 py-0.5 text-[10px] font-bold uppercase text-[var(--brand)]">
+                                Now Playing
+                              </span>
+                            )}
+                          </span>
+                          <span className="mt-0.5 block text-xs text-neutral-400">
+                            E{ep.episodeNumber}
+                            {ep.durationMinutes ? ` · ${ep.durationMinutes}m` : ""}
+                          </span>
+                        </span>
+                      </button>
+                    );
+                  })}
+              </div>
+            </motion.aside>
+          </>
         )}
       </AnimatePresence>
 
