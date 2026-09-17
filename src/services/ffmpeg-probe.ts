@@ -47,22 +47,22 @@ export async function probeFile(filePath: string): Promise<ProbeResult | null> {
         );
 
 resolve({
-           duration: Math.round(metadata.format.duration || 0),
-           videoCodec: videoStream?.codec_name || null,
-           audioCodec: audioStream?.codec_name || null,
-           width: videoStream?.width || null,
-           height: videoStream?.height || null,
-           videoProfile: videoStream?.profile || null,
-           videoLevel: videoStream?.level || null,
-           videoPixelFormat: videoStream?.pix_fmt || null,
-           videoColorSpace: videoStream?.color_space || null,
-           videoColorTransfer: videoStream?.color_trc || null,
-           videoColorRange: videoStream?.color_range || null,
-           videoChromaLocation: videoStream?.chroma_location || null,
-           bitrate: parseInt(String(metadata.format.bit_rate || "0")),
-           container: metadata.format.format_name || "unknown",
-           size: metadata.format.size || 0,
-         });
+            duration: Math.round(metadata.format.duration || 0),
+            videoCodec: videoStream?.codec_name || null,
+            audioCodec: audioStream?.codec_name || null,
+            width: videoStream?.width || null,
+            height: videoStream?.height || null,
+videoProfile: videoStream && videoStream.profile !== null ? String(videoStream.profile) : null,
+videoLevel: videoStream && videoStream.level !== null ? String(videoStream.level) : null,
+            videoPixelFormat: videoStream?.pix_fmt || null,
+            videoColorSpace: videoStream?.color_space || null,
+            videoColorTransfer: videoStream?.color_trc || null,
+            videoColorRange: videoStream?.color_range || null,
+            videoChromaLocation: videoStream?.chroma_location || null,
+            bitrate: parseInt(String(metadata.format.bit_rate || "0")),
+            container: metadata.format.format_name || "unknown",
+            size: metadata.format.size || 0,
+          });
       });
     });
   } catch (error) {
