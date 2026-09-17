@@ -1909,12 +1909,29 @@ var m = res.data.data || {};
     var box = banner('MOVIEFLIX', mediaItem.title || 'Play');
     view.appendChild(box);
 
+    // Player frame with a top bar (title + back) wrapping the video.
+    var frame = make('div');
+    addClass(frame, 'player-frame');
+    var topBar = make('div');
+    addClass(topBar, 'player-top');
+    var titleCell = make('div');
+    addClass(titleCell, 'pt-cell pt-title');
+    titleCell.appendChild(DOC.createTextNode(mediaItem.title || 'Play'));
+    topBar.appendChild(titleCell);
+    var backCell = make('div');
+    addClass(backCell, 'pt-cell pt-back');
+    var topExit = make('button', { class: 'btn ghost' }, '\u2190 Exit');
+    bindClick(topExit, exit);
+    backCell.appendChild(topExit);
+    topBar.appendChild(backCell);
+    frame.appendChild(topBar);
+    addClass(topBar, 'visible');
+
     var video = DOC.createElement('video');
     video.setAttribute('class', 'video');
-    video.setAttribute('controls', '');          // native controls where available
-    video.setAttribute('autoplay', 'autoplay');  // most TV browsers autoplay server streams
     video.setAttribute('playsinline', '');
-    box.appendChild(video);
+    frame.appendChild(video);
+    box.appendChild(frame);
 
     var progWrap = make('div');
     addClass(progWrap, 'prog');
@@ -1926,14 +1943,14 @@ var m = res.data.data || {};
 
     var ctrlWrap = make('div');
     addClass(ctrlWrap, 'controls');
-    var clearBtns = [];
-    function ctrl(label, action) {
-      var b = make('button', { class: 'ctrl' }, label);
+    addClass(ctrlWrap, 'visible');
+    function ctrl(label, action, primary) {
+      var b = make('button', { class: 'ctrl' + (primary ? ' primary' : '') }, label);
       bindClick(b, action);
       ctrlWrap.appendChild(b);
       return b;
     }
-    var btnPlay = ctrl('\u25B6 Play', togglePlay);
+    var btnPlay = ctrl('\u25B6 Play', togglePlay, true);
     var btnBack15 = ctrl('\u21A4 15s', function () { seekRel(-15); });
     var btnFwd15 = ctrl('15s \u21A6', function () { seekRel(15); });
     var btnStop = ctrl('\u2190 Exit', exit);
@@ -2047,6 +2064,28 @@ var fallbackUsed = false;
       state.firstFrame = true;
       state.playingSince = Date.now();
     });
+
+    // Auto-hide the control bar during playback; any key/OK restores it.
+    // Lightweight for old engines — just toggles a class.
+    var hideTimer = null;
+    function showControls() {
+      if (ctrlWrap.parentNode) addClass(ctrlWrap, 'visible');
+      if (topBar.parentNode) addClass(topBar, 'visible');
+      clearTimeout(hideTimer);
+      hideTimer = setTimeout(hideControls, 4000);
+    }
+    function hideControls() {
+      if (ctrlWrap.parentNode) removeClass(ctrlWrap, 'visible');
+      if (topBar.parentNode) removeClass(topBar, 'visible');
+    }
+    function anyKey() { showControls(); }
+    if (window.addEventListener) {
+      window.addEventListener('keydown', anyKey, false);
+      window.addEventListener('mousemove', anyKey, false);
+    }
+    // Only auto-hide once real playback is underway.
+    video.addEventListener('playing', function () { showControls(); });
+    video.addEventListener('pause', function () { clearTimeout(hideTimer); showControls(); });
 
     video.addEventListener('error', function () {
       if (fallbackUsed) {
