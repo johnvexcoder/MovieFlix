@@ -29,6 +29,7 @@ import { Button } from "@/components/ui/button";
 import { MessageToast } from "@/components/account/message-toast";
 import type { Profile, Media } from "@/types";
 import Hls from "hls.js";
+import { classifyHlsError, classifyNativeError, reportDiagnostic, stashDiagnostic } from "@/lib/playback-debug";
 
 interface Season {
   id: string;
@@ -74,6 +75,7 @@ export default function WatchPage() {
   const controlsTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const autoPlayAttemptedRef = useRef(false);
   const autoFallbackDoneRef = useRef(false);
+  const lowerFallbackDoneRef = useRef(false);
   // Native-HLS fast-fail watchdog (old Smart TVs / some Safari builds):
   // armed when the player falls back to native HLS (no hls.js), then disarmed
   // once a real first frame + sensible duration arrive. If the native-HLS
@@ -306,6 +308,12 @@ export default function WatchPage() {
             }
             // Unrecoverable prepared stream: fall back to direct playback, which
             // owns its own codec/compatibility fallback.
+            const v2Diag = classifyHlsError(errorData, "v2-hls");
+            v2Diag.position = video.currentTime || 0;
+            v2Diag.url = data.manifestUrl;
+            v2Diag.activeQuality = "auto";
+            stashDiagnostic(v2Diag);
+            reportDiagnostic(v2Diag);
             preparedActiveRef.current = false;
             hls.destroy();
             hlsRef.current = null;
@@ -640,10 +648,17 @@ export default function WatchPage() {
       setPlaying(false);
       const failedPos = video.currentTime || lastPositionRef.current;
 
+      // Internal diagnostics: classify the failure for support tooling while
+      // keeping the on-screen message user-friendly. Container/codec/URL
+      // details are never rendered in the UI.
+      const latest = latestValuesRef.current;
+      const nativeDiag = classifyNativeError(video, latest.activeQuality);
+      stashDiagnostic(nativeDiag);
+      reportDiagnostic(nativeDiag);
+
       // When the raw source fails to play (container/codec the browser cannot
       // decode, or a transient 401 from an expired token), automatically fall
       // back to a transcoded rendition if one is available. Only do this once.
-      const latest = latestValuesRef.current;
       if (
         latest.activeQuality === "source" &&
         latest.qualityHeights.length > 0 &&
@@ -657,6 +672,24 @@ export default function WatchPage() {
           : latest.qualityHeights.find((h) => h <= 480) ?? latest.qualityHeights[latest.qualityHeights.length - 1];
         void actionRefs.current?.switchQuality(autoHeight);
         return;
+      }
+
+      // A transcoded rendition that still cannot play gets exactly one chance
+      // at the next-lower rendition before we fall through to the retry loop.
+      // This specifically helps Chromium recover when e.g. a 480p transcode is
+      // unreadable on the client but a 360p rendition plays cleanly.
+      if (
+        typeof latest.activeQuality === "number" &&
+        latest.qualityHeights.length > 1 &&
+        !lowerFallbackDoneRef.current
+      ) {
+        const currentHeight = latest.activeQuality;
+        const nextLower = latest.qualityHeights.find((h) => h < currentHeight);
+        if (typeof nextLower === "number") {
+          lowerFallbackDoneRef.current = true;
+          void actionRefs.current?.switchQuality(nextLower);
+          return;
+        }
       }
 
       // Otherwise retry the current source a few times — refreshing the
@@ -921,6 +954,10 @@ export default function WatchPage() {
     // The user explicitly asked to retry: re-enable autoplay for the reload.
     userPausedRef.current = false;
     desiredPlayingRef.current = true;
+    // A manual retry is a fresh start: restore both automatic fallback
+    // opportunities so the player can recover without further input.
+    autoFallbackDoneRef.current = false;
+    lowerFallbackDoneRef.current = false;
     const retryQuality = requestedQualityRef.current ?? activeQuality;
     if (typeof retryQuality === "number") {
       hlsRef.current?.destroy();
@@ -1032,6 +1069,29 @@ export default function WatchPage() {
                 if (data.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
                 else if (data.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
                 else {
+                  const tdiag = classifyHlsError(data, "transcode-hls");
+                  tdiag.position = video.currentTime || lastPositionRef.current || 0;
+                  tdiag.url = url;
+                  tdiag.activeQuality = height;
+                  stashDiagnostic(tdiag);
+                  reportDiagnostic(tdiag);
+                  // Exactly one attempt at the next-lower rendition before
+                  // surfacing the terminal message.
+                  if (
+                    !lowerFallbackDoneRef.current &&
+                    latestValuesRef.current.qualityHeights.length > 1
+                  ) {
+                    const nextLower = latestValuesRef.current.qualityHeights.find((h) => h < height);
+                    if (typeof nextLower === "number") {
+                      lowerFallbackDoneRef.current = true;
+                      hlsRef.current?.destroy();
+                      hlsRef.current = null;
+                      preparingQualityRef.current = false;
+                      setBuffering(false);
+                      void actionRefs.current?.switchQuality(nextLower);
+                      return;
+                    }
+                  }
                   preparingQualityRef.current = false;
                   setBuffering(false);
                   setStreamError("The compatible stream could not continue. Tap to retry.");
@@ -1095,6 +1155,7 @@ export default function WatchPage() {
     initialSeekDoneRef.current = false;
     // A fresh fallback opportunity if the user explicitly re-selects Source.
     autoFallbackDoneRef.current = false;
+    lowerFallbackDoneRef.current = false;
     video.src = streamSrc;
     setStreamUrl(streamSrc);
     setActiveQuality("source");

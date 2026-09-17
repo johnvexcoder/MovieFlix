@@ -114,7 +114,7 @@ export async function GET(
           "Content-Length": String(fileSize),
           "Content-Type": contentType,
           ...PROTECTION_HEADERS,
-          "Cache-Control": "private, no-cache",
+          "Cache-Control": "private, no-cache, no-transform",
         },
       });
     }
@@ -182,7 +182,7 @@ export async function GET(
         "Content-Length": String(chunkSize),
         "Content-Type": contentType,
         ...PROTECTION_HEADERS,
-        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Cache-Control": "no-cache, no-store, must-revalidate, no-transform",
       },
     });
   } catch (error) {

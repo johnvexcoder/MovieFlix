@@ -15,7 +15,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Responsi
 
 const SHEET_BASE =
   "glass-panel border-white/15 items-start inset-x-0 bottom-0 top-auto left-0 right-0 translate-x-0 translate-y-0 " +
-  "sm:translate-x-1/2 sm:translate-y-1/2 sm:top-1/2 sm:left-1/2 sm:bottom-auto w-full sm:w-[95%] max-w-full sm:max-w-2xl md:max-w-4xl lg:max-w-6xl " +
+  "sm:-translate-x-1/2 sm:-translate-y-1/2 sm:top-1/2 sm:left-1/2 sm:bottom-auto w-full sm:w-[95%] max-w-full sm:max-w-2xl md:max-w-4xl lg:max-w-6xl " +
   "sm:mx-auto my-0 sm:my-4 sm:rounded-2xl rounded-t-3xl rounded-b-none max-h-[92dvh] sm:max-h-[85vh] overflow-y-auto";
 
 interface AnalyticsModalProps {

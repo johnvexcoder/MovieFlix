@@ -82,7 +82,7 @@ export async function GET(request: NextRequest,
   return new NextResponse(stream, { status, headers: {
     "Content-Type": contentType, "Content-Length": String(end - start + 1),
     "Accept-Ranges": "bytes", ...(status === 206 ? { "Content-Range": `bytes ${start}-${end}/${stat.size}` } : {}),
-    "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+    "Cache-Control": "private, no-store, no-transform", "X-Content-Type-Options": "nosniff",
     "Access-Control-Allow-Origin": "*",
     "Access-Control-Allow-Methods": "GET, OPTIONS",
     "Access-Control-Allow-Headers": "Range",

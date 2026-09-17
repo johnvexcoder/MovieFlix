@@ -131,7 +131,7 @@ export async function GET(
       if (episodeId) manifest = manifest.replace(/^(segment-\d{5}\.ts)$/gm, `$1?episode=${encodeURIComponent(episodeId)}`);
       return new NextResponse(manifest, { headers: {
         "Content-Type": "application/vnd.apple.mpegurl",
-        "Cache-Control": "private, no-cache, no-store",
+        "Cache-Control": "private, no-cache, no-store, no-transform",
         "X-Content-Type-Options": "nosniff",
       }});
     }
@@ -161,7 +161,7 @@ export async function GET(
           "Accept-Ranges": "bytes",
           "X-Content-Type-Options": "nosniff",
           "Content-Disposition": "inline",
-          "Cache-Control": "private, no-cache",
+          "Cache-Control": "private, no-cache, no-transform",
         },
       });
     }
@@ -214,7 +214,7 @@ export async function GET(
         "Content-Disposition": "inline",
         "X-Frame-Options": "DENY",
         ReferrerPolicy: "no-referrer",
-        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Cache-Control": "no-cache, no-store, must-revalidate, no-transform",
       },
     });
   } catch (error) {
