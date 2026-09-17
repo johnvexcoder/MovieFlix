@@ -32,6 +32,18 @@ import type { Profile, Media } from "@/types";
 import Hls from "hls.js";
 import { classifyHlsError, classifyNativeError, reportDiagnostic, stashDiagnostic } from "@/lib/playback-debug";
 
+/** Describe the <video> buffered ranges for diagnostics (e.g. "0.0-58.4;120-180.5"). */
+function describeBuffered(video: HTMLVideoElement): string {
+  try {
+    const b = video.buffered;
+    const parts: string[] = [];
+    for (let i = 0; i < b.length; i++) parts.push(`${b.start(i).toFixed(1)}-${b.end(i).toFixed(1)}`);
+    return parts.length ? parts.join(";") : "(none)";
+  } catch {
+    return "(unavailable)";
+  }
+}
+
 interface Season {
   id: string;
   seasonNumber: number;
@@ -156,6 +168,7 @@ export default function WatchPage() {
   // Tracks an in-flight video.play() promise so rapid taps on Android that hit a
   // still-pending play() don't get dropped or double-fired.
   const playPromiseRef = useRef<Promise<void> | null>(null);
+  const videoDiagWarnRef = useRef<Record<string, number>>({});
 
   // Subtitle state
   const [subtitles, setSubtitles] = useState<
@@ -593,6 +606,28 @@ export default function WatchPage() {
         setBuffered(video.buffered.end(video.buffered.length - 1));
       }
 
+      // Diagnostic: detect the "audio advances but video never decodes" case
+      // (CASE 1/2). If currentTime is advancing but videoWidth/Height stay 0
+      // after several seconds, the video track is not being decoded while
+      // audio is — that is the real rendering failure, distinct from a poster
+      // overlay or CSS issue.
+      if (!video.paused && video.readyState >= 2 && video.videoWidth === 0 && video.videoHeight === 0) {
+        const key = video.currentSrc || "video";
+        const lastWarn = videoDiagWarnRef.current[key];
+        if (!lastWarn || video.currentTime - lastWarn > 5) {
+          videoDiagWarnRef.current[key] = video.currentTime;
+          console.warn('[video] WARNING: time advancing but video not decoding (videoWidth=0):', {
+            currentTime: video.currentTime,
+            duration: video.duration,
+            readyState: video.readyState,
+            networkState: video.networkState,
+            buffered: describeBuffered(video),
+            currentSrc: key,
+            error: video.error,
+          });
+        }
+      }
+
       // Check for next episode countdown when remaining < 15s
       if (media?.type === "series" && nextEpisode && video.duration > 0) {
         const remaining = video.duration - video.currentTime;
@@ -655,7 +690,8 @@ export default function WatchPage() {
         networkState: video.networkState,
         error: video.error,
         paused: video.paused,
-        ended: video.ended
+        ended: video.ended,
+        buffered: describeBuffered(video)
       });
       
       // Clear the poster when video starts playing (fixes CASE 2: poster overlay)
@@ -774,7 +810,10 @@ export default function WatchPage() {
         networkState: video.networkState,
         currentSrc: video.currentSrc,
         currentTime: video.currentTime,
-        duration: video.duration
+        duration: video.duration,
+        buffered: describeBuffered(video),
+        paused: video.paused,
+        ended: video.ended
       });
       
       if (err && err.code === MediaError.MEDIA_ERR_ABORTED) return;
@@ -1597,7 +1636,7 @@ export default function WatchPage() {
         key={streamKey}
         ref={videoRef}
         src={activeQuality === "source" || activeQuality === null || preparedNative ? streamUrl : undefined}
-        poster={media.backdropUrl || media.posterUrl || `/api/media/${mediaId}/image?kind=backdrop`}
+        poster={`/api/media/${mediaId}/image?kind=backdrop`}
         className="h-full w-full object-cover"
         muted={muted}
         autoPlay={autoplayIntent}
