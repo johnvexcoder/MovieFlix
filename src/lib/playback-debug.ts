@@ -109,10 +109,13 @@ export function diagnosticSummary(d: PlaybackDiagnostic): string {
  * consume it, but normal production viewing stays quiet.
  */
 export function reportDiagnostic(d: PlaybackDiagnostic): void {
-  if (process.env.NODE_ENV === "production") return;
   const explicitDebug = typeof window !== "undefined" &&
     Boolean((window as unknown as { __mfxDebug?: boolean }).__mfxDebug);
-  if (explicitDebug) console.warn(diagnosticSummary(d));
+  // Quiet in production unless debug is explicitly enabled; structured and
+  // always-on in development so failures are greppable as `[MovieFlix Playback]`.
+  if (process.env.NODE_ENV === "production" && !explicitDebug) return;
+  // eslint-disable-next-line no-console
+  console.warn("[MovieFlix Playback]", diagnosticSummary(d));
 }
 
 /** Surface the last failure so on-page tooling can read it without any UI. */

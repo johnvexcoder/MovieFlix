@@ -76,6 +76,12 @@ export default function WatchPage() {
   const autoPlayAttemptedRef = useRef(false);
   const autoFallbackDoneRef = useRef(false);
   const lowerFallbackDoneRef = useRef(false);
+  // True once the viewer explicitly chose a rendition. A manual selection is
+  // locked: the player never silently swaps away from it (no auto-fallback).
+  const manualQualityRef = useRef(false);
+  // Monotonic switch counter — stale async quality-switch work (a slower
+  // earlier response overtaking a newer user selection) must never win.
+  const switchGenerationRef = useRef(1);
   // Native-HLS fast-fail watchdog (old Smart TVs / some Safari builds):
   // armed when the player falls back to native HLS (no hls.js), then disarmed
   // once a real first frame + sensible duration arrive. If the native-HLS
@@ -257,6 +263,7 @@ export default function WatchPage() {
     const heights = ladder.filter((h) => h <= (media.videoHeight ?? 1080));
     setQualityHeights(heights);
     setActiveQuality("source");
+    manualQualityRef.current = false;
   }, [media?.videoHeight]);
 
   // Prepared V2 is selected only when enabled and ready. The session endpoint
@@ -658,8 +665,11 @@ export default function WatchPage() {
 
       // When the raw source fails to play (container/codec the browser cannot
       // decode, or a transient 401 from an expired token), automatically fall
-      // back to a transcoded rendition if one is available. Only do this once.
+      // back to a transcoded rendition — but ONLY in the default (passive)
+      // mode. An explicitly selected rendition stays selected: the player
+      // never silently swaps away from a manual choice.
       if (
+        !manualQualityRef.current &&
         latest.activeQuality === "source" &&
         latest.qualityHeights.length > 0 &&
         !autoFallbackDoneRef.current
@@ -677,8 +687,10 @@ export default function WatchPage() {
       // A transcoded rendition that still cannot play gets exactly one chance
       // at the next-lower rendition before we fall through to the retry loop.
       // This specifically helps Chromium recover when e.g. a 480p transcode is
-      // unreadable on the client but a 360p rendition plays cleanly.
+      // unreadable on the client but a 360p rendition plays cleanly. Manual
+      // selections are exempt — the user must stay on the chosen rendition.
       if (
+        !manualQualityRef.current &&
         typeof latest.activeQuality === "number" &&
         latest.qualityHeights.length > 1 &&
         !lowerFallbackDoneRef.current
@@ -1008,6 +1020,8 @@ export default function WatchPage() {
         }
       }
       const keepPos = video.currentTime || lastPositionRef.current || 0;
+      // Invalidate any earlier in-flight switch; only the newest request wins.
+      const gen = ++switchGenerationRef.current;
 
       preparingAbortRef.current?.abort();
       requestedQualityRef.current = height;
@@ -1021,17 +1035,20 @@ export default function WatchPage() {
       const abort = new AbortController();
       preparingAbortRef.current = abort;
 
-      // Poll readiness before pointing the player at the stream
+      // Poll readiness before pointing the player at the stream. Full-length
+      // movies can take several minutes to encode; keep polling until the
+      // server reports the rendition complete and validated.
       try {
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 1200; i++) {
           if (abort.signal.aborted) return;
           const res = await fetch(url, { signal: abort.signal });
           if (res.status === 401 && i === 0) {
             // Stale access token mid-session: refresh once, keep polling.
             await refreshSession();
+            if (abort.signal.aborted || gen !== switchGenerationRef.current) return;
             continue;
           }
-          if (abort.signal.aborted) return;
+          if (abort.signal.aborted || gen !== switchGenerationRef.current) return;
           if (res.ok) {
             lastPositionRef.current = keepPos;
             initialSeekDoneRef.current = false;
@@ -1075,6 +1092,8 @@ export default function WatchPage() {
                   tdiag.activeQuality = height;
                   stashDiagnostic(tdiag);
                   reportDiagnostic(tdiag);
+                  // A user switch made later must not be undone by this error.
+                  if (gen !== switchGenerationRef.current) return;
                   // Exactly one attempt at the next-lower rendition before
                   // surfacing the terminal message.
                   if (
@@ -1124,7 +1143,7 @@ export default function WatchPage() {
         setBuffering(false);
         setPreparingQuality(false);
         preparingQualityRef.current = false;
-        setStreamError("The compatible stream is still being prepared. Tap retry in a moment.");
+        setStreamError("Preparing a compatible stream — this can take a few minutes for a full movie. Keep this page open, then press Retry.");
       } catch (error) {
         if (abort.signal.aborted) return;
         setBuffering(false);
@@ -1140,6 +1159,7 @@ export default function WatchPage() {
 
   // Switch back to the source stream (native range streaming)
   const switchToSource = useCallback(() => {
+    switchGenerationRef.current++;
     setPreparedManifest(null);
     setPreparedQualities([]);
     requestedQualityRef.current = null;
@@ -1494,14 +1514,14 @@ export default function WatchPage() {
                         Quality
                       </div>
                       {preparedManifest && hlsRef.current && (
-                        <button type="button" onClick={() => { hlsRef.current!.currentLevel = -1; setActiveQuality("auto"); setShowQualityMenu(false); }}
+                        <button type="button" onClick={() => { manualQualityRef.current = false; hlsRef.current!.currentLevel = -1; setActiveQuality("auto"); setShowQualityMenu(false); }}
                           className="flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold text-white hover:bg-white/10">
                           <span>Auto (Recommended)</span>{activeQuality === "auto" && <Check className="h-4 w-4" />}
                         </button>
                       )}
                       <button
                         type="button"
-                        onClick={switchToSource}
+                        onClick={() => { manualQualityRef.current = true; switchToSource(); }}
                         className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
                           activeQuality === "source"
                             ? "text-[var(--brand)]"
@@ -1517,7 +1537,7 @@ export default function WatchPage() {
                           <button
                             key={h}
                             type="button"
-                            onClick={() => switchQuality(h)}
+                            onClick={() => { manualQualityRef.current = true; switchQuality(h); }}
                             className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
                               activeQuality === h
                                 ? "text-[var(--brand)]"

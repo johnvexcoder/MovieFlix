@@ -5,6 +5,7 @@ import path from "path";
 import crypto from "crypto";
 import { getEnv } from "@/lib/env";
 import { isSafeFfmpegInput } from "@/lib/ffmpeg-security";
+import { probeFile } from "@/services/ffmpeg-probe";
 
 configureFfmpeg();
 
@@ -65,24 +66,82 @@ export function availableHeights(sourceHeight: number | null): number[] {
 }
 
 export function isRenditionReady(key: string, height: number): boolean {
+  const dir = renditionDir(key, height);
   const file = renditionFile(key, height);
   if (!fs.existsSync(file)) return false;
+  // A generated rendition is only considered playable once the encoder has
+  // finished the WHOLE movie and its output passed duration validation. A
+  // growing EVENT playlist from an in-flight or killed encode is never
+  // exposed; callers poll until completion and the player keeps waiting.
+  if (!fs.existsSync(completionFile(key, height))) return false;
   try {
-    // HLS is safe to expose while it grows: its duration is described by
-    // completed media segments rather than a temporary MP4 Content-Length.
     const manifest = fs.readFileSync(file, "utf8");
+    if (!manifest.includes("#EXT-X-ENDLIST")) return false;
     const firstSegment = manifest.match(/^([^#\r\n]+\.ts)$/m)?.[1];
-    return Boolean(firstSegment && fs.existsSync(path.join(renditionDir(key, height), firstSegment)));
+    return Boolean(firstSegment && fs.existsSync(path.join(dir, firstSegment)));
   } catch {
     return false;
   }
+}
+
+/** Default tolerance used when validating a finished rendition's duration. */
+export function durationToleranceSeconds(sourceDuration: number): number {
+  return Math.max(5, sourceDuration * 0.01);
+}
+
+function appendEndlistIfMissing(key: string, height: number): void {
+  const file = renditionFile(key, height);
+  if (!fs.existsSync(file)) return;
+  let manifest = fs.readFileSync(file, "utf8");
+  if (!manifest.includes("#EXT-X-ENDLIST")) {
+    manifest = manifest.replace(/\s*$/, "") + "\n#EXT-X-ENDLIST\n";
+    fs.writeFileSync(file, manifest);
+  }
+}
+
+/**
+ * Validate that a finished HLS rendition covers essentially the whole source
+ * movie. A rendition that stopped early (killed encode, truncated file) must
+ * never become READY/SERVED.
+ */
+async function validateRenditionDuration(
+  key: string,
+  height: number,
+  sourceDurationSeconds: number | undefined
+): Promise<boolean> {
+  const file = renditionFile(key, height);
+  if (!sourceDurationSeconds || sourceDurationSeconds <= 0) {
+    // No trusted source duration available: completeness (ENDLIST, exit 0) is
+    // the strongest signal we can enforce.
+    return true;
+  }
+  const probed = await probeFile(file);
+  if (!probed || probed.duration <= 0) {
+    console.error(`[MovieFlix Transcode] validation: ffprobe could not read ${file}`);
+    return false;
+  }
+  const diff = Math.abs(probed.duration - sourceDurationSeconds);
+  const tolerance = durationToleranceSeconds(sourceDurationSeconds);
+  if (diff > tolerance) {
+    console.error(
+      `[MovieFlix Transcode] ${height}p INVALID duration: source=${sourceDurationSeconds}s output=${probed.duration}s (delta=${diff.toFixed(1)}s > tol=${tolerance.toFixed(1)}s)`
+    );
+    return false;
+  }
+  if (probed.height !== null && probed.height !== Math.round(height)) {
+    console.error(
+      `[MovieFlix Transcode] ${height}p INVALID height: expected ${height} got ${probed.height}`
+    );
+    return false;
+  }
+  return true;
 }
 
 function startSingleJob(
   key: string,
   height: number,
   sourceFile: string,
-  options: { copyVideo?: boolean; copyAudio?: boolean } = {}
+  options: { copyVideo?: boolean; copyAudio?: boolean; sourceDurationSeconds?: number } = {}
 ): Promise<void> {
   const slots = getEnvView().TRANSCODE_MAX_CONCURRENT || 2;
 
@@ -127,6 +186,9 @@ function startSingleJob(
         .output(outFile);
 
       activeJobs.set(`${key}:${height}`, { height, proc, startedAt: Date.now(), lastRequestedAt: Date.now() });
+      console.log(
+        `[MovieFlix Transcode] started key=${key} quality=${height}p copyVideo=${!!options.copyVideo} copyAudio=${!!options.copyAudio} sourceDuration=${options.sourceDurationSeconds ?? "unknown"}`
+      );
 
       let settled = false;
       const onEnd = () => {
@@ -134,17 +196,43 @@ function startSingleJob(
         settled = true;
         activeJobs.delete(`${key}:${height}`);
         recentFailures.delete(`${key}:${height}`);
-        fs.writeFileSync(completionFile(key, height), new Date().toISOString());
-        runningJobs--;
-        dequeue();
-        resolve();
+        // Finalize and validate BEFORE the rendition can be served. The
+        // encoder finished the whole movie: pin the playlist with ENDLIST and
+        // prove its duration matches the source, then write the readiness
+        // marker. A rendition that fails validation is removed so the next
+        // request regenerates it instead of serving a truncated movie.
+        void (async () => {
+          try {
+            appendEndlistIfMissing(key, height);
+            runningJobs--;
+            dequeue();
+            const valid = await validateRenditionDuration(key, height, options.sourceDurationSeconds);
+            if (!valid) {
+              recentFailures.set(`${key}:${height}`, Date.now());
+              fs.rmSync(renditionDir(key, height), { recursive: true, force: true });
+              console.error(
+                `[MovieFlix Transcode] validation FAILED key=${key} quality=${height}p — discarded partial/invalid rendition`
+              );
+              reject(new Error(`${height}p rendition failed duration validation`));
+              return;
+            }
+            fs.writeFileSync(completionFile(key, height), new Date().toISOString());
+            console.log(
+              `[MovieFlix Transcode] completed key=${key} quality=${height}p sourceDuration=${options.sourceDurationSeconds ?? "unknown"} validated=true`
+            );
+            resolve();
+          } catch (error) {
+            recentFailures.set(`${key}:${height}`, Date.now());
+            reject(error instanceof Error ? error : new Error(`${height}p finalization failed`));
+          }
+        })();
       };
       const onError = (err: Error) => {
         if (settled) return;
         settled = true;
         activeJobs.delete(`${key}:${height}`);
         recentFailures.set(`${key}:${height}`, Date.now());
-        console.error(`Compatibility transcode failed (${height}p):`, err);
+        console.error(`[MovieFlix Transcode] failed (${height}p):`, err);
         runningJobs--;
         dequeue();
         reject(err);
@@ -173,7 +261,7 @@ function startSingleJob(
 export async function ensureTranscode(
   filePath: string,
   height: number,
-  options: { copyVideo?: boolean; copyAudio?: boolean } = {}
+  options: { copyVideo?: boolean; copyAudio?: boolean; sourceDurationSeconds?: number } = {}
 ): Promise<{ status: "ready" | "running" | "failed" }> {
   if (!isSafeFfmpegInput(filePath)) {
     console.error(`Refusing to transcode unsafe input path: ${filePath}`);
@@ -217,18 +305,39 @@ export async function ensureTranscode(
   return isRenditionReady(key, height) ? { status: "ready" } : { status: "running" };
 }
 
-// Stop conversions nobody is watching. Without this, two abandoned full-film
-// jobs can occupy the default two slots and make every later title wait.
-const idleJobTimer = setInterval(() => {
+// Monitor for genuinely hung encodes. We must NEVER kill a slow-but-progressing
+// full-movie transcode (that is exactly how truncated renditions were born).
+// A healthy HLS encode writes a new ~2s segment continuously, so any active
+// job that has produced no segment for a long window is stuck on a broken
+// input/hung encoder and is safely reclaimed; the next viewer request will
+// restart it from scratch, and the partial output is never served.
+const STALL_WINDOW_MS = 150_000;
+const stallTimer = setInterval(() => {
   const now = Date.now();
   for (const [jobKey, job] of activeJobs) {
-    if (now - job.lastRequestedAt > 45_000) {
+    const separator = jobKey.lastIndexOf(":");
+    if (separator <= 0) continue;
+    const key = jobKey.slice(0, separator);
+    const height = Number(jobKey.slice(separator + 1));
+    const dir = renditionDir(key, height);
+    let newestSegmentMs = 0;
+    try {
+      for (const entry of fs.readdirSync(dir)) {
+        if (!/^segment-\d{5}\.ts$/.test(entry)) continue;
+        const segment = fs.statSync(path.join(dir, entry));
+        if (segment.mtimeMs > newestSegmentMs) newestSegmentMs = segment.mtimeMs;
+      }
+    } catch {
+      continue;
+    }
+    if (now - newestSegmentMs > STALL_WINDOW_MS) {
+      console.error(`[MovieFlix Transcode] stalled for ${(now - newestSegmentMs) / 1000}s, killing ${jobKey}`);
       try { job.proc.kill("SIGKILL"); } catch {}
       activeJobs.delete(jobKey);
     }
   }
 }, 15_000);
-idleJobTimer.unref?.();
+stallTimer.unref?.();
 
 export function touchTranscode(key: string, height: number): void {
   const job = activeJobs.get(`${key}:${height}`);

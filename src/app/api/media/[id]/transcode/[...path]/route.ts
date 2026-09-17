@@ -24,6 +24,7 @@ async function resolveTargetFile(id: string, episodeId: string | null) {
   let sourceHeight: number | null = null;
   let videoCodec: string | null = null;
   let audioCodec: string | null = null;
+  let fileDurationSeconds: number | null = null;
 
   if (episodeId) {
     const [ep] = await db
@@ -37,6 +38,7 @@ async function resolveTargetFile(id: string, episodeId: string | null) {
       sourceHeight = ep.videoHeight ?? null;
       videoCodec = ep.videoCodec ?? null;
       audioCodec = ep.audioCodec ?? null;
+      fileDurationSeconds = ep.fileDurationSeconds ?? null;
     }
   }
 
@@ -51,11 +53,12 @@ async function resolveTargetFile(id: string, episodeId: string | null) {
       sourceHeight = m.videoHeight ?? null;
       videoCodec = m.videoCodec ?? null;
       audioCodec = m.audioCodec ?? null;
+      fileDurationSeconds = m.fileDurationSeconds ?? null;
     }
   }
 
   if (!targetFilePath || !fs.existsSync(targetFilePath)) return null;
-  return { targetFilePath, sourceHeight, videoCodec, audioCodec };
+  return { targetFilePath, sourceHeight, videoCodec, audioCodec, fileDurationSeconds };
 }
 
 /**
@@ -85,7 +88,7 @@ export async function GET(
     if (!resolved) {
       return new NextResponse("Media file not found", { status: 404 });
     }
-    const { targetFilePath, sourceHeight, videoCodec, audioCodec } = resolved;
+    const { targetFilePath, sourceHeight, videoCodec, audioCodec, fileDurationSeconds } = resolved;
     const key = transcodeKey(targetFilePath);
 
     const p = segments.map((s) => s.toLowerCase());
@@ -107,6 +110,7 @@ export async function GET(
       const transcode = await ensureTranscode(targetFilePath, height, {
         copyVideo: ["h264", "avc", "avc1"].includes(normalizedVideoCodec) && sourceHeight === height,
         copyAudio: ["aac", "mp3"].includes(normalizedAudioCodec),
+        sourceDurationSeconds: fileDurationSeconds ?? undefined,
       });
       if (transcode.status === "failed") {
         return new NextResponse("Compatibility stream failed", {
