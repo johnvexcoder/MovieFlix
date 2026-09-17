@@ -800,10 +800,21 @@
       root.appendChild(make('h1', {}, 'Scan to pay'));
       root.appendChild(make('p', { class: 'hint' }, 'Open GCash or Maya on your phone and scan the QR code. Keep this window open.' + (order.amountMinor ? '\nAmount: ' + fmtMoney(order.amountMinor) : '')));
       var card = make('div', { class: 'paycard' });
-      var img = DOC.createElement('img');
-      img.src = String(order.qrImage || '');
-      img.alt = 'Payment QR code';
-      card.appendChild(img);
+var img = DOC.createElement('img');
+       img.src = String(order.qrImage || '');
+       img.alt = 'Payment QR code';
+       img.onerror = function () {
+         this.onerror = null;
+         this.alt = 'Payment QR unavailable';
+         this.style.backgroundColor = '#0b1629';
+         this.style.color = '#fff';
+         this.style.display = 'flex';
+         this.style.alignItems = 'center';
+         this.style.justifyContent = 'center';
+         this.style.fontSize = '14px';
+         this.innerHTML = 'QR Code<br>Unavailable';
+       };
+       card.appendChild(img);
       root.appendChild(card);
       var statusNote = make('div', { class: 'status' }, 'Waiting for payment\u2026');
       root.appendChild(statusNote);
@@ -1432,8 +1443,14 @@
           (function (item) {
             var tile = make('div', { class: 'tile' });
             var post = make('div', { class: 'poster' });
-            var img = make('img', { alt: item.title || '', width: '190', height: '285' });
-            img.setAttribute('data-src', posterUrl(item, item.id || ''));
+var img = make('img', { alt: item.title || '', width: '190', height: '285' });
+          img.setAttribute('data-src', posterUrl(item, item.id || ''));
+          img.onerror = function () {
+            this.onerror = null;
+            this.src = '/logo.svg?v=2'; // Fallback to MovieFlix logo
+            this.alt = item.title || 'MovieFlix';
+            this.style.backgroundColor = '#0b1629'; // Dark background for placeholder
+          };
             post.appendChild(img);
             tile.appendChild(post);
             var nameSpan = make('span', { class: 'name' }, item.title || '\u2014');
@@ -1450,17 +1467,71 @@
         grid.push(rowCells);
       }
 
-      if (data.featured) {
-        var hero = make('div');
-        addClass(hero, 'row');
-        hero.appendChild(make('h2', {}, 'Featured'));
-        var play = make('button', { class: 'btn' }, '\u25B6 Play ' + (data.featured.title || ''));
-        var playAction = function () { showTitle(data.featured.id || ''); };
-        bindClick(play, playAction);
-        hero.appendChild(play);
-        box.appendChild(hero);
-        grid.push([{ el: play, action: playAction }]);
-      }
+if (data.featured) {
+          var hero = make('div');
+          addClass(hero, 'hero');
+          hero.appendChild(make('h2', {}, 'Featured'));
+          
+          var content = make('div');
+          addClass(content, 'hero-content');
+          
+          var postBox = make('div');
+          addClass(postBox, 'hero-poster');
+          var img = make('img', { alt: data.featured.title || '', width: '300', height: '450' });
+          img.setAttribute('data-src', posterUrl(data.featured, data.featured.id || ''));
+          img.onerror = function () {
+            this.onerror = null;
+            this.src = '/logo.svg?v=2'; // Fallback to MovieFlix logo
+            this.alt = data.featured.title || 'MovieFlix';
+            this.style.backgroundColor = '#0b1629'; // Dark background for placeholder
+          };
+          postBox.appendChild(img);
+          content.appendChild(postBox);
+          
+          var infoBox = make('div');
+          addClass(infoBox, 'hero-info');
+          
+          if (data.featured.title) {
+            var title = make('h1', {}, data.featured.title);
+            infoBox.appendChild(title);
+          }
+          
+          var metaParts = [];
+          if (data.featured.year) metaParts.push(String(data.featured.year));
+          if (data.featured.type) metaParts.push(data.featured.type);
+          if (data.featured.rating) metaParts.push('Rating ' + data.featured.rating);
+          if (data.featured.maturityRating) metaParts.push(data.featured.maturityRating);
+          if (data.featured.durationMinutes) metaParts.push(data.featured.durationMinutes + ' min');
+          if (metaParts.length > 0) {
+            var meta = make('p', { class: 'meta' }, metaParts.join('  \u00b7  '));
+            infoBox.appendChild(meta);
+          }
+          
+          if (data.featured.overview) {
+            var overview = make('p', { class: 'overview' }, data.featured.overview);
+            infoBox.appendChild(overview);
+          }
+          
+          content.appendChild(infoBox);
+          
+          var actions = make('div');
+          addClass(actions, 'hero-actions');
+          
+          var play = make('button', { class: 'btn btn-lg' }, '\u25B6 Play');
+          var playAction = function () { showTitle(data.featured.id || ''); };
+          bindClick(play, playAction);
+          actions.appendChild(play);
+          
+          var info = make('button', { class: 'btn btn-outline' }, 'More Info');
+          var infoAction = function () { showTitle(data.featured.id || ''); };
+          bindClick(info, infoAction);
+          actions.appendChild(info);
+          
+          content.appendChild(actions);
+          
+          hero.appendChild(content);
+          box.appendChild(hero);
+        }
 
       if (data.continueWatching && data.continueWatching.length) addRow('Continue Watching', data.continueWatching);
       if (data.myList && data.myList.length) addRow('My List', data.myList);
@@ -1534,9 +1605,23 @@
         box.appendChild(br);
         return;
       }
-      var m = res.data.data || {};
-      box = banner('MOVIEFLIX', m.title || '');
-      view.appendChild(box);
+var m = res.data.data || {};
+       box = banner('MOVIEFLIX', m.title || '');
+       view.appendChild(box);
+       
+       // Add poster/backdrop image
+       var postBox = make('div');
+       addClass(postBox, 'poster');
+       var img = make('img', { alt: m.title || '', width: '256', height: '384' });
+       img.setAttribute('data-src', posterUrl(m, m.id || ''));
+       img.onerror = function () {
+         this.onerror = null;
+         this.src = '/logo.svg?v=2'; // Fallback to MovieFlix logo
+         this.alt = m.title || 'MovieFlix';
+         this.style.backgroundColor = '#0b1629'; // Dark background for placeholder
+       };
+       postBox.appendChild(img);
+       view.appendChild(postBox);
 
       var metaParts = [];
       if (m.year) metaParts.push(String(m.year));

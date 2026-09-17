@@ -105,37 +105,72 @@ function appendEndlistIfMissing(key: string, height: number): void {
  * never become READY/SERVED.
  */
 async function validateRenditionDuration(
-  key: string,
-  height: number,
-  sourceDurationSeconds: number | undefined
-): Promise<boolean> {
-  const file = renditionFile(key, height);
-  if (!sourceDurationSeconds || sourceDurationSeconds <= 0) {
-    // No trusted source duration available: completeness (ENDLIST, exit 0) is
-    // the strongest signal we can enforce.
-    return true;
-  }
-  const probed = await probeFile(file);
-  if (!probed || probed.duration <= 0) {
-    console.error(`[MovieFlix Transcode] validation: ffprobe could not read ${file}`);
-    return false;
-  }
-  const diff = Math.abs(probed.duration - sourceDurationSeconds);
-  const tolerance = durationToleranceSeconds(sourceDurationSeconds);
-  if (diff > tolerance) {
-    console.error(
-      `[MovieFlix Transcode] ${height}p INVALID duration: source=${sourceDurationSeconds}s output=${probed.duration}s (delta=${diff.toFixed(1)}s > tol=${tolerance.toFixed(1)}s)`
-    );
-    return false;
-  }
-  if (probed.height !== null && probed.height !== Math.round(height)) {
-    console.error(
-      `[MovieFlix Transcode] ${height}p INVALID height: expected ${height} got ${probed.height}`
-    );
-    return false;
-  }
-  return true;
-}
+   key: string,
+   height: number,
+   sourceDurationSeconds: number | undefined
+ ): Promise<boolean> {
+   const file = renditionFile(key, height);
+   if (!sourceDurationSeconds || sourceDurationSeconds <= 0) {
+     // No trusted source duration available: completeness (ENDLIST, exit 0) is
+     // the strongest signal we can enforce.
+     return true;
+   }
+   const probed = await probeFile(file);
+   if (!probed || probed.duration <= 0) {
+     console.error(`[MovieFlix Transcode] validation: ffprobe could not read ${file}`);
+     return false;
+   }
+   const diff = Math.abs(probed.duration - sourceDurationSeconds);
+   const tolerance = durationToleranceSeconds(sourceDurationSeconds);
+   if (diff > tolerance) {
+     console.error(
+       `[MovieFlix Transcode] ${height}p INVALID duration: source=${sourceDurationSeconds}s output=${probed.duration}s (delta=${diff.toFixed(1)}s > tol=${tolerance.toFixed(1)}s)`
+     );
+     return false;
+   }
+   if (probed.height !== null && probed.height !== Math.round(height)) {
+     console.error(
+       `[MovieFlix Transcode] ${height}p INVALID height: expected ${height} got ${probed.height}`
+     );
+     return false;
+   }
+   
+   // Validate browser compatibility for video renditions
+   if (probed.videoCodec && probed.videoCodec.toLowerCase().includes('h264')) {
+     // Check for incompatible pixel formats (high bit depth)
+     const incompatiblePixelFormats = ['yuv420p10', 'yuv420p12', 'yuv444p10', 'yuv444p12', 'yuv422p10', 'yuv422p12'];
+     if (probed.videoPixelFormat && incompatiblePixelFormats.some(fmt => probed.videoPixelFormat?.includes(fmt))) {
+       console.error(
+         `[MovieFlix Transcode] ${height}p INVALID pixel format: ${probed.videoPixelFormat} (high bit depth not browser compatible)`
+       );
+       return false;
+     }
+     
+     // Check for incompatible profiles (High 10+ profiles)
+     const incompatibleProfiles = ['high10', 'high10intra', 'high422', 'high422intra', 'high444', 'high444predictive'];
+     if (probed.videoProfile && incompatibleProfiles.some(profile => probed.videoProfile?.toLowerCase().includes(profile))) {
+       console.error(
+         `[MovieFlix Transcode] ${height}p INVALID profile: ${probed.videoProfile} (not browser compatible)`
+       );
+       return false;
+     }
+     
+     // Check for extremely high levels (though level limits depend on resolution)
+     // For general compatibility, we'll restrict to level 5.0 and below
+     // Note: This is a simplification - actual level limits depend on resolution and frame rate
+     if (probed.videoLevel) {
+       const levelNum = parseFloat(probed.videoLevel);
+       if (!isNaN(levelNum) && levelNum > 5.0) {
+         console.error(
+           `[MovieFlix Transcode] ${height}p INVALID level: ${probed.videoLevel} (may be too high for some devices)`
+         );
+         return false;
+       }
+     }
+   }
+   
+   return true;
+ }
 
 function startSingleJob(
   key: string,

@@ -10,6 +10,13 @@ export interface ProbeResult {
   audioCodec: string | null;
   width: number | null;
   height: number | null;
+  videoProfile: string | null;
+  videoLevel: string | null;
+  videoPixelFormat: string | null;
+  videoColorSpace: string | null;
+  videoColorTransfer: string | null;
+  videoColorRange: string | null;
+  videoChromaLocation: string | null;
   bitrate: number;
   container: string;
   size: number;
@@ -39,16 +46,23 @@ export async function probeFile(filePath: string): Promise<ProbeResult | null> {
           (s) => s.codec_type === "audio"
         );
 
-        resolve({
-          duration: Math.round(metadata.format.duration || 0),
-          videoCodec: videoStream?.codec_name || null,
-          audioCodec: audioStream?.codec_name || null,
-          width: videoStream?.width || null,
-          height: videoStream?.height || null,
-          bitrate: parseInt(String(metadata.format.bit_rate || "0")),
-          container: metadata.format.format_name || "unknown",
-          size: metadata.format.size || 0,
-        });
+resolve({
+           duration: Math.round(metadata.format.duration || 0),
+           videoCodec: videoStream?.codec_name || null,
+           audioCodec: audioStream?.codec_name || null,
+           width: videoStream?.width || null,
+           height: videoStream?.height || null,
+           videoProfile: videoStream?.profile || null,
+           videoLevel: videoStream?.level || null,
+           videoPixelFormat: videoStream?.pix_fmt || null,
+           videoColorSpace: videoStream?.color_space || null,
+           videoColorTransfer: videoStream?.color_trc || null,
+           videoColorRange: videoStream?.color_range || null,
+           videoChromaLocation: videoStream?.chroma_location || null,
+           bitrate: parseInt(String(metadata.format.bit_rate || "0")),
+           container: metadata.format.format_name || "unknown",
+           size: metadata.format.size || 0,
+         });
       });
     });
   } catch (error) {
@@ -58,18 +72,20 @@ export async function probeFile(filePath: string): Promise<ProbeResult | null> {
 }
 
 export function needsTranscode(probe: ProbeResult): boolean {
-  const compatibleVideoCodecs = ["h264", "avc1"];
-  const compatibleContainers = ["mp4", "matroska,webm"];
+   // Basic check: does the source have compatible codec and container?
+   // Full browser compatibility validation happens during rendition validation in validateRenditionDuration
+   const compatibleVideoCodecs = ["h264", "avc1"];
+   const compatibleContainers = ["mp4", "matroska,webm"];
 
-  const hasCompatibleVideo =
-    probe.videoCodec && compatibleVideoCodecs.includes(probe.videoCodec);
+   const hasCompatibleVideo =
+     probe.videoCodec && compatibleVideoCodecs.includes(probe.videoCodec);
 
-  const hasCompatibleContainer =
-    probe.container &&
-    compatibleContainers.some((c) => probe.container.toLowerCase().includes(c));
+   const hasCompatibleContainer =
+     probe.container &&
+     compatibleContainers.some((c) => probe.container.toLowerCase().includes(c));
 
-  return !hasCompatibleVideo || !hasCompatibleContainer;
-}
+   return !hasCompatibleVideo || !hasCompatibleContainer;
+ }
 
 export async function generateThumbnail(
   filePath: string,

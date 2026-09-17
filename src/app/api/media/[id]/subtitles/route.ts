@@ -124,23 +124,81 @@ export async function GET(
       });
     }
 
-    // Listing available subtitles
-    const sidecars = findLocalSubtitles(targetFilePath).map((s, index) => ({
-      file: Buffer.from(s.filePath, "utf-8").toString("base64"),
-      lang: s.lang,
-      label: s.label === "Subtitles" ? `External subtitle ${index + 1}` : s.label,
-      source: "sidecar" as const,
-    }));
-    const embedded = (await listEmbeddedSubtitles(targetFilePath)).map((s, index) => ({
-      file: `embedded:${s.streamIndex}`,
-      lang: s.lang,
-      label: s.label === "Unknown language" ? `Embedded subtitle ${index + 1}` : s.label,
-      source: "embedded" as const,
-      streamIndex: s.streamIndex,
-    }));
-    const subs = [...embedded, ...sidecars];
+// Listing available subtitles
+     const sidecars = findLocalSubtitles(targetFilePath);
+     const embedded = await listEmbeddedSubtitles(targetFilePath);
+     
+     // Process sidecar subtitles with proper labeling
+     const processedSidecars = sidecars.map((s, index) => ({
+       file: Buffer.from(s.filePath, "utf-8").toString("base64"),
+       lang: s.lang,
+       label: s.label,
+       source: "sidecar" as const,
+     }));
+     
+     // Process embedded subtitles with proper labeling
+     const processedEmbedded = embedded.map((s, index) => ({
+       file: `embedded:${s.streamIndex}`,
+       lang: s.lang,
+       label: s.label,
+       source: "embedded" as const,
+       streamIndex: s.streamIndex,
+     }));
+     
+// Combine and resolve duplicate labels
+     const allSubtitles = [...processedEmbedded, ...processedSidecars];
+     const subs = resolveDuplicateLabels(allSubtitles);
 
-    return NextResponse.json({ success: true, data: { subtitles: subs } });
+     return NextResponse.json({ success: true, data: { subtitles: subs } });
+   } catch (error) {
+     console.error("Subtitle endpoint error:", error);
+     return new NextResponse("Subtitle error", { status: 500 });
+   }
+ }
+
+ function resolveDuplicateLabels(subtitles: any[]): any[] {
+   // Group by label to find duplicates
+   const labelGroups: Record<string, any[]> = {};
+   subtitles.forEach(sub => {
+     if (!labelGroups[sub.label]) {
+       labelGroups[sub.label] = [];
+     }
+     labelGroups[sub.label].push(sub);
+   });
+
+   // Process each group
+   const result: any[] = [];
+   for (const [label, group] of Object.entries(labelGroups)) {
+     if (group.length === 1) {
+       // No duplicate, use label as-is
+       result.push({ ...group[0] });
+     } else {
+       // Duplicates found, add qualifiers
+       group.forEach((sub, index) => {
+         // Determine qualifier based on available metadata
+         let qualifier = "";
+         
+         // Try to use source type as qualifier
+         if (group.length <= 2 && group.some(s => s.source === "embedded") && group.some(s => s.source === "sidecar")) {
+           // One embedded, one sidecar
+           qualifier = sub.source === "embedded" ? "Embedded" : "External";
+         } else {
+           // Multiple of same type or more than 2 total, use index
+           qualifier = `${index + 1}`;
+         }
+         
+         // Avoid double qualification if label already contains the qualifier
+         if (!sub.label.includes(`(${qualifier})`) && !sub.label.endsWith(qualifier)) {
+           result.push({ ...sub, label: `${sub.label} (${qualifier})` });
+         } else {
+           result.push({ ...sub });
+         }
+       });
+     }
+   }
+   
+   return result;
+ }
   } catch (error) {
     console.error("Subtitle endpoint error:", error);
     return new NextResponse("Subtitle error", { status: 500 });

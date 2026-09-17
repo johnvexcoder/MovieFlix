@@ -610,6 +610,19 @@ export default function WatchPage() {
       // A fresh source is loaded: re-allow the one-shot autoplay attempt.
       autoPlayAttemptedRef.current = false;
       restoreProgress();
+      
+      // Diagnostic logging for video rendering issues
+      console.log('[video] loadedmetadata:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        error: video.error,
+        currentSrc: video.currentSrc,
+        duration: video.duration,
+        currentTime: video.currentTime
+      });
+      
       // Start as soon as metadata is available instead of waiting for a later
       // canplay event, which can take several seconds on remote servers.
       if (autoplayRequestedRef.current && !userPausedRef.current) {
@@ -633,6 +646,32 @@ export default function WatchPage() {
     const onPlaying = () => {
       setPlaying(true);
       setBuffering(false);
+      
+      // Diagnostic logging for video rendering issues
+      console.log('[video] playing:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        error: video.error,
+        paused: video.paused,
+        ended: video.ended
+      });
+      
+      // Clear the poster when video starts playing (fixes CASE 2: poster overlay)
+      if (video.videoWidth > 0 && video.videoHeight > 0) {
+        video.removeAttribute('poster');
+        console.log('[video] poster cleared - video is rendering');
+      } else {
+        console.log('[video] WARNING: videoWidth or videoHeight is 0 - video may not be decoding');
+      }
+      
+      // Use requestVideoFrameCallback for advanced debugging if available
+      if ('requestVideoFrameCallback' in video) {
+        (video as any).requestVideoFrameCallback(() => {
+          console.log('[video] requestVideoFrameCallback fired - video frame presented');
+        });
+      }
     };
     const onPause = () => {
       setPlaying(false);
@@ -669,6 +708,23 @@ export default function WatchPage() {
     const onCanPlay = () => {
       setBuffering(false);
       setStreamError(null);
+      
+      // Diagnostic logging for video rendering issues
+      console.log('[video] canplay:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        error: video.error,
+        currentTime: video.currentTime
+      });
+      
+      // Clear poster when video can play (additional safety)
+      if (video.videoWidth > 0 && video.videoHeight > 0 && video.getAttribute('poster')) {
+        video.removeAttribute('poster');
+        console.log('[video] poster cleared from canplay event');
+      }
+      
       // Autoplay attempt. When the user arrived via "Play Now" (?autoplay=1)
       // the browser blocks unmuted autoplay on a fresh navigation, so we start
       // muted (always permitted), then best-effort unmute once playing.
@@ -707,6 +763,20 @@ export default function WatchPage() {
 
     const onError = () => {
       const err = video.error;
+      
+      // Diagnostic logging for video rendering issues
+      console.error('[video] error:', {
+        errorCode: err?.code,
+        errorMessage: err?.message,
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        currentSrc: video.currentSrc,
+        currentTime: video.currentTime,
+        duration: video.duration
+      });
+      
       if (err && err.code === MediaError.MEDIA_ERR_ABORTED) return;
 
       // The old source can emit one or more delayed error events after an
@@ -805,6 +875,16 @@ export default function WatchPage() {
     const onLoadedData = () => {
       setBuffering(false);
       setStreamError(null);
+      
+      // Diagnostic logging for video rendering issues
+      console.log('[video] loadeddata:', {
+        videoWidth: video.videoWidth,
+        videoHeight: video.videoHeight,
+        readyState: video.readyState,
+        networkState: video.networkState,
+        error: video.error
+      });
+      
       if (recoverAttempts > 0 && lastPositionRef.current > 0 && !initialSeekDoneRef.current) {
         video.currentTime = lastPositionRef.current;
       }
@@ -1909,46 +1989,48 @@ export default function WatchPage() {
                         <Captions className="h-5 w-5" />
                       </Button>
 
-                      {showSubtitleMenu && (
-                        <div
-                          className="absolute right-0 bottom-12 z-50 min-w-44 overflow-hidden rounded-xl border border-white/15 bg-[#151518]/95 shadow-2xl backdrop-blur-xl"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <div className="px-3 py-2 text-[11px] font-bold text-neutral-400 uppercase">
-                            Subtitles
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              setActiveSubtitle(null);
-                              setShowSubtitleMenu(false);
-                            }}
-                            className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
-                              !activeSubtitle ? "text-[var(--brand)]" : "text-white hover:bg-white/10"
-                            }`}
-                          >
-                            Off
-                          </button>
-                          {subtitles.map((s) => (
-                            <button
-                              key={s.file}
-                              type="button"
-                              onClick={() => {
-                                setActiveSubtitle(s.file);
-                                setShowSubtitleMenu(false);
-                              }}
-                              className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
-                                activeSubtitle === s.file
-                                  ? "text-[var(--brand)]"
-                                  : "text-white hover:bg-white/10"
-                              }`}
-                            >
-                              <span>{s.label}<small className="ml-2 text-[10px] font-normal text-neutral-500">{s.source === "embedded" ? "Built in" : "External"}</small></span>
-                              {activeSubtitle === s.file && <Check className="h-4 w-4" />}
-                            </button>
-                          ))}
-                        </div>
-                      )}
+{showSubtitleMenu && (
+                         <div
+                           className="absolute right-0 bottom-12 z-50 min-w-44 w-56 max-h-[60vh] border border-white/15 bg-[#151518]/95 shadow-2xl backdrop-blur-xl"
+                           onClick={(e) => e.stopPropagation()}
+                         >
+                           <div className="px-3 py-2 text-[11px] font-bold text-neutral-400 uppercase">
+                             Subtitles
+                           </div>
+                           <div className="max-h-[50vh] overflow-y-auto">
+                           <button
+                             type="button"
+                             onClick={() => {
+                               setActiveSubtitle(null);
+                               setShowSubtitleMenu(false);
+                             }}
+                             className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
+                               !activeSubtitle ? "text-[var(--brand)]" : "text-white hover:bg-white/10"
+                             }`}
+                           >
+                             Off
+                           </button>
+                           {subtitles.map((s) => (
+                             <button
+                               key={s.file}
+                               type="button"
+                               onClick={() => {
+                                 setActiveSubtitle(s.file);
+                                 setShowSubtitleMenu(false);
+                               }}
+                               className={`flex w-full items-center justify-between px-3 py-2 text-left text-xs font-semibold ${
+                                 activeSubtitle === s.file
+                                   ? "text-[var(--brand)]"
+                                   : "text-white hover:bg-white/10"
+                               }`}
+                             >
+                               <span>{s.label}<small className="ml-2 text-[10px] font-normal text-neutral-500">{s.source === "embedded" ? "Built in" : "External"}</small></span>
+                               {activeSubtitle === s.file && <Check className="h-4 w-4" />}
+                             </button>
+                           ))}
+                           </div>
+                         </div>
+                       )}
                     </div>
                   )}
 
