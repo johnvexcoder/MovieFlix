@@ -1410,6 +1410,7 @@ var img = DOC.createElement('img');
     APP.screen = 'home';
     var profName = APP.profile ? APP.profile.name : '';
     var box = banner('MOVIEFLIX', profName ? 'Watching as ' + profName : 'Browse your library');
+    addNav(box, 'all', '');
     view.appendChild(box);
 
     var signoutWrap = make('div');
@@ -1594,8 +1595,14 @@ if (data.featured) {
   function makeTile(item) {
     var tile = make('div', { class: 'tile' });
     var post = make('div', { class: 'poster' });
-    var img = make('img', { alt: item.title || '', width: '190', height: '285' });
+    var img = make('img', { alt: item.title || '', width: '200', height: '300' });
     img.setAttribute('data-src', posterUrl(item, item.id || ''));
+    img.onerror = function () {
+      this.onerror = null;
+      this.src = '/logo.svg?v=2';
+      this.alt = item.title || 'MovieFlix';
+      this.style.backgroundColor = '#0b1629';
+    };
     post.appendChild(img);
     tile.appendChild(post);
     var nameSpan = make('span', { class: 'name' }, item.title || '\u2014');
@@ -1603,7 +1610,126 @@ if (data.featured) {
       nameSpan.appendChild(make('span', { class: 'pct' }, Math.round(item.progress.percent) + '%'));
     }
     tile.appendChild(nameSpan);
+    bindClick(tile, function () { showTitle(item.id || ''); });
     return tile;
+  }
+
+  /* Reusable grid of media rows used by Movies / Series / Search */
+  function showBrowse(type, title, searchQuery) {
+    var view = stage();
+    APP.screen = 'browse';
+    var box = banner('MOVIEFLIX', title);
+    addNav(box, type || 'all', searchQuery || '');
+    view.appendChild(box);
+    box.appendChild(make('div', { class: 'status' }, 'Loading\u2026'));
+
+    var url = '/api/media?limit=60';
+    if (type === 'movie' || type === 'series') url += '&type=' + type;
+    if (searchQuery) url += '&q=' + encodeURIComponent(searchQuery);
+
+    http({ method: 'GET', url: url }, function (res) {
+      clear(box);
+      box = banner('MOVIEFLIX', title);
+      addNav(box, type || 'all', searchQuery || '');
+      view.appendChild(box);
+      if (!res.ok || !res.data || !res.data.success) {
+        box.appendChild(make('div', { class: 'err' }, 'Could not load titles.'));
+        var retry = make('button', { class: 'btn' }, 'Try Again');
+        bindClick(retry, function () { showBrowse(type, title, searchQuery); });
+        box.appendChild(retry);
+        return;
+      }
+      var items = (res.data.data && res.data.data.media) || [];
+      if (!items.length) {
+        box.appendChild(make('div', { class: 'status' }, searchQuery ? 'No titles match "' + searchQuery + '".' : 'Nothing here yet.'));
+        return;
+      }
+      var rowBox = make('div');
+      addClass(rowBox, 'row');
+      var tiles = make('div');
+      addClass(tiles, 'tiles');
+      rowBox.appendChild(tiles);
+      box.appendChild(rowBox);
+      var grid = [];
+      var rowCells = [];
+      var cell = make('div', { class: 'tile' });
+      for (var i = 0; i < items.length; i++) {
+        var tile = makeTile(items[i]);
+        // Resolve data-src immediately (smaller grid than home).
+        var imgs = tile.querySelectorAll('img[data-src]');
+        for (var j = 0; j < imgs.length; j++) {
+          var s2 = imgs[j].getAttribute('data-src');
+          if (s2) { imgs[j].setAttribute('src', s2); imgs[j].removeAttribute('data-src'); }
+        }
+        tiles.appendChild(tile);
+        rowCells.push({ el: tile, action: (function (id) { return function () { showTitle(id); }; })(items[i].id || '') });
+      }
+      // Stack into rows of ~6 for D-pad navigation
+      for (var r = 0; r < rowCells.length; r += 6) {
+        grid.push(rowCells.slice(r, r + 6));
+      }
+      NAV.hydrate = null;
+      setGrid(grid);
+      if (typeof NAV.hydrate === 'function' && NAV.rows > 0) {
+        try { NAV.hydrate(NAV.ri); } catch (e) { /* ignore */ }
+      }
+    });
+  }
+
+  /* Text-search screen: keep it simple for TV remote entry */
+  function showSearch() {
+    var view = stage();
+    APP.screen = 'search';
+    var box = banner('MOVIEFLIX', 'Search');
+    addNav(box, 'all', '');
+    view.appendChild(box);
+
+    var input = DOC.createElement('input');
+    input.type = 'text';
+    input.className = 'tvin';
+    input.placeholder = 'Search movies and series\u2026';
+    box.appendChild(input);
+
+    var results = make('div');
+    addClass(results, 'status');
+    box.appendChild(results);
+
+    var go = make('button', { class: 'btn' }, 'Search');
+    box.appendChild(go);
+    bindClick(go, function () { showBrowse('', 'Search', String(input.value || '').trim()); });
+
+    input.addEventListener('keydown', function (e) {
+      if (e.keyCode === 13 || e.keyCode === 108) go.click();
+    });
+    setGrid([[{ el: input, action: function () { try { input.focus(); } catch (e) { /* ignore */ } } }],
+             [{ el: go, action: function () { showBrowse('', 'Search', String(input.value || '').trim()); } }]]);
+  }
+
+  /* TV navigation bar — Home / Movies / Series / Search */
+  function addNav(box, activeType, searchQuery) {
+    var nav = make('nav');
+    addClass(nav, 'nav');
+    var links = [
+      { label: 'Home', type: 'all' },
+      { label: 'Movies', type: 'movie' },
+      { label: 'Series', type: 'series' }
+    ];
+    for (var i = 0; i < links.length; i++) {
+      (function (link) {
+        var a = make('button', { class: 'navbtn' }, link.label);
+        if (activeType === link.type && !searchQuery) addClass(a, 'active');
+        bindClick(a, function () {
+          if (link.type === 'all') showHome();
+          else showBrowse(link.type, link.label);
+        });
+        nav.appendChild(a);
+      })(links[i]);
+    }
+    var s = make('button', { class: 'navbtn' }, 'Search');
+    if (activeType === 'search') addClass(s, 'active');
+    bindClick(s, showSearch);
+    nav.appendChild(s);
+    box.insertBefore(nav, box.firstChild.nextSibling);
   }
 
   /* ------------------------------------------------------------------ *
