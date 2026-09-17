@@ -1754,67 +1754,84 @@ if (data.featured) {
 var m = res.data.data || {};
        box = banner('MOVIEFLIX', m.title || '');
        view.appendChild(box);
-       
-       // Add poster/backdrop image
-       var postBox = make('div');
-       addClass(postBox, 'poster');
-       var img = make('img', { alt: m.title || '', width: '256', height: '384' });
-       img.setAttribute('data-src', posterUrl(m, m.id || ''));
+
+       // Details hero: backdrop + poster + info + actions
+       var hero = make('div');
+       addClass(hero, 'detail-hero');
+       var heroBody = make('div');
+       addClass(heroBody, 'dh-body');
+
+       var backdropDiv = make('div');
+       addClass(backdropDiv, 'dh-backdrop');
+       backdropDiv.style.backgroundImage = 'url(' + backdropUrl(m, m.id || '') + ')';
+       hero.appendChild(backdropDiv);
+
+       var posterCell = make('div');
+       addClass(posterCell, 'dh-poster');
+       var img = make('img', { alt: m.title || '', width: '200', height: '300' });
+       img.setAttribute('src', posterUrl(m, m.id || ''));
        img.onerror = function () {
          this.onerror = null;
-         this.src = '/logo.svg?v=2'; // Fallback to MovieFlix logo
+         this.src = '/logo.svg?v=2';
          this.alt = m.title || 'MovieFlix';
-         this.style.backgroundColor = '#0b1629'; // Dark background for placeholder
+         this.style.backgroundColor = '#0b1629';
        };
-       postBox.appendChild(img);
-       view.appendChild(postBox);
+       posterCell.appendChild(img);
+       heroBody.appendChild(posterCell);
 
-      var metaParts = [];
-      if (m.year) metaParts.push(String(m.year));
-      if (m.type) metaParts.push(m.type);
-      if (m.rating) metaParts.push('Rating ' + m.rating);
-      if (m.maturityRating) metaParts.push(m.maturityRating);
-      if (m.durationMinutes) metaParts.push(m.durationMinutes + ' min');
-      box.appendChild(make('div', { class: 'meta' }, metaParts.join('  \u00b7  ')));
-      if (m.overview) box.appendChild(make('p', { class: 'desc' }, m.overview));
+       var infoCell = make('div');
+       addClass(infoCell, 'dh-info');
+       infoCell.appendChild(make('h1', {}, m.title || ''));
+       var metaParts = [];
+       if (m.year) metaParts.push(String(m.year));
+       if (m.type) metaParts.push(m.type);
+       if (m.rating) metaParts.push('Rating ' + m.rating);
+       if (m.maturityRating) metaParts.push(m.maturityRating);
+       if (m.durationMinutes) metaParts.push(m.durationMinutes + ' min');
+       infoCell.appendChild(make('div', { class: 'meta' }, metaParts.join('  \u00b7  ')));
+       if (m.overview) infoCell.appendChild(make('p', { class: 'overview' }, m.overview));
 
-      var grid = [];
+       var grid = [];
+       var actions = make('div');
+       addClass(actions, 'actions');
 
-      var playRow = [];
-      var play = make('button', { class: 'btn' }, '\u25B6 Play');
-      bindClick(play, function () { playMedia(m, null); });
-      box.appendChild(play);
-      playRow.push({ el: play, action: function () { playMedia(m, null); } });
+       var play = make('button', { class: 'btn' }, '\u25B6 Play');
+       bindClick(play, function () { playMedia(m, null); });
+       actions.appendChild(play);
+       var playCell = { el: play, action: function () { playMedia(m, null); } };
 
-      var backRow = [];
-      var back = make('button', { class: 'btn ghost' }, 'Back to Home');
-      bindClick(back, bootLan);
-      box.appendChild(back);
-      backRow.push({ el: back, action: bootLan });
+       var back = make('button', { class: 'btn ghost' }, 'Back to Home');
+       bindClick(back, bootLan);
+       actions.appendChild(back);
+       var backCell = { el: back, action: bootLan };
 
-      if (m.type === 'series' && m.episodes && m.episodes.length) {
-        box.appendChild(make('div', { class: 'row' }));
-        var titleRow = make('div');
-        addClass(titleRow, 'row');
-        titleRow.appendChild(make('h2', {}, 'Episodes'));
-        box.appendChild(titleRow);
-        var epGrid = [];
-        for (var i = 0; i < m.episodes.length; i++) {
-          (function (ep) {
-            var opt = make('button', { class: 'opt' },
-              'S' + (ep.seasonNumber || '?') + ' \u00b7 E' + (ep.episodeNumber || '?') + ' \u2014 ' + (ep.title || 'Episode'));
-            bindClick(opt, function () { playMedia(m, ep); });
-            box.appendChild(opt);
-            epGrid.push({ el: opt, action: function () { playMedia(m, ep); } });
-          })(m.episodes[i]);
-        }
-        grid.push(epGrid);
-      }
+       infoCell.appendChild(actions);
+       heroBody.appendChild(infoCell);
+       hero.appendChild(heroBody);
+       box.appendChild(hero);
 
-      grid.push(playRow, backRow);
-      setGrid(grid);
-      box.appendChild(make('div', { class: 'try' }, 'Press OK to play. Back returns to Home.'));
-    });
+       if (m.type === 'series' && m.episodes && m.episodes.length) {
+         var titleRow = make('div');
+         addClass(titleRow, 'row');
+         titleRow.appendChild(make('h2', {}, 'Episodes'));
+         box.appendChild(titleRow);
+         var epGrid = [];
+         for (var i = 0; i < m.episodes.length; i++) {
+           (function (ep) {
+             var opt = make('button', { class: 'opt' },
+               'S' + (ep.seasonNumber || '?') + ' \u00b7 E' + (ep.episodeNumber || '?') + ' \u2014 ' + (ep.title || 'Episode'));
+             bindClick(opt, function () { playMedia(m, ep); });
+             box.appendChild(opt);
+             epGrid.push({ el: opt, action: function () { playMedia(m, ep); } });
+           })(m.episodes[i]);
+         }
+         grid.push(epGrid);
+       }
+
+       grid.push([playCell], [backCell]);
+       setGrid(grid);
+       box.appendChild(make('div', { class: 'try' }, 'Press OK to play. Back returns to Home.'));
+     });
   }
 
   function bootLan() { showHome(); }

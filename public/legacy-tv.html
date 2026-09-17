@@ -119,6 +119,28 @@
     line-height: 88px; text-align: center; }
   .meta { color: #94a3b8; font-size: 17px; margin: 6px 0 16px; }
   .desc { font-size: 17px; line-height: 1.5; margin: 0 0 22px; color: #d1d5db; }
+
+  /* Details hero (backdrop + poster + info) */
+  .detail-hero { position: relative; border-radius: 18px; overflow: hidden;
+    background: #0b1629; border: 1px solid #243955; margin: 0 0 26px; }
+  .detail-hero .dh-backdrop { position: absolute; left: 0; top: 0; right: 0; bottom: 0;
+    background-position: center; background-size: cover; opacity: .32; }
+  .detail-hero .dh-body { position: relative; display: table; width: 100%;
+    table-layout: fixed; padding: 26px; }
+  .detail-hero .dh-poster { display: table-cell; width: 220px; vertical-align: top; }
+  .detail-hero .dh-poster img { display: block; width: 200px; height: 300px;
+    border-radius: 12px; box-shadow: 0 14px 40px rgba(0,0,0,.5); object-fit: cover; }
+  .detail-hero .dh-info { display: table-cell; vertical-align: top; padding-left: 26px; }
+  .detail-hero .dh-info h1 { font-size: 34px; font-weight: 900; margin: 0 0 8px; line-height: 1.2; }
+  .detail-hero .dh-info .meta { font-size: 18px; margin: 0 0 16px; }
+  .detail-hero .dh-info .overview { font-size: 19px; line-height: 1.55; color: #d1d5db; margin: 0 0 24px; max-height: 180px; overflow: hidden; }
+  .detail-hero .dh-info .actions { font-size: 0; }
+  @media (max-width: 800px) {
+    .detail-hero .dh-body { display: block; }
+    .detail-hero .dh-poster { display: block; width: 100%; margin-bottom: 18px; }
+    .detail-hero .dh-poster img { margin: 0 auto; }
+    .detail-hero .dh-info { display: block; padding-left: 0; text-align: center; }
+  }
   .video { width: 100%; max-width: 1280px; background: #000; }
   .controls { max-width: 1280px; margin: 14px auto 0; text-align: center; }
   .ctrl { display: inline-block; min-height: 52px; line-height: 50px;
