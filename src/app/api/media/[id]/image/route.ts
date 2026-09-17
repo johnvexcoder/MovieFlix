@@ -158,13 +158,37 @@ export async function GET(
       }
     }
 
-    // 3. Fall back to remote TMDB image
+    // 3. Fall back to remote TMDB image. Old Smart TV engines frequently fail
+    //    on direct external CDN fetches (old TLS, certificate chains, CORS,
+    //    mixed content). Proxy the image through MovieFlix so the client stays
+    //    same-origin; the server fetches and caches it. Do NOT 302-redirect.
     const remoteUrl = kind === "backdrop" ? mediaItem.backdropUrl : mediaItem.posterUrl;
     if (remoteUrl) {
-      return NextResponse.redirect(remoteUrl, 302);
+      try {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 12000);
+        const upstream = await fetch(remoteUrl, {
+          redirect: "follow",
+          signal: controller.signal,
+          headers: { "User-Agent": "MovieFlix/1.0" },
+        });
+        clearTimeout(timeout);
+        if (upstream.ok) {
+          const buf = Buffer.from(await upstream.arrayBuffer());
+          const mime = (upstream.headers.get("content-type") || "image/jpeg").split(";")[0].trim();
+          return new NextResponse(new Uint8Array(buf), {
+            headers: {
+              "Content-Type": mime || "image/jpeg",
+              "Cache-Control": "private, max-age=86400",
+              "X-Content-Type-Options": "nosniff",
+            },
+          });
+        }
+      } catch (e) {
+        console.error("TMDB image proxy error:", e);
+      }
+      return new NextResponse("No image available", { status: 404 });
     }
-
-    return new NextResponse("No image available", { status: 404 });
   } catch (error) {
     console.error("Poster endpoint error:", error);
     return new NextResponse("Image error", { status: 500 });

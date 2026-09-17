@@ -79,9 +79,16 @@
   }
 
   function posterUrl(item, mediaId) {
-    var p = item && (item.posterUrl || item.backdropUrl);
-    if (p) return p;
-    return '/api/media/' + mediaId + '/image?kind=poster';
+    var id = (item && (item.id || mediaId)) || '';
+    // Always use MovieFlix's own same-origin image proxy so old Smart TV
+    // engines never have to reach TMDB's external CDN directly (old TLS /
+    // certificate / CORS failures are the #1 reason posters appear broken).
+    return '/api/media/' + encodeURIComponent(id) + '/image?kind=poster';
+  }
+
+  function backdropUrl(item, mediaId) {
+    var id = (item && (item.id || mediaId)) || '';
+    return '/api/media/' + encodeURIComponent(id) + '/image?kind=backdrop';
   }
 
   /* ------------------------------------------------------------------ *
