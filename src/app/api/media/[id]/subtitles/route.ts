@@ -193,17 +193,12 @@ export async function GET(
          } else {
            result.push({ ...sub });
          }
-       });
-     }
-   }
-   
-   return result;
- }
-  } catch (error) {
-    console.error("Subtitle endpoint error:", error);
-    return new NextResponse("Subtitle error", { status: 500 });
+});
+      }
+    }
+
+    return result;
   }
-}
 
 function dirnameOf(p: string): string {
   const idx = Math.max(p.lastIndexOf("/"), p.lastIndexOf("\\"));
