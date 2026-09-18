@@ -72,6 +72,23 @@ html.tv-mode .tv-profiles-screen {
   overflow: hidden;
 }
 
+/* TV player: the watch container must occupy the full viewport. Older TV
+   webviews expose a small CSS viewport (e.g. 960x540) even on a 1080p panel,
+   and some engines mishandle 100dvh. Force the player root and its video to
+   fill the screen edge-to-edge so playback uses the whole display instead of
+   leaving large app-level top/bottom gaps. The video stays object-fit: contain
+   so genuine cinematic aspect-ratio bars are preserved — we never crop. */
+html.tv-mode .movieflix-player,
+html.tv-mode .movieflix-player video {
+  width: 100vw !important;
+  max-width: 100vw !important;
+  height: 100vh !important;
+  max-height: 100vh !important;
+}
+html.tv-mode .movieflix-player video {
+  object-fit: contain;
+}
+
 @media (max-height: 800px) {
   html.tv-mode { font-size: 14px; }
   html.tv-mode .tv-login-screen { padding-top: 12px !important; padding-bottom: 12px !important; }

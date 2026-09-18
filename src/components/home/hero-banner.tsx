@@ -121,7 +121,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
             type="button"
             aria-label="Previous slide"
             onClick={handlePrev}
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all duration-200"
+            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all duration-200 tv:opacity-100"
           >
             <ChevronLeft className="h-6 w-6" />
           </button>
@@ -129,7 +129,7 @@ export function HeroBanner({ items, profileId }: HeroBannerProps) {
             type="button"
             aria-label="Next slide"
             onClick={handleNext}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all duration-200"
+            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-14 w-11 items-center justify-center rounded-xl bg-black/60 text-white backdrop-blur-md border border-white/10 opacity-0 group-hover/hero:opacity-100 hover:bg-primary hover:text-primary-foreground hover:border-transparent transition-all duration-200 tv:opacity-100"
           >
             <ChevronRight className="h-6 w-6" />
           </button>
