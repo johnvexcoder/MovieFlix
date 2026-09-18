@@ -38,6 +38,9 @@ import { PlanPromoManager } from "@/components/admin/plan-promo-manager";
 import { AdminNavigation } from "@/components/admin/admin-navigation";
 import { AboutTeamManager } from "@/components/admin/about-team-manager";
 import { AdminSecurityPanel } from "@/components/admin/admin-security-panel";
+import { AdminAuditLog } from "@/components/admin/admin-audit-log";
+import { AdminEmailChange } from "@/components/admin/admin-email-change";
+import { AdminRecoveryOnboarding } from "@/components/admin/admin-recovery-onboarding";
 
 interface AdminUser {
   id: string;
@@ -369,6 +372,8 @@ export default function AdminSettingsPage() {
             <span>{saveToast}</span>
           </motion.div>
         )}
+
+        <AdminRecoveryOnboarding />
 
         <div className="grid items-start gap-5 xl:grid-cols-2 [&>.grid]:contents">
           <div id="platform" className="xl:col-span-2 scroll-mt-24 rounded-2xl border border-cyan-300/15 bg-cyan-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Platform and Delivery</p><h2 className="mt-1 text-lg font-black">Platform and delivery</h2><p className="text-xs text-slate-400">TMDB, filesystem scanner, session security, and SMTP.</p></div>
@@ -716,6 +721,10 @@ export default function AdminSettingsPage() {
           <AboutTeamManager />
 
           <AdminSecurityPanel />
+
+          <AdminEmailChange />
+
+          <AdminAuditLog />
 
           {/* Administrators Roster */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">

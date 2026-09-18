@@ -2,8 +2,9 @@ import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { admins } from "@/db/schema";
 import { eq } from "drizzle-orm";
-import { verifyToken, hashPassword, comparePassword } from "@/lib/auth";
+import { verifyToken, hashPassword, comparePassword, getClientIp } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { logAdminAudit } from "@/lib/admin-audit";
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -45,6 +46,8 @@ export async function PATCH(request: NextRequest) {
       .update(admins)
       .set({ passwordHash })
       .where(eq(admins.id, admin.id));
+
+    await logAdminAudit({ adminId: admin.id, actor: admin.username, action: "admin.password_changed", detail: "Administrator changed their own password", ip: getClientIp(request) });
 
     return successResponse({ updated: true });
   } catch (error) {

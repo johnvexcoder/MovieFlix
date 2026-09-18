@@ -7,6 +7,8 @@ import { successResponse, errorResponse } from "@/lib/api-response";
 import { sendEmail } from "@/lib/email";
 import { broadcastEmail } from "@/lib/email-templates";
 import { resolveBroadcastTarget, type BroadcastTargetSpec } from "@/lib/broadcast-targeting";
+import { getClientIp } from "@/lib/auth";
+import { logAdminAudit } from "@/lib/admin-audit";
 
 export const dynamic = "force-dynamic";
 
@@ -85,6 +87,13 @@ export async function POST(request: NextRequest) {
         errors.push(account.username || account.id);
       }
     }
+
+    await logAdminAudit({
+      actor: (payload as { profileId?: string }).profileId || "admin",
+      action: "broadcast.sent",
+      detail: `Broadcast email "${subject.trim()}" → ${sent} recipient(s)`,
+      ip: getClientIp(request),
+    });
 
     return successResponse({
       sent,

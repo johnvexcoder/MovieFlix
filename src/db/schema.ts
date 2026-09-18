@@ -70,6 +70,49 @@ export const adminPasswordResetTokens = sqliteTable("admin_password_reset_tokens
 });
 
 // ===========================================
+// ADMIN EMAIL CHANGE TOKENS (secure email change flow)
+// ===========================================
+export const adminEmailChangeTokens = sqliteTable("admin_email_change_tokens", {
+  id: text("id").primaryKey(),
+  adminId: text("admin_id").notNull().references(() => admins.id),
+  newEmail: text("new_email").notNull(),
+  codeHash: text("code_hash").notNull(),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
+// ADMIN RECOVERY REQUESTS (Admin Assistant / Telegram OTP)
+// ===========================================
+export const adminRecoveryRequests = sqliteTable("admin_recovery_requests", {
+  id: text("id").primaryKey(),
+  adminId: text("admin_id").notNull().references(() => admins.id),
+  method: text("method").notNull().default("admin_assistant"),
+  codeHash: text("code_hash").notNull(),
+  status: text("status").notNull().default("pending"),
+  attempts: integer("attempts").notNull().default(0),
+  expiresAt: text("expires_at").notNull(),
+  consumedAt: text("consumed_at"),
+  createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
+// ADMIN AUDIT LOG
+// ===========================================
+export const adminAuditLog = sqliteTable("admin_audit_log", {
+  id: text("id").primaryKey(),
+  adminId: text("admin_id").references(() => admins.id),
+  actor: text("actor"),
+  action: text("action").notNull(),
+  detail: text("detail"),
+  ip: text("ip"),
+  createdAt: text("created_at").notNull().default(""),
+});
+
+// ===========================================
 // ADMIN MESSAGES TABLE (targeted or broadcast)
 // ===========================================
 export const adminMessages = sqliteTable("admin_messages", {

@@ -8,6 +8,7 @@ import { setRateLimit, getTokenVersion, setSession } from "@/lib/redis";
 import { randomBytes } from "crypto";
 import { sendEmail } from "@/lib/email";
 import { adminCodeEmail, generateEmailCode, securityHash } from "@/lib/admin-two-factor";
+import { logAdminAudit } from "@/lib/admin-audit";
 
 export async function POST(request: NextRequest) {
   try {
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
     // Verify password
     const isValid = await comparePassword(password, admin.passwordHash);
     if (!isValid) {
+      await logAdminAudit({ adminId: admin.id, actor: admin.username, action: "admin.login_failed", detail: "Failed admin sign-in", ip });
       return errorResponse("Invalid admin username or password", 401);
     }
 
@@ -63,6 +65,8 @@ export async function POST(request: NextRequest) {
       isAdmin: true,
       fingerprint: "admin",
     });
+
+    await logAdminAudit({ adminId: admin.id, actor: admin.username, action: "admin.login_success", detail: "Admin signed in", ip });
 
     // Long-lived session refresh token (7 days)
     const tokenVersion = await getTokenVersion(admin.id);

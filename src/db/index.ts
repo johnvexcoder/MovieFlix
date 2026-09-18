@@ -268,6 +268,40 @@ export function setupDatabase() {
       created_at TEXT NOT NULL DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_admin_password_reset_admin ON admin_password_reset_tokens(admin_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS admin_email_change_tokens (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT NOT NULL REFERENCES admins(id),
+      new_email TEXT NOT NULL,
+      code_hash TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_email_change_admin ON admin_email_change_tokens(admin_id, status, created_at DESC);
+    CREATE TABLE IF NOT EXISTS admin_recovery_requests (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT NOT NULL REFERENCES admins(id),
+      method TEXT NOT NULL DEFAULT 'admin_assistant',
+      code_hash TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER NOT NULL DEFAULT 0,
+      expires_at TEXT NOT NULL,
+      consumed_at TEXT,
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_recovery_admin ON admin_recovery_requests(admin_id, status, created_at DESC);
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT REFERENCES admins(id),
+      actor TEXT,
+      action TEXT NOT NULL,
+      detail TEXT,
+      ip TEXT,
+      created_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_audit_created ON admin_audit_log(created_at DESC);
     CREATE TABLE IF NOT EXISTS admin_messages (
       id TEXT PRIMARY KEY,
       message TEXT NOT NULL,

@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Copy, KeyRound, Loader2, ShieldCheck } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Copy, KeyRound, Loader2, ShieldCheck, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,6 +12,7 @@ type Status = {
   recoveryCodesRemaining: number;
 };
 export function AdminSecurityPanel() {
+  const router = useRouter();
   const [status, setStatus] = useState<Status | null>(null),
     [email, setEmail] = useState(""),
     [password, setPassword] = useState(""),
@@ -69,6 +71,21 @@ export function AdminSecurityPanel() {
   async function copyCodes() {
     await navigator.clipboard.writeText(codes.join("\n"));
     setMessage("Recovery codes copied.");
+  }
+  async function signOutAllSessions() {
+    if (!confirm("Sign out ALL admin sessions, including this one? You will need to sign in again.")) return;
+    setBusy(true);
+    setMessage("");
+    try {
+      const r = await fetch("/api/admin/sessions", { method: "POST" });
+      const d = await r.json();
+      if (!d.success) throw new Error(d.error);
+      router.push("/admin-panel/login");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Could not sign out sessions");
+    } finally {
+      setBusy(false);
+    }
   }
   return (
     <section className="glass-panel min-w-0 rounded-2xl border border-white/10 p-4 shadow-xl sm:rounded-3xl sm:p-6">
@@ -157,6 +174,15 @@ export function AdminSecurityPanel() {
             Enabled · {status.recoveryCodesRemaining} recovery codes remaining
           </span>
         )}
+      </div>
+      <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-white/10 pt-4">
+        <Button variant="outline" disabled={busy} onClick={signOutAllSessions}>
+          <LogOut className="mr-1.5 h-4 w-4" />
+          Sign out all admin sessions
+        </Button>
+        <span className="text-[11px] text-slate-500">
+          Invalidates every active admin session, including this one.
+        </span>
       </div>
       {message && (
         <p role="status" className="mt-3 text-sm text-cyan-200">
