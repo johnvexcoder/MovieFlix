@@ -47,6 +47,9 @@ const PUBLIC_PATHS = [
   // cookie. Segment requests must keep working after the 15-minute account
   // access JWT expires; the route independently validates every request.
   "/api/streaming",
+  // Cron endpoints authenticate via the x-cron-secret header themselves (not
+  // via a user cookie), so they must bypass the auth proxy.
+  "/api/cron",
 ];
 
 // Paths a user may still visit while required to change their password. These
