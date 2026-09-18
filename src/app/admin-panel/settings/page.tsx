@@ -20,6 +20,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  Send,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,7 @@ export default function AdminSettingsPage() {
 
   // Settings state
   const [tmdbApiKey, setTmdbApiKey] = useState("");
+  const [tmdbApiKeySet, setTmdbApiKeySet] = useState(false);
   const [scanInterval, setScanInterval] = useState(10);
   const [maxSessions, setMaxSessions] = useState(3);
   const [sessionTimeout, setSessionTimeout] = useState(30);
@@ -88,6 +90,13 @@ export default function AdminSettingsPage() {
   const [smtpUser, setSmtpUser] = useState("");
   const [smtpPass, setSmtpPass] = useState("");
   const [smtpFrom, setSmtpFrom] = useState("");
+
+  // Telegram Admin Assistant settings
+  const [telegramBotToken, setTelegramBotToken] = useState("");
+  const [telegramBotTokenSet, setTelegramBotTokenSet] = useState(false);
+  const [telegramAdminChatId, setTelegramAdminChatId] = useState("");
+  const [telegramTesting, setTelegramTesting] = useState(false);
+  const [telegramMessage, setTelegramMessage] = useState<{ ok: boolean; text: string } | null>(null);
 
   // Public URL used to build links inside emails (the "Log In" / reset links).
   const [appPublicUrl, setAppPublicUrl] = useState("");
@@ -227,19 +236,37 @@ export default function AdminSettingsPage() {
     }
   }
 
+  async function handleTelegramTest() {
+    setTelegramTesting(true);
+    setTelegramMessage(null);
+    try {
+      const response = await fetch("/api/admin/settings/telegram-test", { method: "POST" });
+      const data = await response.json();
+      setTelegramMessage(data.success ? { ok: true, text: data.message } : { ok: false, text: data.error || "Test failed" });
+    } catch {
+      setTelegramMessage({ ok: false, text: "Could not test Telegram" });
+    } finally {
+      setTelegramTesting(false);
+    }
+  }
+
   async function loadSettings() {
-    setTmdbApiKey(process.env.NEXT_PUBLIC_TMDB_API_KEY || "");
     try {
       const response = await fetch("/api/admin/settings");
       const data = await response.json();
       if (data.success && data.data?.settings) {
         const s = data.data.settings;
+        setTmdbApiKey(s.tmdb_api_key_set === "true" ? "••••••••••" : "");
+        setTmdbApiKeySet(s.tmdb_api_key_set === "true");
         if (s.smtp_host) setSmtpHost(s.smtp_host);
         if (s.smtp_port) setSmtpPort(s.smtp_port);
         if (s.smtp_user) setSmtpUser(s.smtp_user);
         if (s.smtp_from) setSmtpFrom(s.smtp_from);
         // SMTP password is never returned; show a placeholder indicating whether one is set.
         setSmtpPass(s.smtp_pass_set === "true" ? "••••••••••" : "");
+        setTelegramBotToken(s.telegram_bot_token_set === "true" ? "••••••••••" : "");
+        setTelegramBotTokenSet(s.telegram_bot_token_set === "true");
+        if (s.telegram_admin_chat_id) setTelegramAdminChatId(s.telegram_admin_chat_id);
         if (s.reminder_days) setReminderDays(parseInt(s.reminder_days));
         if (s.reminder_message) setReminderMessage(s.reminder_message);
         if (s.max_sessions) setMaxSessions(parseInt(s.max_sessions));
@@ -255,9 +282,11 @@ export default function AdminSettingsPage() {
   async function handleSave() {
     setSaving(true);
     try {
-      // Don't send the masked placeholder back; the backend preserves the stored
+      // Don't send masked placeholders back; the backend preserves the stored
       // password when smtp_pass is empty. Only a fresh value is saved.
       const smtpPassToSend = smtpPass === "••••••••••" ? "" : smtpPass;
+      const tmdbKeyToSend = tmdbApiKey === "••••••••••" ? "" : tmdbApiKey;
+      const telegramTokenToSend = telegramBotToken === "••••••••••" ? "" : telegramBotToken;
       const response = await fetch("/api/admin/settings", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -268,6 +297,9 @@ export default function AdminSettingsPage() {
             smtp_user: smtpUser,
             smtp_pass: smtpPassToSend,
             smtp_from: smtpFrom,
+            tmdb_api_key: tmdbKeyToSend,
+            telegram_bot_token: telegramTokenToSend,
+            telegram_admin_chat_id: telegramAdminChatId.trim(),
             reminder_days: reminderDays.toString(),
             reminder_message: reminderMessage,
             max_sessions: maxSessions.toString(),
@@ -339,7 +371,7 @@ export default function AdminSettingsPage() {
         )}
 
         <div className="grid items-start gap-5 xl:grid-cols-2 [&>.grid]:contents">
-          <div className="xl:col-span-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Platform and Delivery</p><h2 className="mt-1 text-lg font-black">Platform and delivery</h2><p className="text-xs text-slate-400">TMDB, filesystem scanner, session security, and SMTP.</p></div>
+          <div id="platform" className="xl:col-span-2 scroll-mt-24 rounded-2xl border border-cyan-300/15 bg-cyan-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Platform and Delivery</p><h2 className="mt-1 text-lg font-black">Platform and delivery</h2><p className="text-xs text-slate-400">TMDB, filesystem scanner, session security, and SMTP.</p></div>
           {/* TMDB API Integration */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
@@ -368,7 +400,7 @@ export default function AdminSettingsPage() {
                 type="password"
                 value={tmdbApiKey}
                 onChange={(e) => setTmdbApiKey(e.target.value)}
-                placeholder="Enter 32-character TMDB API Key"
+                placeholder={tmdbApiKeySet ? "•••••••••• (saved)" : "Enter 32-character TMDB API Key"}
                 className="h-11 rounded-xl border-white/10 bg-white/5 text-white font-mono"
               />
               <p className="text-[11px] text-neutral-400">
@@ -551,9 +583,89 @@ export default function AdminSettingsPage() {
               </div>
             </div>
 
+            {/* Telegram Admin Assistant */}
+            <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
+              <div className="mb-4 flex items-center gap-2.5">
+                <Send className="h-5 w-5 text-cyan-300" />
+                <div>
+                  <h2 className="text-lg font-bold text-white">
+                    Telegram Admin Assistant
+                  </h2>
+                  <p className="text-xs text-slate-400">
+                    Recovery codes are sent to the Main Admin via this bot. Secrets stay server-side.
+                  </p>
+                </div>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    Bot Token
+                  </Label>
+                  <Input
+                    type="password"
+                    value={telegramBotToken}
+                    onChange={(e) => setTelegramBotToken(e.target.value)}
+                    placeholder={telegramBotTokenSet ? "•••••••••• (saved)" : "123456:ABC-DEF...bot token"}
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white font-mono"
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    Created with{" "}
+                    <a className="text-cyan-300 underline" href="https://t.me/BotFather" target="_blank" rel="noopener noreferrer">@BotFather</a>.
+                    Never shared with the browser.
+                  </p>
+                </div>
+                <div>
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">
+                    Main Admin Chat ID
+                  </Label>
+                  <Input
+                    type="text"
+                    value={telegramAdminChatId}
+                    onChange={(e) => setTelegramAdminChatId(e.target.value)}
+                    placeholder="e.g. 123456789"
+                    className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white font-mono"
+                  />
+                  <p className="mt-1 text-[11px] text-neutral-400">
+                    Find it with{" "}
+                    <a className="text-cyan-300 underline" href="https://t.me/userinfobot" target="_blank" rel="noopener noreferrer">@userinfobot</a>.
+                  </p>
+                </div>
+                {telegramMessage && (
+                  <p
+                    className={`rounded-xl border p-3 text-xs font-semibold ${
+                      telegramMessage.ok
+                        ? "border-emerald-500/30 bg-emerald-950/40 text-emerald-400"
+                        : "border-red-400/30 bg-red-950/40 text-red-200"
+                    }`}
+                  >
+                    {telegramMessage.text}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={handleTelegramTest}
+                    disabled={telegramTesting}
+                    className="rounded-xl border-white/15 bg-white/5 text-xs font-bold hover:bg-white/15"
+                  >
+                    {telegramTesting ? (
+                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Send className="mr-1.5 h-4 w-4" />
+                    )}
+                    Test Telegram
+                  </Button>
+                  <span className="text-[11px] text-slate-500">
+                    Save Configuration above to persist these values.
+                  </span>
+                </div>
+              </div>
+            </div>
+
           </div>
 
-          <div className="xl:col-span-2 mt-3 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-300">Membership and Promotions</p><h2 className="mt-1 text-lg font-black">Membership and promotions</h2><p className="text-xs text-slate-400">Expiration reminders, subscription plans, and promo or redeem codes.</p></div>
+          <div id="membership" className="xl:col-span-2 mt-3 scroll-mt-24 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-300">Membership and Promotions</p><h2 className="mt-1 text-lg font-black">Membership and promotions</h2><p className="text-xs text-slate-400">Expiration reminders, subscription plans, and promo or redeem codes.</p></div>
             {/* Expiry Reminder */}
             <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
               <div className="mb-4 flex items-center gap-2.5">

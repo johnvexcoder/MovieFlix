@@ -754,11 +754,15 @@ export default function AdminPage() {
         {/* Sent Messages */}
         <MessageHistory />
 
-        {/* Broadcast Email */}
-        <EmailBroadcastAdmin />
+        {/* Broadcast Email / Message */}
+        <div id="broadcast" className="scroll-mt-24">
+          <EmailBroadcastAdmin />
+        </div>
 
-        {/* Contact Submissions */}
-        <ContactSubmissionsAdmin />
+        {/* Report and Feedback */}
+        <div id="reports" className="scroll-mt-24">
+          <ContactSubmissionsAdmin />
+        </div>
 
         {/* Author Credits & Support Footer */}
         <footer className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-neutral-400">

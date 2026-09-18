@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { formatPHP, formatPercentage, getRangeLabel, getMobileRangeLabel } from "@/lib/analytics";
-import { Activity, Megaphone, Clock, Timer, Loader2, X } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 
 const SHEET_BASE =
@@ -194,16 +194,6 @@ function AnalyticsModal({
               )}
             </div>
           </div>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={onClose}
-            className="h-9 rounded-xl px-4"
-          >
-            <X className="mr-2 h-4 w-4" />
-            Close
-          </Button>
         </div>
         
         {/* Main content: 30/70 layout on desktop, stacked on mobile */}

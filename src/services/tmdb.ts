@@ -1,8 +1,18 @@
 import type { MediaType } from "@/types";
+import { getSetting } from "@/lib/app-settings";
 
 const TMDB_BASE_URL = process.env.TMDB_BASE_URL || "https://api.themoviedb.org/3";
 const TMDB_IMAGE_BASE_URL = process.env.TMDB_IMAGE_BASE_URL || "https://image.tmdb.org/t/p/";
-const TMDB_API_KEY = process.env.TMDB_API_KEY;
+
+/**
+ * Resolves the TMDB API key from admin settings (stored in the DB) with an
+ * environment-variable fallback. No key is exposed to the browser.
+ */
+export async function getTmdbApiKey(): Promise<string> {
+  const stored = (await getSetting<string>("tmdb_api_key", "")).trim();
+  if (stored) return stored;
+  return process.env.TMDB_API_KEY?.trim() || "";
+}
 
 interface TMDBSearchResult {
   id: number;
@@ -78,6 +88,7 @@ export interface TMDBMetadata {
 }
 
 async function fetchTMDB<T>(endpoint: string, params: Record<string, string> = {}): Promise<T | null> {
+  const TMDB_API_KEY = await getTmdbApiKey();
   if (!TMDB_API_KEY) {
     console.warn("TMDB API key not configured");
     return null;

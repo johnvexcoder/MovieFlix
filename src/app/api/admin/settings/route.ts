@@ -4,7 +4,7 @@ import { appSettings } from "@/db/schema";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 
-const ALLOWED_SETTINGS = new Set(["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","reminder_days","reminder_message","max_sessions","session_timeout","app_public_url","about_team"]);
+const ALLOWED_SETTINGS = new Set(["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","reminder_days","reminder_message","max_sessions","session_timeout","app_public_url","about_team","tmdb_api_key","telegram_bot_token","telegram_admin_chat_id"]);
 
 function sanitizeTeam(value: string): string | null {
   try {
@@ -38,11 +38,19 @@ export async function GET(request: NextRequest) {
       config[s.key] = s.value || "";
     });
 
-    // Never return the SMTP password to the client. Indicate whether one is set
-    // so the UI can prompt accordingly without leaking the secret.
+    // Never return secrets to the client. Indicate whether each is set so the
+    // UI can prompt accordingly without leaking the stored value.
     const smtpPassSet = Boolean(config["smtp_pass"]);
     delete config["smtp_pass"];
     config["smtp_pass_set"] = smtpPassSet ? "true" : "false";
+
+    const tmdbKeySet = Boolean(config["tmdb_api_key"]);
+    delete config["tmdb_api_key"];
+    config["tmdb_api_key_set"] = tmdbKeySet ? "true" : "false";
+
+    const telegramTokenSet = Boolean(config["telegram_bot_token"]);
+    delete config["telegram_bot_token"];
+    config["telegram_bot_token_set"] = telegramTokenSet ? "true" : "false";
 
     return successResponse({ settings: config });
   } catch (error) {
@@ -84,7 +92,9 @@ export async function PUT(request: NextRequest) {
       db.transaction((tx) => {
         for (const [key, value] of Object.entries(settings)) {
           if (!ALLOWED_SETTINGS.has(key) || typeof value !== "string" || value.length > 50_000) continue;
-          if (key === "smtp_pass" && value.trim() === "") continue;
+          const isSecret = key === "smtp_pass" || key === "tmdb_api_key" || key === "telegram_bot_token";
+          // Never overwrite a stored secret with an empty/masked placeholder value.
+          if (isSecret && (value.trim() === "" || value.trim() === "••••••••••")) continue;
           const safeValue = key === "about_team" ? sanitizeTeam(value) : value;
           if (safeValue === null) continue;
           tx.insert(appSettings)

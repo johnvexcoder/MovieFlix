@@ -458,6 +458,8 @@ export function setupDatabase() {
   ensureColumn("accounts", "must_change_password", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "last_ip", "TEXT");
   ensureColumn("accounts", "last_login_at", "TEXT");
+  ensureColumn("accounts", "reminder_email_at", "TEXT");
+  ensureColumn("accounts", "expiry_email_at", "TEXT");
   ensureColumn("payment_submissions", "plan_id", "TEXT");
   ensureColumn("payment_submissions", "promo_code_id", "TEXT");
   ensureColumn("promo_codes", "birthday_month_only", "INTEGER NOT NULL DEFAULT 0");

@@ -40,6 +40,8 @@ export const accounts = sqliteTable("accounts", {
   updatedAt: text("updated_at").notNull().default(""),
   lastIp: text("last_ip"),
   lastLoginAt: text("last_login_at"),
+  reminderEmailAt: text("reminder_email_at"),
+  expiryEmailAt: text("expiry_email_at"),
 });
 
 // ===========================================
