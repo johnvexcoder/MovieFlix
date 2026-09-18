@@ -1,21 +1,24 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
 import { accounts } from "@/db/schema";
+import { inArray } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { sendEmail } from "@/lib/email";
 import { broadcastEmail } from "@/lib/email-templates";
+import { resolveBroadcastTarget, type BroadcastTargetSpec } from "@/lib/broadcast-targeting";
 
 export const dynamic = "force-dynamic";
 
 /**
  * POST /api/admin/email
  *
- * Sends an email to all users (recipients="all") or to a single user
- * (recipients=<accountId>). The message template greets each user by name, so
- * a single blast reaches the whole list without writing each email by hand.
+ * Sends an email to a resolved audience. The audience is described by a
+ * BroadcastTargetSpec (all / ids / plan / lifetime / limited / expiring /
+ * active / offline) — see src/lib/broadcast-targeting.ts. Each recipient is
+ * greeted by name automatically.
  *
- * Body: { recipients: "all" | string, subject: string, message: string }
+ * Body: { target: BroadcastTargetSpec, subject: string, message: string }
  */
 export async function POST(request: NextRequest) {
   try {
@@ -29,7 +32,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { recipients, subject, message } = body;
+    const { target, subject, message } = body;
 
     if (!subject || typeof subject !== "string" || subject.trim().length < 1) {
       return errorResponse("Subject is required", 400);
@@ -43,25 +46,21 @@ export async function POST(request: NextRequest) {
     if (message.trim().length > 10000) {
       return errorResponse("Message is too long (max 10000 characters)", 400);
     }
+    if (!target || typeof target !== "object" || typeof (target as BroadcastTargetSpec).mode !== "string") {
+      return errorResponse("Invalid audience selection", 400);
+    }
 
-    // Resolve the recipient accounts.
-    let targetIds: string[] = [];
-    if (recipients === "all") {
-      const all = await db
-        .select({ id: accounts.id, email: accounts.email, username: accounts.username })
-        .from(accounts);
-      targetIds = all.map((a) => a.id);
-    } else if (typeof recipients === "string" && recipients) {
-      targetIds = [recipients];
-    } else {
-      return errorResponse("Invalid recipients. Use 'all' or a single account id.", 400);
+    const { ids } = await resolveBroadcastTarget(target as BroadcastTargetSpec);
+    if (ids.length === 0) {
+      return errorResponse("No recipients match this audience.", 400);
     }
 
     const targets = await db
       .select({ id: accounts.id, email: accounts.email, username: accounts.username })
-      .from(accounts);
+      .from(accounts)
+      .where(inArray(accounts.id, ids));
 
-    const withEmail = targets.filter((a) => targetIds.includes(a.id) && a.email);
+    const withEmail = targets.filter((a) => a.email);
 
     if (withEmail.length === 0) {
       return errorResponse("No recipients have an email address on file.", 400);
