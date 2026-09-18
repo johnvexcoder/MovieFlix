@@ -339,7 +339,7 @@ export default function AdminSettingsPage() {
         )}
 
         <div className="grid items-start gap-5 xl:grid-cols-2 [&>.grid]:contents">
-          <div className="xl:col-span-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Section 1</p><h2 className="mt-1 text-lg font-black">Platform and delivery</h2><p className="text-xs text-slate-400">TMDB, filesystem scanner, session security, and SMTP.</p></div>
+          <div className="xl:col-span-2 rounded-2xl border border-cyan-300/15 bg-cyan-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-cyan-300">Platform and Delivery</p><h2 className="mt-1 text-lg font-black">Platform and delivery</h2><p className="text-xs text-slate-400">TMDB, filesystem scanner, session security, and SMTP.</p></div>
           {/* TMDB API Integration */}
           <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
@@ -553,7 +553,7 @@ export default function AdminSettingsPage() {
 
           </div>
 
-          <div className="xl:col-span-2 mt-3 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-300">Section 2</p><h2 className="mt-1 text-lg font-black">Membership and promotions</h2><p className="text-xs text-slate-400">Expiration reminders, subscription plans, and promo or redeem codes.</p></div>
+          <div className="xl:col-span-2 mt-3 rounded-2xl border border-fuchsia-300/15 bg-fuchsia-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-fuchsia-300">Membership and Promotions</p><h2 className="mt-1 text-lg font-black">Membership and promotions</h2><p className="text-xs text-slate-400">Expiration reminders, subscription plans, and promo or redeem codes.</p></div>
             {/* Expiry Reminder */}
             <div className="glass-panel rounded-3xl p-6 border border-white/10 shadow-xl">
               <div className="mb-4 flex items-center gap-2.5">
@@ -600,7 +600,7 @@ export default function AdminSettingsPage() {
           <PlanPromoManager />
 
 
-          <div className="xl:col-span-2 mt-3 rounded-2xl border border-orange-300/15 bg-orange-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-300">Section 3</p><h2 className="mt-1 text-lg font-black">Identity and administration</h2><p className="text-xs text-slate-400">About team, administrator roster, email verification, and password security.</p></div>
+          <div className="xl:col-span-2 mt-3 rounded-2xl border border-orange-300/15 bg-orange-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-300">Identity and Administration</p><h2 className="mt-1 text-lg font-black">Identity and administration</h2><p className="text-xs text-slate-400">About team, administrator roster, email verification, and password security.</p></div>
           <AboutTeamManager />
 
           <AdminSecurityPanel />
