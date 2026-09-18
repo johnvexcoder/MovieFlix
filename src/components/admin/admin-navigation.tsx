@@ -19,19 +19,17 @@ import { MovieFlixLogo } from "@/components/movieflix-logo";
 
 const links = [
   { href: "/admin-panel", label: "Overview", description: "Business analytics and accounts", icon: LayoutDashboard },
-  { href: "/admin-panel#broadcast", label: "Broadcast Email / Message", description: "Targeted user messaging", icon: Mail },
-  { href: "/admin-panel#reports", label: "Report and Feedback", description: "User reports and feedback", icon: MessageSquareWarning },
-  { href: "/admin-panel/settings#membership", label: "Membership and Promotions", description: "Plans, pricing, promo codes", icon: BadgeDollarSign },
-  { href: "/admin-panel/libraries", label: "Media Library", description: "Sources, indexing, streaming prep", icon: Library },
-  { href: "/admin-panel/settings#platform", label: "Platform and Delivery", description: "Streaming, delivery, compatibility", icon: Server },
+  { href: "/admin-panel/broadcast", label: "Broadcast Email / Message", description: "Targeted user messaging", icon: Mail },
+  { href: "/admin-panel/reports", label: "Report & Feedback", description: "User reports and feedback", icon: MessageSquareWarning },
+  { href: "/admin-panel/membership", label: "Membership and Promotion", description: "Plans, pricing, promo codes", icon: BadgeDollarSign },
+  { href: "/admin-panel/media", label: "Media Library", description: "Sources, indexing, metadata", icon: Library },
+  { href: "/admin-panel/platform", label: "Platform and Delivery", description: "Streaming, delivery, compatibility", icon: Server },
   { href: "/admin-panel/settings", label: "System Settings", description: "Identity and Administration", icon: Settings },
 ];
 
 function isActive(href: string, pathname: string): boolean {
-  const base = href.split("#")[0];
-  if (base === "/admin-panel") return pathname === "/admin-panel";
-  if (pathname.startsWith(base)) return true;
-  return false;
+  if (href === "/admin-panel") return pathname === "/admin-panel";
+  return pathname.startsWith(href);
 }
 
 export function AdminNavigation() {
