@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { db } from "@/db";
-import { accounts, profiles, profileSettings } from "@/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { accounts, profiles, profileSettings, playbackSessions } from "@/db/schema";
+import { eq, desc, and, isNull, gt } from "drizzle-orm";
 import { verifyToken, hashPassword } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 import { v4 as uuidv4 } from "uuid";
@@ -59,11 +59,35 @@ export async function GET(request: NextRequest) {
     const allProfiles = await db.select({ accountId: profiles.accountId }).from(profiles);
     const counts = new Map<string, number>();
     for (const profile of allProfiles) counts.set(profile.accountId, (counts.get(profile.accountId) || 0) + 1);
-    const accountsWithProfiles = allAccounts.map((account) => ({
-      ...account,
-      profileCount: counts.get(account.id) || 0,
-      isActive: !account.expiresAt || new Date(account.expiresAt) > new Date(),
-    }));
+
+    // Live streaming activity: an account is ACTIVE if any of its profiles has
+    // a playback session with a fresh heartbeat (not ended, not expired).
+    const heartbeatCutoff = new Date(Date.now() - 2 * 60 * 1000).toISOString();
+    const nowISO = new Date().toISOString();
+    const streamingRows = await db
+      .select({ accountId: playbackSessions.accountId })
+      .from(playbackSessions)
+      .where(and(
+        isNull(playbackSessions.endedAt),
+        isNull(playbackSessions.revokedAt),
+        gt(playbackSessions.lastSeenAt, heartbeatCutoff),
+        gt(playbackSessions.expiresAt, nowISO),
+      ));
+    const streamingAccounts = new Set(streamingRows.map((s) => s.accountId));
+
+    const accountsWithProfiles = allAccounts.map((account) => {
+      const expired = Boolean(account.expiresAt && new Date(account.expiresAt) <= new Date());
+      const subscriptionActive = !account.expiresAt || !expired;
+      return {
+        ...account,
+        profileCount: counts.get(account.id) || 0,
+        // Subscription validity (separate from activity).
+        subscriptionType: !account.expiresAt ? "permanent" : "limited",
+        subscriptionActive,
+        // Live activity from real streaming sessions.
+        isStreaming: streamingAccounts.has(account.id),
+      };
+    });
 
     return successResponse({
       accounts: accountsWithProfiles,

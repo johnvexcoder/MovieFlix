@@ -69,6 +69,9 @@ interface Account {
   contactNumber: string | null;
   registrationStatus: string;
   lastLoginAt: string | null;
+  subscriptionType: "permanent" | "limited";
+  subscriptionActive: boolean;
+  isStreaming: boolean;
 }
 
 function formatRemaining(expiresAt: string | null, now: number): string {
@@ -587,12 +590,16 @@ export default function AdminPage() {
                            <span className="text-sm font-bold text-white truncate">
                              {account.username}
                            </span>
-                           <span className={`badge-quality ${colors.badge} whitespace-nowrap`}>
-                             {account.isActive ? "Active" : "Expired"}
-                           </span>
-                           <span className="badge-quality border-white/15 text-neutral-400 whitespace-nowrap">
-                             {account.isTemp ? "Time-Limited" : "Permanent"}
-                           </span>
+<span className={`badge-quality ${account.isStreaming ? colors.badge : "border-white/15 text-neutral-400"} whitespace-nowrap`}>
+                              {account.isStreaming ? "ACTIVE" : "OFFLINE"}
+                            </span>
+                            <span className="badge-quality border-white/15 text-neutral-400 whitespace-nowrap">
+                              {!account.subscriptionActive
+                                ? "EXPIRED"
+                                : account.subscriptionType === "permanent"
+                                  ? "PERMANENT"
+                                  : "LIMITED PLAN"}
+                            </span>
                            <span className="text-[10px] text-neutral-400 whitespace-nowrap">
                              {account.profileCount} profile{account.profileCount !== 1 ? "s" : ""}
                            </span>

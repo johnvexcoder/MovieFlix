@@ -313,13 +313,17 @@ export const mediaStreamJobs = sqliteTable("media_stream_jobs", {
 
 export const playbackSessions = sqliteTable("playback_sessions", {
   id: text("id").primaryKey(),
-  packageId: text("package_id").notNull().references(() => mediaStreamPackages.id),
+  packageId: text("package_id").references(() => mediaStreamPackages.id),
   mediaId: text("media_id").notNull().references(() => media.id),
   accountId: text("account_id").notNull().references(() => accounts.id),
   profileId: text("profile_id").notNull().references(() => profiles.id),
+  mode: text("mode").notNull().default("hls"),
+  quality: text("quality"),
+  currentTimeSeconds: integer("current_time_seconds"),
   expiresAt: text("expires_at").notNull(),
   revokedAt: text("revoked_at"),
   lastSeenAt: text("last_seen_at"),
+  endedAt: text("ended_at"),
   createdAt: text("created_at").notNull().default(""),
 });
 

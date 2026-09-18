@@ -44,6 +44,55 @@ function describeBuffered(video: HTMLVideoElement): string {
   }
 }
 
+// Pending heartbeat intervals keyed by session id so a new session's timer can
+// clear the previous one.
+const heartbeatTimers = new Map<string, ReturnType<typeof setInterval>>();
+
+/**
+ * Begin a lightweight ~20s heartbeat for a playback session. Keeping the timer
+ * here (module scope) means it survives component re-renders and is cleared
+ * when a new session supersedes the old one. We intentionally do NOT send an
+ * end on every unmount — the server expires stale sessions via last_seen_at —
+ * but we do clear the interval.
+ */
+function startPlaybackHeartbeat(sessionId: string) {
+  const existing = heartbeatTimers.get(sessionId);
+  if (existing) return;
+  const send = () => {
+    try {
+      const video = document.querySelector<HTMLVideoElement>(".movieflix-player video");
+      const currentTimeSeconds = video && Number.isFinite(video.currentTime) ? video.currentTime : 0;
+      void fetch("/api/playback/heartbeat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sessionId, currentTimeSeconds }),
+      }).catch(() => {});
+    } catch { /* best effort */ }
+  };
+  send();
+  const timer = setInterval(send, 20_000);
+  heartbeatTimers.set(sessionId, timer);
+}
+
+/** Stop the heartbeat for a session (e.g. on transition to a new episode). */
+function stopPlaybackHeartbeat(sessionId: string) {
+  const timer = heartbeatTimers.get(sessionId);
+  if (timer) {
+    clearInterval(timer);
+    heartbeatTimers.delete(sessionId);
+  }
+}
+
+/** Explicitly close a playback session. */
+function endPlaybackSession(sessionId: string) {
+  stopPlaybackHeartbeat(sessionId);
+  void fetch("/api/playback/end", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ sessionId }),
+  }).catch(() => {});
+}
+
 interface Season {
   id: string;
   seasonNumber: number;
@@ -205,6 +254,8 @@ export default function WatchPage() {
   // error. Bounded retry counter prevents an infinite error loop.
   const preparedActiveRef = useRef(false);
   const preparedErrorCountRef = useRef(0);
+  // Active playback session for stream-session tracking (heartbeat / end).
+  const playbackSessionRef = useRef<string | null>(null);
   // Latest values for the error-recovery handler: keeps the <video> listener
   // effect's dependency list stable while still avoiding stale closures.
   const latestValuesRef = useRef({ activeQuality, qualityHeights });
@@ -310,7 +361,14 @@ export default function WatchPage() {
         });
         if (!response.ok || cancelled) return;
         const data = await response.json();
-        if (cancelled || data.mode !== "hls" || !data.manifestUrl) return;
+        if (cancelled) return;
+        // Stream-session tracking works for BOTH direct and HLS playback. Keep
+        // the session id so we can heartbeat and later close it.
+        if (typeof data.sessionId === "string" && data.sessionId) {
+          playbackSessionRef.current = data.sessionId;
+          startPlaybackHeartbeat(data.sessionId);
+        }
+        if (data.mode !== "hls" || !data.manifestUrl) return;
         const video = videoRef.current;
         if (!video) return;
         const heights = (data.availableQualities as { height: number }[])
@@ -379,7 +437,17 @@ export default function WatchPage() {
         video.addEventListener("loadedmetadata", onMetadata);
       } catch { /* Current direct-play path remains available. */ }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+      // Close the session started by this effect when the component unmounts
+      // or the episode/source changes, so the stream-session count does not
+      // linger. (Stale sessions also expire via last_seen_at regardless.)
+      const sid = playbackSessionRef.current;
+      if (sid) {
+        playbackSessionRef.current = null;
+        endPlaybackSession(sid);
+      }
+    };
   }, [media, mediaId, activeEpisodeId, profileId, streamSrc]);
 
   async function checkAuth() {

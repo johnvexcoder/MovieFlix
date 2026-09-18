@@ -1,19 +1,17 @@
 import crypto from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db, setupDatabase } from "@/db";
 import { accounts, episodes, media, playbackSessions, profiles, subscriptions } from "@/db/schema";
 import { verifyToken } from "@/lib/auth";
 import { findReadyPackage } from "@/streaming/jobs";
 
 export async function POST(request: NextRequest) {
-  if (process.env.STREAMING_V2_ENABLED !== "true")
-    return NextResponse.json({ error: "Streaming V2 disabled" }, { status: 503 });
   setupDatabase();
   const token = request.cookies.get("access_token")?.value;
   const payload = token ? await verifyToken(token) : null;
   if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  const body = await request.json().catch(() => null) as { mediaId?: unknown; episodeId?: unknown; profileId?: unknown } | null;
+  const body = await request.json().catch(() => null) as { mediaId?: unknown; episodeId?: unknown; profileId?: unknown; quality?: unknown } | null;
   const mediaId = typeof body?.mediaId === "string" ? body.mediaId : "";
   const episodeId = typeof body?.episodeId === "string" ? body.episodeId : null;
   if (!mediaId || (body?.profileId && body.profileId !== payload.profileId))
@@ -36,16 +34,48 @@ export async function POST(request: NextRequest) {
       .where(and(eq(episodes.id, episodeId), eq(episodes.mediaId, mediaId))).limit(1);
     if (!episode) return NextResponse.json({ error: "Episode missing" }, { status: 404 });
   }
-  const ready = await findReadyPackage(mediaId, episodeId);
-  if (!ready) return NextResponse.json({ mode: "direct", streamUrl: `/api/media/${encodeURIComponent(mediaId)}/stream${episodeId ? `?episode=${encodeURIComponent(episodeId)}` : ""}` });
   const sessionId = crypto.randomUUID();
+  const now = new Date().toISOString();
   const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-  await db.insert(playbackSessions).values({ id: sessionId, packageId: ready.package.id,
-    mediaId, accountId: account.id, profileId: profile.id,
-    expiresAt, createdAt: new Date().toISOString() });
-  const response = NextResponse.json({ mode: "hls", sessionId,
-    manifestUrl: `/api/streaming/${ready.package.id}/master.m3u8`,
-    availableQualities: JSON.parse(ready.package.renditionsJson), expiresAt });
+  const quality = typeof body?.quality === "string" ? body.quality : null;
+
+  // Try to use a prepared V2 package when available; otherwise this is a
+  // direct (range-stream) session. In BOTH cases we record a playback session
+  // so "Streaming Now" / account ACTIVE-OFFLINE reflect real playback, not
+  // only V2-enabled titles.
+  const ready = await findReadyPackage(mediaId, episodeId);
+  let mode: "hls" | "direct" = "hls";
+  let packageId: string | null = null;
+  let manifestUrl: string | null = null;
+  let availableQualities: unknown = [];
+  if (ready) {
+    packageId = ready.package.id;
+    manifestUrl = `/api/streaming/${ready.package.id}/master.m3u8`;
+    availableQualities = JSON.parse(ready.package.renditionsJson);
+  } else {
+    mode = "direct";
+  }
+
+  // Close any existing active session for this profile/media so multiple
+  // enters of the same title don't inflate the concurrent count.
+  await db.update(playbackSessions)
+    .set({ endedAt: now, revokedAt: now })
+    .where(and(
+      eq(playbackSessions.profileId, payload.profileId),
+      eq(playbackSessions.mediaId, mediaId),
+      isNull(playbackSessions.endedAt)
+    ));
+
+  await db.insert(playbackSessions).values({
+    id: sessionId, packageId, mediaId, accountId: account.id, profileId: profile.id,
+    mode, quality,
+    expiresAt, lastSeenAt: now, createdAt: now,
+  });
+
+  const response = NextResponse.json({
+    mode, sessionId, expiresAt,
+    ...(mode === "hls" && manifestUrl ? { manifestUrl, availableQualities } : { streamUrl: `/api/media/${encodeURIComponent(mediaId)}/stream${episodeId ? `?episode=${encodeURIComponent(episodeId)}` : ""}` }),
+  });
   response.cookies.set("mvf_playback", sessionId, { httpOnly: true,
     secure: request.nextUrl.protocol === "https:" || request.headers.get("x-forwarded-proto") === "https",
     sameSite: "lax", path: "/api/streaming", maxAge: 7200 });

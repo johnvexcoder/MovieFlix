@@ -400,12 +400,17 @@ export function setupDatabase() {
       ON media_stream_jobs(status, lease_expires_at, created_at);
     CREATE TABLE IF NOT EXISTS playback_sessions (
       id TEXT PRIMARY KEY,
-      package_id TEXT NOT NULL REFERENCES media_stream_packages(id),
+      package_id TEXT REFERENCES media_stream_packages(id),
       media_id TEXT NOT NULL REFERENCES media(id),
       account_id TEXT NOT NULL REFERENCES accounts(id),
       profile_id TEXT NOT NULL REFERENCES profiles(id),
+      mode TEXT NOT NULL DEFAULT 'hls',
+      quality TEXT,
+      current_time_seconds INTEGER,
       expires_at TEXT NOT NULL,
       revoked_at TEXT,
+      last_seen_at TEXT,
+      ended_at TEXT,
       created_at TEXT NOT NULL DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_playback_sessions_expiry
@@ -469,6 +474,11 @@ export function setupDatabase() {
   ensureColumn("billing_orders", "refund_amount_minor", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("billing_orders", "refunded_at", "TEXT");
   ensureColumn("playback_sessions", "last_seen_at", "TEXT");
+  ensureColumn("playback_sessions", "mode", "TEXT NOT NULL DEFAULT 'hls'");
+  ensureColumn("playback_sessions", "quality", "TEXT");
+  ensureColumn("playback_sessions", "current_time_seconds", "INTEGER");
+  ensureColumn("playback_sessions", "ended_at", "TEXT");
+  ensureColumn("playback_sessions", "package_id", "TEXT");
   try {
     _sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admins_email ON admins(email) WHERE email IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;`);
