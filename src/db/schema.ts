@@ -121,6 +121,16 @@ export const adminMessages = sqliteTable("admin_messages", {
   accountId: text("account_id").references(() => accounts.id),
   createdByAdminId: text("created_by_admin_id").references(() => admins.id),
   createdAt: text("created_at").notNull().default(""),
+  // Announcement fields (in-app broadcast)
+  title: text("title"),
+  priority: text("priority").notNull().default("normal"),
+  audienceType: text("audience_type").notNull().default("all"),
+  audienceFilter: text("audience_filter"),
+  displayHomepage: integer("display_homepage", { mode: "boolean" }).notNull().default(true),
+  displayStreaming: integer("display_streaming", { mode: "boolean" }).notNull().default(false),
+  startsAt: text("starts_at"),
+  expiresAt: text("expires_at"),
+  active: integer("active", { mode: "boolean" }).notNull().default(true),
 });
 
 // Tracks which accounts have already seen a message, so a message pops exactly

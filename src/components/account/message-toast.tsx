@@ -9,6 +9,8 @@ export interface AdminMessage {
   message: string;
   createdAt: string;
   broadcast: boolean;
+  title?: string | null;
+  priority?: string;
 }
 
 interface MessageToastProps {
@@ -140,8 +142,15 @@ export function MessageToast(_props: MessageToastProps) {
                 <Megaphone className="h-4 w-4 text-[var(--brand)]" />
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">Message</p>
-                <p className="mt-0.5 text-xs font-bold text-white leading-relaxed whitespace-pre-wrap line-clamp-4">
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-neutral-500">
+                    {current.title ? "Announcement" : "Message"}
+                  </p>
+                  {current.priority === "important" && <span className="rounded bg-amber-400/15 px-1.5 py-0.5 text-[9px] font-bold uppercase text-amber-300">Important</span>}
+                  {current.priority === "critical" && <span className="rounded bg-red-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase text-red-300">Critical</span>}
+                </div>
+                {current.title && <p className="mt-0.5 text-sm font-bold text-white">{current.title}</p>}
+                <p className={`text-xs font-bold text-white leading-relaxed whitespace-pre-wrap line-clamp-4 ${current.title ? "mt-0.5 text-neutral-200" : "mt-0.5"}`}>
                   {current.message}
                 </p>
                 {messages.length > 1 && (

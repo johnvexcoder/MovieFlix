@@ -111,3 +111,72 @@ export async function listActivePlans() {
     .where(eq(subscriptionPlans.isActive, true))
     .orderBy(subscriptionPlans.sortOrder);
 }
+
+/**
+ * Returns true when a single account matches the given audience spec. Used to
+ * resolve which active announcements an account should see at read time, so a
+ * broadcast reaches users who log in later while the announcement is active.
+ */
+export async function accountMatchesBroadcastSpec(accountId: string, spec: BroadcastTargetSpec): Promise<boolean> {
+  const now = new Date();
+  const nowISO = now.toISOString();
+
+  if (spec.mode === "all") return true;
+
+  if (spec.mode === "ids") return (spec.ids || []).includes(accountId);
+
+  const [account] = await db.select().from(accounts).where(eq(accounts.id, accountId)).limit(1);
+  if (!account) return false;
+
+  if (spec.mode === "lifetime") {
+    if (!account.expiresAt) return true;
+    const [sub] = await db.select().from(subscriptions).where(eq(subscriptions.accountId, accountId)).limit(1);
+    return !!sub?.isLifetime;
+  }
+
+  if (spec.mode === "limited") return !!account.expiresAt;
+
+  if (spec.mode === "expiring") {
+    if (!account.expiresAt) return false;
+    const windowMs = (Number(spec.windowHours) || 24) * 60 * 60 * 1000;
+    const end = new Date(account.expiresAt).getTime();
+    return end > now.getTime() && end <= now.getTime() + windowMs;
+  }
+
+  if (spec.mode === "plan") {
+    const subs = await db
+      .select({ planId: subscriptions.planId })
+      .from(subscriptions)
+      .where(and(eq(subscriptions.accountId, accountId), eq(subscriptions.status, "ACTIVE")));
+    return subs.some((s) => (spec.planIds || []).includes(s.planId ?? ""));
+  }
+
+  if (spec.mode === "active" || spec.mode === "offline") {
+    const rows = await db
+      .select({ accountId: playbackSessions.accountId })
+      .from(playbackSessions)
+      .where(and(
+        eq(playbackSessions.accountId, accountId),
+        isNull(playbackSessions.endedAt),
+        isNull(playbackSessions.revokedAt),
+        gt(playbackSessions.lastSeenAt, new Date(Date.now() - HEARTBEAT_CUTOFF_MS).toISOString()),
+        gt(playbackSessions.expiresAt, nowISO),
+      ));
+    const isStreaming = rows.length > 0;
+    return spec.mode === "active" ? isStreaming : !isStreaming;
+  }
+
+  return false;
+}
+
+/** Parses an audience spec previously stored on an announcement. */
+export function parseAudienceFilter(raw: string | null): BroadcastTargetSpec | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (parsed && typeof parsed.mode === "string") return parsed as BroadcastTargetSpec;
+  } catch {
+    return null;
+  }
+  return null;
+}

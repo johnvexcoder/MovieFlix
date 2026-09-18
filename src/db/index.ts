@@ -515,6 +515,15 @@ export function setupDatabase() {
   ensureColumn("playback_sessions", "current_time_seconds", "INTEGER");
   ensureColumn("playback_sessions", "ended_at", "TEXT");
   ensureColumn("playback_sessions", "package_id", "TEXT");
+  ensureColumn("admin_messages", "title", "TEXT");
+  ensureColumn("admin_messages", "priority", "TEXT NOT NULL DEFAULT 'normal'");
+  ensureColumn("admin_messages", "audience_type", "TEXT NOT NULL DEFAULT 'all'");
+  ensureColumn("admin_messages", "audience_filter", "TEXT");
+  ensureColumn("admin_messages", "display_homepage", "INTEGER NOT NULL DEFAULT 1");
+  ensureColumn("admin_messages", "display_streaming", "INTEGER NOT NULL DEFAULT 0");
+  ensureColumn("admin_messages", "starts_at", "TEXT");
+  ensureColumn("admin_messages", "expires_at", "TEXT");
+  ensureColumn("admin_messages", "active", "INTEGER NOT NULL DEFAULT 1");
   try {
     _sqlite.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_admins_email ON admins(email) WHERE email IS NOT NULL;
     CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts(email) WHERE email IS NOT NULL;`);

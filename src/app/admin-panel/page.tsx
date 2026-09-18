@@ -34,6 +34,7 @@ import { PaymentSubmissionsAdmin } from "@/components/admin/payment-submissions"
 import OverviewCards from "@/components/admin/overview-cards";
 import AnalyticsModal from "@/components/admin/analytics-modal";
 import { AdminPage as AdminPageShell, AdminSection } from "@/components/admin/admin-page";
+import { BroadcastAnnouncementModal } from "@/components/admin/broadcast-announcement-modal";
 
 interface AdminUser {
   id: string;
@@ -148,6 +149,7 @@ export default function AdminPage() {
     account: Account | null; // null => broadcast
   } | null>(null);
   const [messageText, setMessageText] = useState("");
+  const [broadcastAnnounceOpen, setBroadcastAnnounceOpen] = useState(false);
   const [sendingMessage, setSendingMessage] = useState(false);
 
 // Per-account delete guard: prevents double-submits while a delete request
@@ -485,7 +487,8 @@ if (data.success) {
               </div>
 
               <a
-                href="/admin-panel/broadcast"
+                href="#"
+                onClick={(e) => { e.preventDefault(); setBroadcastAnnounceOpen(true); }}
                 className="inline-flex h-9 items-center justify-center rounded-xl border border-white/15 bg-white/5 px-4 text-xs font-bold text-neutral-200 hover:bg-white/15 w-full sm:w-auto"
               >
                 <Megaphone className="mr-1.5 h-4 w-4 text-[var(--brand)]" />
@@ -1027,6 +1030,8 @@ if (data.success) {
 onClose={() => setStreamingModalOpen(false)}
           />
         )}
+
+        <BroadcastAnnouncementModal open={broadcastAnnounceOpen} onClose={() => setBroadcastAnnounceOpen(false)} />
     </>
   );
 }

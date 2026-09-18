@@ -4,6 +4,7 @@ import { adminMessages, accounts, messageViews } from "@/db/schema";
 import { eq, and, or, isNull, desc, notInArray } from "drizzle-orm";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
+import { accountMatchesBroadcastSpec, parseAudienceFilter } from "@/lib/broadcast-targeting";
 
 export const dynamic = "force-dynamic";
 
@@ -57,12 +58,31 @@ export async function GET(request: NextRequest) {
         .limit(50);
     }
 
+    const now = Date.now();
+    const visible = [];
+    for (const m of messages) {
+      // Direct (targeted) message: always visible.
+      if (m.accountId) {
+        visible.push(m);
+        continue;
+      }
+      // Announcement: must be active, not expired, and match the account audience.
+      if (m.active === false) continue;
+      if (m.expiresAt && new Date(m.expiresAt).getTime() <= now) continue;
+      if (m.startsAt && new Date(m.startsAt).getTime() > now) continue;
+      const spec = parseAudienceFilter(m.audienceFilter);
+      if (spec && !(await accountMatchesBroadcastSpec(account.id, spec))) continue;
+      visible.push(m);
+    }
+
     return successResponse({
-      messages: messages.map((m) => ({
+      messages: visible.map((m) => ({
         id: m.id,
         message: m.message,
         createdAt: m.createdAt,
         broadcast: m.accountId === null,
+        title: m.title,
+        priority: m.priority || "normal",
       })),
     });
   } catch (error) {

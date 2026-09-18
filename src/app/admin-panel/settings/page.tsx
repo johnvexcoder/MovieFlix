@@ -1,265 +1,270 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { Loader2, Plus, Trash2, Lock, Users, Eye, EyeOff } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Loader2, Lock, LogOut, Mail, ShieldCheck, Users } from "lucide-react";
 import { AdminPage, AdminSection } from "@/components/admin/admin-page";
-import { AdminSecurityPanel } from "@/components/admin/admin-security-panel";
+import { SettingRow, SettingsGroup } from "@/components/admin/settings/setting-row";
+import { AboutTeamManager } from "@/components/admin/about-team-manager";
 import { AdminAuditLog } from "@/components/admin/admin-audit-log";
-import { AdminEmailChange } from "@/components/admin/admin-email-change";
 import { AdminRecoveryOnboarding } from "@/components/admin/admin-recovery-onboarding";
+import { AdminEmailChange } from "@/components/admin/admin-email-change";
+import { AdminSecurityPanel } from "@/components/admin/admin-security-panel";
 import { TelegramSettings } from "@/components/admin/telegram-settings";
 import { SmtpSettings } from "@/components/admin/smtp-settings";
-import { AboutTeamManager } from "@/components/admin/about-team-manager";
 
+type Section = "account" | "security" | "communication";
+
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: "account", label: "Admin Account" },
+  { id: "security", label: "Security & Recovery" },
+  { id: "communication", label: "Communication" },
+];
+
+interface Me {
+  id: string;
+  username: string;
+  email: string | null;
+}
+interface SecurityStatus {
+  email: string | null;
+  twoFactorEnabled: boolean;
+  recoveryCodesRemaining: number;
+}
 interface AdminUser {
   id: string;
   username: string;
   email: string | null;
-  twoFactorEnabled: boolean;
   createdAt: string;
 }
 
-export default function AdminSettingsPage() {
-  const router = useRouter();
-  const [meId, setMeId] = useState<string | null>(null);
-  const [admins, setAdmins] = useState<AdminUser[]>([]);
-  const [createOpen, setCreateOpen] = useState(false);
-  const [newUsername, setNewUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newEmail, setNewEmail] = useState("");
-  const [showCreatePassword, setShowCreatePassword] = useState(false);
-  const [adminActionLoading, setAdminActionLoading] = useState(false);
+function maskEmail(email: string | null | undefined): string {
+  if (!email) return "Not configured";
+  const [local, domain] = email.split("@");
+  if (!domain) return email;
+  return `${local.slice(0, 1)}${"*".repeat(Math.max(1, local.length - 1))}@${domain}`;
+}
 
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPasswordSelf, setNewPasswordSelf] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [passwordMessage, setPasswordMessage] = useState<{ ok: boolean; text: string } | null>(null);
-  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
-  const [showNewPassword, setShowNewPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+function ChangePasswordModal({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const [current, setCurrent] = useState("");
+  const [next, setNext] = useState("");
+  const [confirm, setConfirm] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  useEffect(() => {
-    loadAdmins();
-    fetch("/api/admin/auth/me").then((r) => r.json()).then((d) => { if (d.success) setMeId(d.data.id); }).catch(() => {});
-  }, []);
-
-  async function loadAdmins() {
-    const r = await fetch("/api/admin/admins");
-    const d = await r.json();
-    if (d.success) setAdmins(d.data.admins);
-  }
-
-  async function handleCreateAdmin() {
-    if (!newUsername.trim() || !newEmail.trim() || newPassword.length < 8) {
-      setPasswordMessage({ ok: false, text: "Username, a valid email, and a password of at least 8 characters are required." });
-      return;
-    }
-    setAdminActionLoading(true);
-    setPasswordMessage(null);
-    try {
-      const r = await fetch("/api/admin/admins", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username: newUsername.trim().toLowerCase(), email: newEmail.trim(), password: newPassword }),
-      });
-      const d = await r.json();
-      if (!d.success) throw new Error(d.error);
-      setCreateOpen(false);
-      setNewUsername(""); setNewEmail(""); setNewPassword("");
-      await loadAdmins();
-    } catch (e) {
-      setPasswordMessage({ ok: false, text: e instanceof Error ? e.message : "Failed to create admin" });
-    } finally {
-      setAdminActionLoading(false);
-    }
-  }
-
-  async function handleDeleteAdmin(id: string, username: string) {
-    if (!confirm(`Remove administrator "${username}"?`)) return;
-    setAdminActionLoading(true);
-    try {
-      const r = await fetch(`/api/admin/admins/${id}`, { method: "DELETE" });
-      const d = await r.json();
-      if (!d.success) alert(d.error || "Failed to remove admin");
-      else await loadAdmins();
-    } catch {
-      alert("Failed to remove admin");
-    } finally {
-      setAdminActionLoading(false);
-    }
-  }
-
-  async function handleChangePassword() {
-    if (!currentPassword || newPasswordSelf.length < 8) {
-      setPasswordMessage({ ok: false, text: "Enter current password and a new password (min 8 chars)." });
-      return;
-    }
-    if (newPasswordSelf !== confirmPassword) {
-      setPasswordMessage({ ok: false, text: "New passwords do not match." });
-      return;
-    }
-    setAdminActionLoading(true);
-    setPasswordMessage(null);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (next !== confirm) return setMsg({ ok: false, text: "New passwords do not match." });
+    setBusy(true);
+    setMsg(null);
     try {
       const r = await fetch("/api/admin/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ currentPassword, newPassword: newPasswordSelf }),
+        body: JSON.stringify({ currentPassword: current, newPassword: next }),
       });
       const d = await r.json();
       if (!d.success) throw new Error(d.error);
-      setCurrentPassword(""); setNewPasswordSelf(""); setConfirmPassword("");
-      setPasswordMessage({ ok: true, text: "Password updated successfully." });
-    } catch (e) {
-      setPasswordMessage({ ok: false, text: e instanceof Error ? e.message : "Failed to change password" });
+      setCurrent(""); setNext(""); setConfirm("");
+      setMsg({ ok: true, text: "Password updated." });
+      onClose();
+    } catch (e2) {
+      setMsg({ ok: false, text: e2 instanceof Error ? e2.message : "Failed to change password" });
     } finally {
-      setAdminActionLoading(false);
+      setBusy(false);
     }
   }
 
   return (
-    <AdminPage
-      title="System Settings"
-      description="Identity and Administration — admin profile, security, recovery, and email."
-    >
-      <AdminRecoveryOnboarding />
-
-      <AdminSection>
-        <SmtpSettings />
-
-        <div className="grid items-start gap-5 xl:grid-cols-2">
-          <AdminSecurityPanel />
-          <AdminEmailChange />
-        </div>
-
-        <TelegramSettings />
-
-        <AboutTeamManager />
-
-        <div className="grid items-start gap-5 xl:grid-cols-2">
-          {/* Administrators Roster */}
-          <section className="admin-card">
-            <div className="admin-card-header">
-              <div className="admin-card-title">
-                <Users className="h-5 w-5 text-blue-400" />
-                <div>
-                  <h2>Administrators roster</h2>
-                  <p>Administrators with panel access.</p>
-                </div>
-              </div>
-              <Button size="sm" onClick={() => setCreateOpen(true)} className="btn-brand h-9 rounded-xl text-xs font-bold">
-                <Plus className="mr-1.5 h-4 w-4" /> Add Admin
-              </Button>
-            </div>
-            <div className="space-y-2.5">
-              {admins.length === 0 ? (
-                <p className="text-xs text-neutral-400">No additional administrators found.</p>
-              ) : (
-                admins.map((adm) => (
-                  <div key={adm.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 via-blue-500 to-fuchsia-500 text-sm font-bold text-slate-950">
-                        {adm.username.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="text-sm font-bold text-white">{adm.username}</p>
-                        <p className="break-all text-[11px] text-cyan-200">{adm.email || "Email setup required"}</p>
-                        <p className="text-[11px] text-neutral-400">{adm.id === meId ? "Current Active Session" : `Created ${new Date(adm.createdAt).toLocaleDateString()}`}</p>
-                      </div>
-                    </div>
-                    {adm.id !== meId && (
-                      <Button variant="ghost" size="sm" className="rounded-xl text-red-400 hover:bg-red-500/10 hover:text-red-300" disabled={adminActionLoading} onClick={() => handleDeleteAdmin(adm.id, adm.username)}>
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </div>
-                ))
-              )}
-            </div>
-          </section>
-
-          {/* Change My Password */}
-          <section className="admin-card">
-            <div className="admin-card-header">
-              <div className="admin-card-title">
-                <Lock className="h-5 w-5 text-amber-400" />
-                <div>
-                  <h2>Update administrator password</h2>
-                  <p>Change the password for your own account.</p>
-                </div>
-              </div>
-            </div>
-            <div className="admin-stack">
-              <div>
-                <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Current password</Label>
-                <div className="relative">
-                  <Input type={showCurrentPassword ? "text" : "password"} value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} placeholder="Enter current password" className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 pr-12 text-white" />
-                  <button type="button" onClick={() => setShowCurrentPassword((v) => !v)} aria-label="Show current password" className="absolute inset-y-0 right-0 mt-1.5 flex w-11 items-center justify-center text-neutral-400">{showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                </div>
-              </div>
-              <div className="admin-form-row">
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">New password</Label>
-                  <div className="relative">
-                    <Input type={showNewPassword ? "text" : "password"} value={newPasswordSelf} onChange={(e) => setNewPasswordSelf(e.target.value)} placeholder="Min 8 characters" className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 pr-12 text-white" />
-                    <button type="button" onClick={() => setShowNewPassword((v) => !v)} aria-label="Show new password" className="absolute inset-y-0 right-0 mt-1.5 flex w-11 items-center justify-center text-neutral-400">{showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Confirm new password</Label>
-                  <div className="relative">
-                    <Input type={showConfirmPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Repeat new password" className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 pr-12 text-white" />
-                    <button type="button" onClick={() => setShowConfirmPassword((v) => !v)} aria-label="Show confirm password" className="absolute inset-y-0 right-0 mt-1.5 flex w-11 items-center justify-center text-neutral-400">{showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-                  </div>
-                </div>
-              </div>
-              {passwordMessage && (
-                <div className={`rounded-2xl border p-3.5 text-xs font-semibold ${passwordMessage.ok ? "border-emerald-500/30 bg-emerald-950/40 text-emerald-400" : "border-red-500/30 bg-red-950/40 text-red-400"}`}>{passwordMessage.text}</div>
-              )}
-              <Button onClick={handleChangePassword} disabled={adminActionLoading} className="btn-brand rounded-xl text-xs font-bold">
-                {adminActionLoading ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Lock className="mr-1.5 h-4 w-4" />} Change Password
-              </Button>
-            </div>
-          </section>
-        </div>
-
-        <AdminAuditLog />
-      </AdminSection>
-
-      {/* Create Admin Dialog */}
-      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="glass-panel max-h-[calc(100dvh-1rem)] overflow-y-auto border-white/15 p-4 sm:max-w-md sm:rounded-3xl sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">Create Administrator</DialogTitle>
-            <DialogDescription className="text-neutral-400">Grant admin privileges for panel & library configuration.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-3">
+    <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="glass-panel border-white/15 sm:max-w-md rounded-3xl p-6">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold text-white">Change password</DialogTitle>
+          <DialogDescription className="text-neutral-400">Use a password of at least 8 characters.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4 py-2">
+          <div>
+            <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Current password</Label>
+            <Input type="password" value={current} onChange={(e) => setCurrent(e.target.value)} className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white" required />
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Admin username</Label>
-              <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value.toLowerCase())} autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder="e.g. moderator" className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white" autoFocus />
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">New password</Label>
+              <Input type="password" value={next} onChange={(e) => setNext(e.target.value)} className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white" minLength={8} required />
             </div>
             <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Admin recovery email</Label>
-              <Input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} placeholder="admin@example.com" className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white" />
-            </div>
-            <div>
-              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Admin password</Label>
-              <div className="relative mt-1.5">
-                <Input type={showCreatePassword ? "text" : "password"} value={newPassword} onChange={(e) => setNewPassword(e.target.value)} placeholder="Min 8 characters" className="h-11 rounded-xl border-white/10 bg-white/5 pr-12 text-white" />
-                <button type="button" onClick={() => setShowCreatePassword((v) => !v)} aria-label="Show password" className="absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-r-xl text-neutral-400 hover:text-white">{showCreatePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</button>
-              </div>
+              <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Confirm new</Label>
+              <Input type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} className="mt-1.5 h-11 rounded-xl border-white/10 bg-white/5 text-white" minLength={8} required />
             </div>
           </div>
+          {msg && <p className={`rounded-xl border p-3 text-xs font-semibold ${msg.ok ? "border-emerald-500/30 bg-emerald-950/40 text-emerald-400" : "border-red-500/30 bg-red-950/40 text-red-400"}`}>{msg.text}</p>}
           <div className="flex justify-end gap-2">
-            <Button variant="outline" className="rounded-xl border-white/10" onClick={() => setCreateOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateAdmin} disabled={adminActionLoading} className="btn-brand rounded-xl">
-              {adminActionLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />} Create Admin
-            </Button>
+            <Button type="button" variant="outline" className="rounded-xl border-white/10" onClick={onClose}>Cancel</Button>
+            <Button type="submit" disabled={busy} className="btn-brand rounded-xl">{busy ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Lock className="mr-2 h-4 w-4" />} Change password</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+export default function AdminSettingsPage() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const section = (params.get("section") as Section) || "account";
+
+  const [me, setMe] = useState<Me | null>(null);
+  const [security, setSecurity] = useState<SecurityStatus | null>(null);
+  const [admins, setAdmins] = useState<AdminUser[]>([]);
+
+  const [emailOpen, setEmailOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
+  const [telegramOpen, setTelegramOpen] = useState(false);
+  const [smtpOpen, setSmtpOpen] = useState(false);
+  const [adminsOpen, setAdminsOpen] = useState(false);
+
+  const setSection = useCallback((s: Section) => router.replace(`/admin-panel/settings?section=${s}`), [router]);
+
+  useEffect(() => {
+    fetch("/api/admin/auth/me").then((r) => r.json()).then((d) => { if (d.success) setMe(d.data); }).catch(() => {});
+    fetch("/api/admin/auth/security", { cache: "no-store" }).then((r) => r.json()).then((d) => { if (d.success) setSecurity(d.data); }).catch(() => {});
+    fetch("/api/admin/admins").then((r) => r.json()).then((d) => { if (d.success) setAdmins(d.data.admins); }).catch(() => {});
+  }, []);
+
+  const recoveryComplete = security?.email && security.twoFactorEnabled && security.recoveryCodesRemaining > 0;
+
+  return (
+    <AdminPage
+      title="System Settings"
+      description="Identity and Administration — manage administrator identity, security, recovery, sessions, and communication."
+    >
+      {/* Tab selector */}
+      <div role="tablist" aria-label="System settings groups" className="mb-6 flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-1.5">
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            role="tab"
+            aria-selected={section === s.id}
+            onClick={() => setSection(s.id)}
+            className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition ${
+              section === s.id ? "bg-[var(--brand)] text-slate-950" : "text-neutral-300 hover:bg-white/10 hover:text-white"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {section === "account" && (
+        <AdminSection>
+          <SettingsGroup title="Admin Account" description="Your identity, email, password, sessions, and administrators.">
+            <SettingRow title="Administrator" description="Current active session" value={<span className="font-semibold">{me?.username || "…"}</span>} />
+            <SettingRow title="Email" description="Used for admin login and recovery." value={maskEmail(me?.email)} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setEmailOpen(true)}><Mail className="mr-1.5 h-4 w-4" /> Change</Button>} />
+            <SettingRow title="Password" description="Your login password." value="••••••••" action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setPasswordOpen(true)}><Lock className="mr-1.5 h-4 w-4" /> Change</Button>} />
+            <SettingRow title="Sessions" description="Sign out other active admin sessions." value={<span>{admins.length} administrator{admins.length !== 1 ? "s" : ""}</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => router.push("/admin-panel/settings?section=security")}><LogOut className="mr-1.5 h-4 w-4" /> Sessions</Button>} />
+            <SettingRow title="Administrators" description="Administrators with panel access." value={<span>{admins.length} account{admins.length !== 1 ? "s" : ""}</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setAdminsOpen(true)}><Users className="mr-1.5 h-4 w-4" /> Manage</Button>} />
+          </SettingsGroup>
+        </AdminSection>
+      )}
+
+      {section === "security" && (
+        <AdminSection>
+          <AdminRecoveryOnboarding />
+          <SettingsGroup title="Security & Recovery" description="Recovery email, two-step verification, recovery codes, and Admin Assistant.">
+            <SettingRow title="Recovery email" description="Used to reset your password." value={maskEmail(security?.email)} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setEmailOpen(true)}><Mail className="mr-1.5 h-4 w-4" /> Manage</Button>} />
+            <SettingRow title="Two-step verification" description="Email codes protect sign-in." value={security?.twoFactorEnabled ? <span className="text-emerald-400">Enabled</span> : <span className="text-neutral-400">Disabled</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setSecurityOpen(true)}><ShieldCheck className="mr-1.5 h-4 w-4" /> Configure</Button>} />
+            <SettingRow title="Recovery codes" description="One-time codes for account recovery." value={<span>{security?.recoveryCodesRemaining ?? 0} of 10 remaining</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setSecurityOpen(true)}><ShieldCheck className="mr-1.5 h-4 w-4" /> Manage</Button>} />
+            <SettingRow title="Admin Assistant" description="Telegram recovery to the Main Admin." value={security?.email ? <span className="text-emerald-400">Configured</span> : <span className="text-neutral-400">Not configured</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setTelegramOpen(true)}>Configure</Button>} />
+          </SettingsGroup>
+          {!recoveryComplete && (
+            <p className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-xs font-semibold text-amber-200">
+              Complete your recovery setup to protect against lockout — set a recovery email, enable two-step verification, and generate recovery codes.
+            </p>
+          )}
+        </AdminSection>
+      )}
+
+      {section === "communication" && (
+        <AdminSection>
+          <SettingsGroup title="Communication" description="Email delivery (SMTP) configuration.">
+            <SettingRow title="SMTP email delivery" description="Outgoing mail for recovery, reminders, and broadcasts." value={<span>{security?.email ? <span className="text-emerald-400">Configured</span> : <span className="text-neutral-400">Not configured</span>}</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setSmtpOpen(true)}><Mail className="mr-1.5 h-4 w-4" /> Configure SMTP</Button>} />
+          </SettingsGroup>
+        </AdminSection>
+      )}
+
+      {/* About Page Team — always visible */}
+      <div className="mt-8"><AboutTeamManager /></div>
+
+      {/* Security & Audit Log — always visible */}
+      <div className="mt-5"><AdminAuditLog /></div>
+
+      {/* Modals */}
+      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+        <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white">Change administrator email</DialogTitle>
+            <DialogDescription className="text-neutral-400">Verify your current password, then confirm a code sent to the new address.</DialogDescription>
+          </DialogHeader>
+          <AdminEmailChange />
+        </DialogContent>
+      </Dialog>
+
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
+
+      <Dialog open={securityOpen} onOpenChange={setSecurityOpen}>
+        <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white">Security &amp; two-step verification</DialogTitle>
+            <DialogDescription className="text-neutral-400">Email codes protect sign-in. Each recovery code works once.</DialogDescription>
+          </DialogHeader>
+          <AdminSecurityPanel />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={telegramOpen} onOpenChange={setTelegramOpen}>
+        <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white">Telegram Admin Assistant</DialogTitle>
+            <DialogDescription className="text-neutral-400">Recovery codes are sent to the Main Admin via this bot.</DialogDescription>
+          </DialogHeader>
+          <TelegramSettings />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={smtpOpen} onOpenChange={setSmtpOpen}>
+        <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white">SMTP email settings</DialogTitle>
+            <DialogDescription className="text-neutral-400">Outgoing mail for recovery, reminders, and broadcasts.</DialogDescription>
+          </DialogHeader>
+          <SmtpSettings />
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={adminsOpen} onOpenChange={setAdminsOpen}>
+        <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-white">Administrators</DialogTitle>
+            <DialogDescription className="text-neutral-400">Administrators with panel access.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2.5 py-2">
+            {admins.map((a) => (
+              <div key={a.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-sm font-bold text-slate-950">{a.username.charAt(0).toUpperCase()}</div>
+                  <div>
+                    <p className="text-sm font-bold text-white">{a.username}</p>
+                    <p className="text-[11px] text-neutral-400">{a.email || "Email setup required"}</p>
+                  </div>
+                </div>
+                {a.id === me?.id && <span className="text-[11px] font-bold text-emerald-400">You</span>}
+              </div>
+            ))}
           </div>
         </DialogContent>
       </Dialog>
