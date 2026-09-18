@@ -21,6 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { StreamingPreparationAdmin } from "@/components/admin/streaming-preparation";
 import {
   Dialog,
   DialogContent,
@@ -304,6 +305,9 @@ export default function AdminLibrariesPage() {
             ))
           )}
         </div>
+
+        {/* Streaming Preparation */}
+        <StreamingPreparationAdmin />
 
         {/* Author Credits & Support Footer */}
         <footer className="mt-12 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 pt-6 text-xs text-neutral-400">

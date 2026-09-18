@@ -33,7 +33,7 @@ import {
 } from "@/components/ui/dialog";
 import { checkAdminSession } from "@/lib/client-auth";
 import { PlanPromoManager } from "@/components/admin/plan-promo-manager";
-import { StreamingPreparationAdmin } from "@/components/admin/streaming-preparation";
+
 import { AdminNavigation } from "@/components/admin/admin-navigation";
 import { AboutTeamManager } from "@/components/admin/about-team-manager";
 import { AdminSecurityPanel } from "@/components/admin/admin-security-panel";
@@ -598,7 +598,6 @@ export default function AdminSettingsPage() {
 
           {/* Payment Methods */}
           <PlanPromoManager />
-          <StreamingPreparationAdmin />
 
 
           <div className="xl:col-span-2 mt-3 rounded-2xl border border-orange-300/15 bg-orange-300/5 px-4 py-3"><p className="text-[10px] font-black uppercase tracking-[.2em] text-orange-300">Section 3</p><h2 className="mt-1 text-lg font-black">Identity and administration</h2><p className="text-xs text-slate-400">About team, administrator roster, email verification, and password security.</p></div>
