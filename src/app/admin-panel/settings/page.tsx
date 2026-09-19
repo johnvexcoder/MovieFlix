@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Loader2, Lock, LogOut, Mail, ShieldCheck, Users } from "lucide-react";
+import { Loader2, Lock, Mail, ShieldCheck } from "lucide-react";
 import { AdminPage, AdminSection } from "@/components/admin/admin-page";
 import { SettingRow, SettingsGroup } from "@/components/admin/settings/setting-row";
 import { AboutTeamManager } from "@/components/admin/about-team-manager";
@@ -16,6 +16,7 @@ import { AdminEmailChange } from "@/components/admin/admin-email-change";
 import { AdminSecurityPanel } from "@/components/admin/admin-security-panel";
 import { TelegramSettings } from "@/components/admin/telegram-settings";
 import { SmtpSettings } from "@/components/admin/smtp-settings";
+import { AdminRosterManager } from "@/components/admin/admin-roster-manager";
 
 type Section = "account" | "security" | "communication";
 
@@ -34,12 +35,6 @@ interface SecurityStatus {
   email: string | null;
   twoFactorEnabled: boolean;
   recoveryCodesRemaining: number;
-}
-interface AdminUser {
-  id: string;
-  username: string;
-  email: string | null;
-  createdAt: string;
 }
 
 function maskEmail(email: string | null | undefined): string {
@@ -119,21 +114,18 @@ export default function AdminSettingsPage() {
 
   const [me, setMe] = useState<Me | null>(null);
   const [security, setSecurity] = useState<SecurityStatus | null>(null);
-  const [admins, setAdmins] = useState<AdminUser[]>([]);
 
   const [emailOpen, setEmailOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [telegramOpen, setTelegramOpen] = useState(false);
   const [smtpOpen, setSmtpOpen] = useState(false);
-  const [adminsOpen, setAdminsOpen] = useState(false);
 
   const setSection = useCallback((s: Section) => router.replace(`/admin-panel/settings?section=${s}`), [router]);
 
   useEffect(() => {
     fetch("/api/admin/auth/me").then((r) => r.json()).then((d) => { if (d.success) setMe(d.data); }).catch(() => {});
     fetch("/api/admin/auth/security", { cache: "no-store" }).then((r) => r.json()).then((d) => { if (d.success) setSecurity(d.data); }).catch(() => {});
-    fetch("/api/admin/admins").then((r) => r.json()).then((d) => { if (d.success) setAdmins(d.data.admins); }).catch(() => {});
   }, []);
 
   const recoveryComplete = security?.email && security.twoFactorEnabled && security.recoveryCodesRemaining > 0;
@@ -144,14 +136,14 @@ export default function AdminSettingsPage() {
       description="Identity and Administration — manage administrator identity, security, recovery, sessions, and communication."
     >
       {/* Tab selector */}
-      <div role="tablist" aria-label="System settings groups" className="mb-6 flex gap-2 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-1.5">
+      <div role="tablist" aria-label="System settings groups" className="mb-6 grid grid-cols-1 gap-2 rounded-2xl border border-white/10 bg-white/5 p-1.5 sm:grid-cols-3">
         {SECTIONS.map((s) => (
           <button
             key={s.id}
             role="tab"
             aria-selected={section === s.id}
             onClick={() => setSection(s.id)}
-            className={`min-h-11 flex-1 whitespace-nowrap rounded-xl px-4 py-2 text-sm font-bold transition ${
+            className={`min-h-11 rounded-xl px-4 py-2 text-sm font-bold transition ${
               section === s.id ? "bg-[var(--brand)] text-slate-950" : "text-neutral-300 hover:bg-white/10 hover:text-white"
             }`}
           >
@@ -166,9 +158,8 @@ export default function AdminSettingsPage() {
             <SettingRow title="Administrator" description="Current active session" value={<span className="font-semibold">{me?.username || "…"}</span>} />
             <SettingRow title="Email" description="Used for admin login and recovery." value={maskEmail(me?.email)} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setEmailOpen(true)}><Mail className="mr-1.5 h-4 w-4" /> Change</Button>} />
             <SettingRow title="Password" description="Your login password." value="••••••••" action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setPasswordOpen(true)}><Lock className="mr-1.5 h-4 w-4" /> Change</Button>} />
-            <SettingRow title="Sessions" description="Sign out other active admin sessions." value={<span>{admins.length} administrator{admins.length !== 1 ? "s" : ""}</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => router.push("/admin-panel/settings?section=security")}><LogOut className="mr-1.5 h-4 w-4" /> Sessions</Button>} />
-            <SettingRow title="Administrators" description="Administrators with panel access." value={<span>{admins.length} account{admins.length !== 1 ? "s" : ""}</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setAdminsOpen(true)}><Users className="mr-1.5 h-4 w-4" /> Manage</Button>} />
           </SettingsGroup>
+          <AdminRosterManager selfId={me?.id} />
         </AdminSection>
       )}
 
@@ -243,29 +234,6 @@ export default function AdminSettingsPage() {
             <DialogDescription className="text-neutral-400">Outgoing mail for recovery, reminders, and broadcasts.</DialogDescription>
           </DialogHeader>
           <SmtpSettings />
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={adminsOpen} onOpenChange={setAdminsOpen}>
-        <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white">Administrators</DialogTitle>
-            <DialogDescription className="text-neutral-400">Administrators with panel access.</DialogDescription>
-          </DialogHeader>
-          <div className="space-y-2.5 py-2">
-            {admins.map((a) => (
-              <div key={a.id} className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/5 px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-cyan-400 to-fuchsia-500 text-sm font-bold text-slate-950">{a.username.charAt(0).toUpperCase()}</div>
-                  <div>
-                    <p className="text-sm font-bold text-white">{a.username}</p>
-                    <p className="text-[11px] text-neutral-400">{a.email || "Email setup required"}</p>
-                  </div>
-                </div>
-                {a.id === me?.id && <span className="text-[11px] font-bold text-emerald-400">You</span>}
-              </div>
-            ))}
-          </div>
         </DialogContent>
       </Dialog>
     </AdminPage>

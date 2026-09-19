@@ -268,6 +268,16 @@ export function setupDatabase() {
       created_at TEXT NOT NULL DEFAULT ''
     );
     CREATE INDEX IF NOT EXISTS idx_admin_password_reset_admin ON admin_password_reset_tokens(admin_id, created_at DESC);
+    CREATE TABLE IF NOT EXISTS admin_invites (
+      id TEXT PRIMARY KEY,
+      admin_id TEXT NOT NULL REFERENCES admins(id),
+      token_hash TEXT NOT NULL UNIQUE,
+      created_at TEXT NOT NULL DEFAULT '',
+      expires_at TEXT NOT NULL,
+      used_at TEXT,
+      invalidated_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_admin_invites_admin ON admin_invites(admin_id, invalidated_at);
     CREATE TABLE IF NOT EXISTS admin_email_change_tokens (
       id TEXT PRIMARY KEY,
       admin_id TEXT NOT NULL REFERENCES admins(id),
@@ -481,6 +491,11 @@ export function setupDatabase() {
   ensureColumn("admins", "email", "TEXT");
   ensureColumn("admins", "two_factor_enabled", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("admins", "recovery_codes_hash", "TEXT");
+  ensureColumn("admins", "role", "TEXT NOT NULL DEFAULT 'admin'");
+  ensureColumn("admins", "status", "TEXT NOT NULL DEFAULT 'active'");
+  ensureColumn("admins", "setup_completed_at", "TEXT");
+  ensureColumn("admins", "created_by_admin_id", "TEXT");
+  ensureColumn("admins", "last_login_at", "TEXT");
   ensureColumn("password_reset_tokens", "code_hash", "TEXT");
   ensureColumn("password_reset_tokens", "attempts", "INTEGER NOT NULL DEFAULT 0");
   ensureColumn("accounts", "email", "TEXT");
@@ -554,6 +569,15 @@ export function setupDatabase() {
   } catch (error) {
     console.error("Initial administrator setup failed:", error);
     throw error;
+  }
+
+  // Promote pre-existing administrators to MAIN_ADMIN so they retain full
+  // management (add/delete/resend). Only admins created before this migration
+  // (no created_by_admin_id) qualify; future invited admins keep role 'admin'.
+  try {
+    _sqlite.exec(`UPDATE admins SET role='main_admin', status='active' WHERE created_by_admin_id IS NULL AND role='admin';`);
+  } catch (error) {
+    console.error("Migrate existing admins to main_admin error:", error);
   }
 
   try {

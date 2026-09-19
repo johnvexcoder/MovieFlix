@@ -7,7 +7,7 @@ import { AdminHashRedirect } from "@/components/admin/admin-hash-redirect";
 import { checkAdminSession } from "@/lib/client-auth";
 
 // Routes that must NOT be wrapped in the admin shell (sidebar/guard).
-const AUTH_ROUTES = ["/admin-panel/login", "/admin-panel/forgot-password", "/admin-panel/reset-password"];
+const AUTH_ROUTES = ["/admin-panel/login", "/admin-panel/forgot-password", "/admin-panel/reset-password", "/admin-panel/setup-account"];
 
 export default function AdminPanelLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
@@ -50,7 +50,7 @@ export default function AdminPanelLayout({ children }: { children: React.ReactNo
     <div className="admin-shell cinematic-bg min-h-screen text-white select-none">
       <AdminNavigation />
       <AdminHashRedirect />
-      <div className="lg:ml-72">
+      <div className="lg:ml-72 pt-[52px] lg:pt-0">
         <div className="pointer-events-none absolute inset-x-0 top-0 h-64 bg-gradient-to-b from-cyan-500/10 via-fuchsia-600/5 to-transparent" />
         <div className="relative">{children}</div>
       </div>

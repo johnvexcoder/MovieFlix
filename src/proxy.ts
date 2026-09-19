@@ -21,6 +21,11 @@ const PUBLIC_PATHS = [
   "/admin-panel/reset-password",
   "/api/admin/auth/forgot-password",
   "/api/admin/auth/reset-password",
+  // Admin Assistant (Telegram) recovery is a public pre-auth flow for a
+  // locked-out admin — the routes rate-limit and validate on their own.
+  "/api/admin/auth/admin-assistant",
+  // Admin invitation setup is a public pre-auth flow (validate token + activate).
+  "/api/admin/auth/invite",
   "/api/health",
   "/api/register",
   "/api/plans",

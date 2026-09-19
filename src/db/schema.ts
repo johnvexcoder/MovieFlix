@@ -16,6 +16,24 @@ export const admins = sqliteTable("admins", {
   recoveryCodesHash: text("recovery_codes_hash"),
   passwordHash: text("password_hash").notNull(),
   createdAt: text("created_at").notNull().default(""),
+  role: text("role").notNull().default("admin"),
+  status: text("status").notNull().default("active"),
+  setupCompletedAt: text("setup_completed_at"),
+  createdByAdminId: text("created_by_admin_id"),
+  lastLoginAt: text("last_login_at"),
+});
+
+// ===========================================
+// ADMIN INVITES (secure one-time onboarding)
+// ===========================================
+export const adminInvites = sqliteTable("admin_invites", {
+  id: text("id").primaryKey(),
+  adminId: text("admin_id").notNull().references(() => admins.id),
+  tokenHash: text("token_hash").notNull().unique(),
+  createdAt: text("created_at").notNull().default(""),
+  expiresAt: text("expires_at").notNull(),
+  usedAt: text("used_at"),
+  invalidatedAt: text("invalidated_at"),
 });
 
 // ===========================================

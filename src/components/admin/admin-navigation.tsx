@@ -86,7 +86,7 @@ export function AdminNavigation() {
       </aside>
 
       {/* Mobile header + drawer */}
-      <header className="sticky top-0 z-40 border-b border-white/10 bg-[#050b16]/95 px-3 py-2.5 backdrop-blur-xl lg:hidden">
+      <header className="fixed inset-x-0 top-0 z-40 border-b border-white/10 bg-[#050b16]/95 px-3 py-2.5 backdrop-blur-xl lg:hidden">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <MovieFlixLogo className="h-8 w-8" size={32} />

@@ -15,7 +15,7 @@ export function SettingRow({ title, description, value, action }: SettingRowProp
         <p className="text-sm font-semibold text-white">{title}</p>
         {description && <p className="mt-0.5 text-xs text-neutral-400">{description}</p>}
       </div>
-      <div className="flex shrink-0 items-center gap-3">
+      <div className="flex w-full shrink-0 items-center justify-end gap-3 sm:w-auto sm:justify-end">
         {value && <span className="text-sm text-neutral-300">{value}</span>}
         {action}
       </div>

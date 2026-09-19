@@ -18,9 +18,16 @@ const ACTION_LABELS: Record<string, string> = {
   "recovery.admin_assistant_requested": "Admin Assistant code requested",
   "recovery.admin_assistant_completed": "Recovery completed via Admin Assistant",
   "broadcast.sent": "Broadcast sent",
+  "broadcast.message_sent": "In-app message sent",
+  "broadcast.announcement_sent": "In-app announcement sent",
   "plans.created": "Plan created",
   "plans.updated": "Plan updated",
   "plans.archived": "Plan archived",
+  "admin.invite_created": "Admin invited",
+  "admin.invite_resent": "Invitation resent",
+  "admin.invite_cancelled": "Invitation cancelled",
+  "admin.account_activated": "Admin activated",
+  "admin.account_removed": "Admin removed",
 };
 
 export function AdminAuditLog() {

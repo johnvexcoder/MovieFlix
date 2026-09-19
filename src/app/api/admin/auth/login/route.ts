@@ -39,6 +39,13 @@ export async function POST(request: NextRequest) {
       return errorResponse("Invalid admin username or password", 401);
     }
 
+    if (admin.status === "pending_setup") {
+      return errorResponse("Your administrator account setup is not complete. Please use the invitation sent to your email.", 403);
+    }
+    if (admin.status === "disabled") {
+      return errorResponse("This administrator account is disabled.", 403);
+    }
+
     // Verify password
     const isValid = await comparePassword(password, admin.passwordHash);
     if (!isValid) {
