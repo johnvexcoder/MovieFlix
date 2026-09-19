@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { errorResponse, successResponse } from "@/lib/api-response";
 import { getClientIp } from "@/lib/auth";
 import { setRateLimit } from "@/lib/redis";
-import { findAdminByIdentity, hasActiveAdminAssistantRequest, startAdminAssistantRequest, notifyAdminAssistantRecovery } from "@/lib/admin-recovery";
+import { findAdminByIdentity, hasActiveAdminAssistantRequest, startAdminAssistantRequest, notifyAdminAssistantRecovery, invalidateAdminAssistantRequests } from "@/lib/admin-recovery";
 import { logAdminAudit } from "@/lib/admin-audit";
 
 const GENERIC = "If the administrator account exists, a code request has been sent to the Main Admin via Telegram.";
@@ -27,24 +27,38 @@ export async function POST(request: NextRequest) {
       return successResponse({ message: "A recovery request is already pending for this administrator. Check with the Main Admin." });
     }
 
-    const { code, expiresAt } = await startAdminAssistantRequest(admin.id);
+    const { code, expiresAt, requestId } = await startAdminAssistantRequest(admin.id);
     const masked = admin.email ? `${admin.email.slice(0, 1)}***@${admin.email.split("@")[1] || ""}` : admin.username;
-    const delivered = await notifyAdminAssistantRecovery({
+    const result = await notifyAdminAssistantRecovery({
       code,
       adminLabel: masked,
       expiresAt,
+      requestId,
     });
+
+    if (!result.ok) {
+      // Delivery failed — invalidate the OTP so it can never be used, and never
+      // report success. Log the classified error (without the token).
+      await invalidateAdminAssistantRequests(admin.id);
+      await logAdminAudit({
+        adminId: admin.id,
+        actor: admin.username,
+        action: "recovery.admin_assistant_failed",
+        detail: `Admin Assistant Telegram delivery failed: ${result.detail || result.error || "unknown"}`,
+        ip,
+      });
+      return errorResponse("Admin Assistant could not send the recovery request. Try another recovery method or contact the Main Admin.", 503);
+    }
 
     await logAdminAudit({
       adminId: admin.id,
       actor: admin.username,
       action: "recovery.admin_assistant_requested",
-      detail: delivered ? "Admin Assistant recovery code requested via Telegram" : "Admin Assistant recovery code requested (Telegram send failed)",
+      detail: "Admin Assistant recovery code requested via Telegram",
       ip,
     });
 
-    // Even when delivery fails, respond generically so an attacker cannot probe.
-    return successResponse({ message: GENERIC });
+    return successResponse({ message: "A 6-digit recovery code was sent to the Main Admin via Telegram." });
   } catch (error) {
     console.error("Admin assistant recovery request error:", error);
     return errorResponse("Could not start recovery request", 500);

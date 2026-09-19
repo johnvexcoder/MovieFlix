@@ -550,6 +550,17 @@ export const appSettings = sqliteTable("app_settings", {
 });
 
 // ===========================================
+// EXPIRATION REMINDER HISTORY (per-day/per-slot dedup)
+// ===========================================
+export const reminderHistory = sqliteTable("reminder_history", {
+  id: text("id").primaryKey(),
+  accountId: text("account_id").notNull().references(() => accounts.id),
+  reminderDate: text("reminder_date").notNull(),
+  slot: text("slot").notNull(),
+  sentAt: text("sent_at").notNull().default(""),
+});
+
+// ===========================================
 // SESSIONS TABLE
 // ===========================================
 export const sessions = sqliteTable("sessions", {

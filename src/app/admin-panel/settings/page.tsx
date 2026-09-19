@@ -114,6 +114,14 @@ export default function AdminSettingsPage() {
 
   const [me, setMe] = useState<Me | null>(null);
   const [security, setSecurity] = useState<SecurityStatus | null>(null);
+  const [status, setStatus] = useState<{
+    smtp: { configured: boolean; tested: boolean };
+    telegram: { configured: boolean; tested: boolean };
+    recoveryEmail: { configured: boolean; verified: boolean };
+    twoFactor: { enabled: boolean };
+    recoveryCodes: { configured: boolean; remaining: number };
+    paymongo: { configured: boolean; webhookConfigured: boolean };
+  } | null>(null);
 
   const [emailOpen, setEmailOpen] = useState(false);
   const [passwordOpen, setPasswordOpen] = useState(false);
@@ -123,12 +131,27 @@ export default function AdminSettingsPage() {
 
   const setSection = useCallback((s: Section) => router.replace(`/admin-panel/settings?section=${s}`), [router]);
 
+  const refreshStatus = useCallback(() => {
+    fetch("/api/admin/settings/status", { cache: "no-store" }).then((r) => r.json()).then((d) => { if (d.success) setStatus(d.data); }).catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetch("/api/admin/auth/me").then((r) => r.json()).then((d) => { if (d.success) setMe(d.data); }).catch(() => {});
     fetch("/api/admin/auth/security", { cache: "no-store" }).then((r) => r.json()).then((d) => { if (d.success) setSecurity(d.data); }).catch(() => {});
-  }, []);
+    refreshStatus();
+  }, [refreshStatus]);
 
-  const recoveryComplete = security?.email && security.twoFactorEnabled && security.recoveryCodesRemaining > 0;
+  const recoveryComplete = Boolean(status?.recoveryEmail.configured && status.twoFactor.enabled && status.recoveryCodes.configured);
+
+  function telegramStatus() {
+    if (!status?.telegram.configured) return <span className="text-neutral-400">Not configured</span>;
+    return status.telegram.tested ? <span className="text-emerald-400">Ready</span> : <span className="text-amber-400">Configured – not tested</span>;
+  }
+
+  function smtpStatus() {
+    if (!status?.smtp.configured) return <span className="text-neutral-400">Not configured</span>;
+    return status.smtp.tested ? <span className="text-emerald-400">Ready</span> : <span className="text-amber-400">Configured – not tested</span>;
+  }
 
   return (
     <AdminPage
@@ -167,10 +190,10 @@ export default function AdminSettingsPage() {
         <AdminSection>
           <AdminRecoveryOnboarding />
           <SettingsGroup title="Security & Recovery" description="Recovery email, two-step verification, recovery codes, and Admin Assistant.">
-            <SettingRow title="Recovery email" description="Used to reset your password." value={maskEmail(security?.email)} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setEmailOpen(true)}><Mail className="mr-1.5 h-4 w-4" /> Manage</Button>} />
-            <SettingRow title="Two-step verification" description="Email codes protect sign-in." value={security?.twoFactorEnabled ? <span className="text-emerald-400">Enabled</span> : <span className="text-neutral-400">Disabled</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setSecurityOpen(true)}><ShieldCheck className="mr-1.5 h-4 w-4" /> Configure</Button>} />
-            <SettingRow title="Recovery codes" description="One-time codes for account recovery." value={<span>{security?.recoveryCodesRemaining ?? 0} of 10 remaining</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setSecurityOpen(true)}><ShieldCheck className="mr-1.5 h-4 w-4" /> Manage</Button>} />
-            <SettingRow title="Admin Assistant" description="Telegram recovery to the Main Admin." value={security?.email ? <span className="text-emerald-400">Configured</span> : <span className="text-neutral-400">Not configured</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setTelegramOpen(true)}>Configure</Button>} />
+            <SettingRow title="Recovery email" description="Used to reset your password." value={maskEmail(security?.email)} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => { setEmailOpen(true); }}><Mail className="mr-1.5 h-4 w-4" /> Manage</Button>} />
+            <SettingRow title="Two-step verification" description="Email codes protect sign-in." value={status?.twoFactor.enabled ? <span className="text-emerald-400">Enabled</span> : <span className="text-neutral-400">Disabled</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => { setSecurityOpen(true); }}><ShieldCheck className="mr-1.5 h-4 w-4" /> Configure</Button>} />
+            <SettingRow title="Recovery codes" description="One-time codes for account recovery." value={<span>{status?.recoveryCodes.remaining ?? 0} of 10 remaining</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => { setSecurityOpen(true); }}><ShieldCheck className="mr-1.5 h-4 w-4" /> Manage</Button>} />
+            <SettingRow title="Admin Assistant" description="Telegram recovery to the Main Admin." value={telegramStatus()} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => { setTelegramOpen(true); }}>Configure</Button>} />
           </SettingsGroup>
           {!recoveryComplete && (
             <p className="rounded-2xl border border-amber-400/30 bg-amber-500/10 p-4 text-xs font-semibold text-amber-200">
@@ -183,7 +206,7 @@ export default function AdminSettingsPage() {
       {section === "communication" && (
         <AdminSection>
           <SettingsGroup title="Communication" description="Email delivery (SMTP) configuration.">
-            <SettingRow title="SMTP email delivery" description="Outgoing mail for recovery, reminders, and broadcasts." value={<span>{security?.email ? <span className="text-emerald-400">Configured</span> : <span className="text-neutral-400">Not configured</span>}</span>} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => setSmtpOpen(true)}><Mail className="mr-1.5 h-4 w-4" /> Configure SMTP</Button>} />
+            <SettingRow title="SMTP email delivery" description="Outgoing mail for recovery, reminders, and broadcasts." value={smtpStatus()} action={<Button variant="outline" size="sm" className="rounded-xl border-white/15 bg-white/5 text-xs font-semibold" onClick={() => { setSmtpOpen(true); }}><Mail className="mr-1.5 h-4 w-4" /> Configure SMTP</Button>} />
           </SettingsGroup>
         </AdminSection>
       )}
@@ -195,7 +218,7 @@ export default function AdminSettingsPage() {
       <div className="mt-5"><AdminAuditLog /></div>
 
       {/* Modals */}
-      <Dialog open={emailOpen} onOpenChange={setEmailOpen}>
+      <Dialog open={emailOpen} onOpenChange={(v) => { setEmailOpen(v); if (!v) refreshStatus(); }}>
         <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">Change administrator email</DialogTitle>
@@ -207,7 +230,7 @@ export default function AdminSettingsPage() {
 
       <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
 
-      <Dialog open={securityOpen} onOpenChange={setSecurityOpen}>
+      <Dialog open={securityOpen} onOpenChange={(v) => { setSecurityOpen(v); if (!v) refreshStatus(); }}>
         <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">Security &amp; two-step verification</DialogTitle>
@@ -217,7 +240,7 @@ export default function AdminSettingsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={telegramOpen} onOpenChange={setTelegramOpen}>
+      <Dialog open={telegramOpen} onOpenChange={(v) => { setTelegramOpen(v); if (!v) refreshStatus(); }}>
         <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">Telegram Admin Assistant</DialogTitle>
@@ -227,7 +250,7 @@ export default function AdminSettingsPage() {
         </DialogContent>
       </Dialog>
 
-      <Dialog open={smtpOpen} onOpenChange={setSmtpOpen}>
+      <Dialog open={smtpOpen} onOpenChange={(v) => { setSmtpOpen(v); if (!v) refreshStatus(); }}>
         <DialogContent className="glass-panel max-h-[92dvh] overflow-y-auto border-white/15 sm:max-w-lg rounded-3xl p-6">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-white">SMTP email settings</DialogTitle>

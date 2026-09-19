@@ -234,6 +234,14 @@ export function setupDatabase() {
       key TEXT PRIMARY KEY,
       value TEXT
     );
+    CREATE TABLE IF NOT EXISTS reminder_history (
+      id TEXT PRIMARY KEY,
+      account_id TEXT NOT NULL REFERENCES accounts(id),
+      reminder_date TEXT NOT NULL,
+      slot TEXT NOT NULL,
+      sent_at TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX IF NOT EXISTS idx_reminder_history_account ON reminder_history(account_id, reminder_date, slot);
     CREATE TABLE IF NOT EXISTS sessions (
       id TEXT PRIMARY KEY,
       profile_id TEXT NOT NULL REFERENCES profiles(id),

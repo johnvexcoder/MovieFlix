@@ -4,7 +4,7 @@ import { v4 as uuidv4 } from "uuid";
 import { db } from "@/db";
 import { adminRecoveryRequests, admins } from "@/db/schema";
 import { securityHash } from "@/lib/admin-two-factor";
-import { sendTelegramMessage } from "@/lib/telegram";
+import { sendTelegramMessageDetailed, type TelegramSendResult } from "@/lib/telegram";
 
 const CODE_TTL_MS = 10 * 60 * 1000; // 10 minutes
 const MAX_ATTEMPTS = 5;
@@ -15,14 +15,13 @@ export async function generateSixDigitCode(): Promise<string> {
 
 /**
  * Starts an Admin Assistant (Telegram) recovery request for the given admin.
- * Returns the raw code (to be sent via Telegram) and the expiry ISO string, or
- * null when the admin is not found / cannot be recovered. Never reveals whether
- * an admin exists.
+ * Returns the raw code, expiry, and the new request id.
  */
-export async function startAdminAssistantRequest(adminId: string) {
+export async function startAdminAssistantRequest(adminId: string): Promise<{ code: string; expiresAt: string; requestId: string }> {
   const code = await generateSixDigitCode();
   const now = Date.now();
   const expiresAt = new Date(now + CODE_TTL_MS).toISOString();
+  const requestId = uuidv4();
 
   // Invalidate any outstanding pending request for this admin (one active at a time).
   await db
@@ -36,7 +35,7 @@ export async function startAdminAssistantRequest(adminId: string) {
     );
 
   await db.insert(adminRecoveryRequests).values({
-    id: uuidv4(),
+    id: requestId,
     adminId,
     method: "admin_assistant",
     codeHash: securityHash(code),
@@ -46,7 +45,20 @@ export async function startAdminAssistantRequest(adminId: string) {
     createdAt: new Date().toISOString(),
   });
 
-  return { code, expiresAt };
+  return { code, expiresAt, requestId };
+}
+
+/** Invalidates all pending Admin Assistant requests for an admin (used when delivery fails). */
+export async function invalidateAdminAssistantRequests(adminId: string) {
+  await db
+    .update(adminRecoveryRequests)
+    .set({ status: "consumed", consumedAt: new Date().toISOString() })
+    .where(
+      and(
+        eq(adminRecoveryRequests.adminId, adminId),
+        eq(adminRecoveryRequests.status, "pending")
+      )
+    );
 }
 
 /**
@@ -118,13 +130,13 @@ export async function findAdminByIdentity(identity: string) {
   return rows[0] || null;
 }
 
-/** Notifies the Main Admin via Telegram of a recovery request. */
+/** Notifies the Main Admin via Telegram of a recovery request. Returns detailed result. */
 export async function notifyAdminAssistantRecovery(input: {
   code: string;
   adminLabel: string;
   expiresAt: string;
   requestId?: string;
-}): Promise<boolean> {
+}): Promise<TelegramSendResult> {
   const expiresInMinutes = Math.max(1, Math.round((new Date(input.expiresAt).getTime() - Date.now()) / 60000));
   const text = [
     "MovieFlix Admin Recovery Request",
@@ -136,5 +148,5 @@ export async function notifyAdminAssistantRecovery(input: {
   ]
     .filter(Boolean)
     .join("\n");
-  return sendTelegramMessage(text);
+  return sendTelegramMessageDetailed(text);
 }

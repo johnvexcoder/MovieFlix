@@ -4,7 +4,7 @@ import { appSettings } from "@/db/schema";
 import { verifyToken } from "@/lib/auth";
 import { successResponse, errorResponse } from "@/lib/api-response";
 
-const ALLOWED_SETTINGS = new Set(["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","reminder_days","reminder_message","max_sessions","session_timeout","scan_interval","app_public_url","about_team","tmdb_api_key","telegram_bot_token","telegram_admin_chat_id"]);
+const ALLOWED_SETTINGS = new Set(["smtp_host","smtp_port","smtp_user","smtp_pass","smtp_from","reminder_days","reminder_message","max_sessions","session_timeout","scan_interval","app_public_url","app_timezone","about_team","tmdb_api_key","telegram_bot_token","telegram_admin_chat_id"]);
 
 function sanitizeTeam(value: string): string | null {
   try {

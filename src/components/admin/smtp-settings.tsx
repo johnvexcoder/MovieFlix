@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { Database, Loader2, Save } from "lucide-react";
+import { Database, Loader2, Save, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +13,9 @@ export function SmtpSettings() {
   const [pass, setPass] = useState("");
   const [from, setFrom] = useState("");
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [testResult, setTestResult] = useState<{ ok: boolean; text: string } | null>(null);
 
   useEffect(() => {
     fetch("/api/admin/settings", { cache: "no-store" })
@@ -62,6 +64,24 @@ export function SmtpSettings() {
     }
   }
 
+  async function testEmail() {
+    setTesting(true);
+    setTestResult(null);
+    try {
+      const r = await fetch("/api/admin/settings/smtp-test", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      const d = await r.json();
+      setTestResult(d.success ? { ok: true, text: d.message } : { ok: false, text: d.error || "SMTP test failed" });
+    } catch {
+      setTestResult({ ok: false, text: "Could not send SMTP test" });
+    } finally {
+      setTesting(false);
+    }
+  }
+
   return (
     <section className="admin-card">
       <div className="admin-card-header">
@@ -72,10 +92,20 @@ export function SmtpSettings() {
             <p>Outgoing mail for recovery codes, reminders, and broadcasts.</p>
           </div>
         </div>
-        <Button onClick={save} disabled={saving} className="btn-brand rounded-xl text-xs font-bold">
-          {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />} Save
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button onClick={testEmail} disabled={testing} variant="outline" className="rounded-xl border-white/15 bg-white/5 text-xs font-bold hover:bg-white/15">
+            {testing ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Send className="mr-1.5 h-4 w-4" />} Send Test Email
+          </Button>
+          <Button onClick={save} disabled={saving} className="btn-brand rounded-xl text-xs font-bold">
+            {saving ? <Loader2 className="mr-1.5 h-4 w-4 animate-spin" /> : <Save className="mr-1.5 h-4 w-4" />} Save
+          </Button>
+        </div>
       </div>
+      {testResult && (
+        <p className={`mb-3 rounded-xl border p-3 text-xs font-semibold ${testResult.ok ? "border-emerald-500/30 bg-emerald-950/40 text-emerald-300" : "border-red-500/30 bg-red-950/40 text-red-200"}`}>
+          {testResult.text}
+        </p>
+      )}
       <div className="admin-stack">
         <div>
           <Label className="text-xs font-semibold uppercase tracking-wider text-neutral-300">Public URL (links inside emails)</Label>
